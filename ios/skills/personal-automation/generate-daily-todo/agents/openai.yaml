@@ -1,0 +1,4 @@
+interface:
+  display_name: "Daily Work Log Processor"
+  short_description: "Turn work notes into tomorrow todos"
+  default_prompt: "Use $generate-daily-todo to convert today's raw work notes into completed, in-progress, and prioritized tomorrow tasks."

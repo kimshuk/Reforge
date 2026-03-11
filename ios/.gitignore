@@ -1,0 +1,43 @@
+# Xcode user data
+xcuserdata/
+*.xcuserdatad
+*.xcuserstate
+
+# Xcode workspace user settings
+*.xcworkspace/xcuserdata/
+
+# Build artifacts
+build/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+
+# App distribution keys and profiles
+*.mobileprovision
+*.p12
+*.cer
+
+# macOS
+.DS_Store
+
+# Env secrets
+.env
+.env.*
