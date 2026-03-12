@@ -8,9 +8,13 @@
 import SwiftUI
 
 struct HomeView: View {
+    private enum Field: Hashable {
+        case title
+        case youtubeLink
+    }
+
     @StateObject private var viewModel: HomeViewModel
-    @State private var isEditingTitle = false
-    @State private var editingTitle = ""
+    @FocusState private var focusedField: Field?
 
     init(viewModel: HomeViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -18,6 +22,12 @@ struct HomeView: View {
     
     var body: some View {
         ZStack(alignment: .bottom) {
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    focusedField = nil
+                }
+
             VStack(alignment: .leading, spacing: 16) {
                 Text("Analyze YouTube Video")
                     .font(.title2.bold())
@@ -27,44 +37,14 @@ struct HomeView: View {
                         Text("Video title")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        HStack {
-                            if isEditingTitle {
-                                TextField("Video title", text: $editingTitle)
-                                    .textInputAutocapitalization(.sentences)
-                                    .autocorrectionDisabled(false)
-                                    .padding(12)
-                                    .background(Color(.systemGray6))
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                            } else {
-                                Text(viewModel.titleDisplayText)
-                                    .font(.body)
-                                    .padding(12)
-                                    .background(Color(.systemGray6))
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                            }
-                            Spacer()
-                            if isEditingTitle {
-                                HStack(spacing: 8) {
-                                    Button("Cancel") {
-                                        editingTitle = viewModel.titleInput
-                                        isEditingTitle = false
-                                    }
-                                    .buttonStyle(.bordered)
-
-                                    Button("Save") {
-                                        viewModel.titleInput = editingTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-                                        isEditingTitle = false
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                }
-                            } else {
-                                Button("Edit") {
-                                    editingTitle = viewModel.titleInput
-                                    isEditingTitle = true
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                        }
+                        TextField("Video title", text: $viewModel.titleInput)
+                            .textInputAutocapitalization(.sentences)
+                            .autocorrectionDisabled(false)
+                            .focused($focusedField, equals: .title)
+                            .disabled(viewModel.isLoading)
+                            .padding(12)
+                            .background(Color(.systemGray6))
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                 }
 
@@ -88,12 +68,6 @@ struct HomeView: View {
         .navigationDestination(item: $viewModel.analysisResult) { result in
             AnalyzeResultView(result: result)
         }
-        .onChange(of: viewModel.shouldShowTitleArea) {
-            if !viewModel.shouldShowTitleArea {
-                isEditingTitle = false
-                editingTitle = ""
-            }
-        }
     }
 
     private var bottomFloatingBar: some View {
@@ -104,20 +78,30 @@ struct HomeView: View {
                     .keyboardType(.URL)
                     .autocorrectionDisabled()
                     .font(.system(size: 18, weight: .medium))
+                    .focused($focusedField, equals: .youtubeLink)
+                    .disabled(viewModel.isLoading)
+                    .submitLabel(.go)
+                    .onSubmit {
+                        Task {
+                            await viewModel.analyze()
+                        }
+                    }
                     .onChange(of: viewModel.youtubeLink) {
                         viewModel.handleYouTubeLinkChange()
                     }
 
                 Group {
-                    if !viewModel.youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    if focusedField == .youtubeLink && !viewModel.youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Button {
                             viewModel.youtubeLink = ""
                             viewModel.handleYouTubeLinkChange()
+                            focusedField = .youtubeLink
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 20, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -129,32 +113,28 @@ struct HomeView: View {
                     .strokeBorder(.white.opacity(0.35), lineWidth: 1)
             }
             .shadow(color: .black.opacity(0.08), radius: 20, y: 10)
-
-            Button {
-                Task {
-                    await viewModel.analyze()
-                }
-            } label: {
-                ZStack {
-                    if viewModel.isLoading {
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .tint(.primary)
-                    } else {
-                        Image(systemName: "square.and.pencil")
-                            .font(.system(size: 28, weight: .medium))
-                            .foregroundStyle(.primary)
-                    }
-                }
-                .frame(width: 72, height: 72)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .strokeBorder(.white.opacity(0.35), lineWidth: 1)
-                }
-                .shadow(color: .black.opacity(0.08), radius: 20, y: 10)
+            .contentShape(Capsule())
+            .onTapGesture {
+                focusedField = .youtubeLink
             }
-            .disabled(viewModel.isLoading || viewModel.videoUnavailableReason != nil)
+
+            if focusedField == .youtubeLink {
+                Button {
+                    focusedField = nil
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 28, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .frame(width: 72, height: 72)
+                        .background(.ultraThinMaterial, in: Circle())
+                        .overlay {
+                            Circle()
+                                .strokeBorder(.white.opacity(0.35), lineWidth: 1)
+                        }
+                        .shadow(color: .black.opacity(0.08), radius: 20, y: 10)
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 }

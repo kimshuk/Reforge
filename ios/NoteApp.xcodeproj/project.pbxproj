@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		E9C385272F5BD2EE000F0758 /* NoteAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C385262F5BD2EE000F0758 /* NoteAppApp.swift */; };
+		E9C385272F5BD2EE000F0758 /* NoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C385262F5BD2EE000F0758 /* NoteApp.swift */; };
 		E9C3852D2F5BD2EF000F0758 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E9C3852C2F5BD2EF000F0758 /* Assets.xcassets */; };
 		E9C3853F2F5BD8AE000F0758 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C3853E2F5BD8AE000F0758 /* HomeView.swift */; };
 		E9C385412F5BDF3E000F0758 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C385402F5BDF3E000F0758 /* HomeViewModel.swift */; };
@@ -21,7 +21,7 @@
 
 /* Begin PBXFileReference section */
 		E9C385232F5BD2EE000F0758 /* NoteApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NoteApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		E9C385262F5BD2EE000F0758 /* NoteAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteAppApp.swift; sourceTree = "<group>"; };
+		E9C385262F5BD2EE000F0758 /* NoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteApp.swift; sourceTree = "<group>"; };
 		E9C3852C2F5BD2EF000F0758 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E9C3853E2F5BD8AE000F0758 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		E9C385402F5BDF3E000F0758 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
@@ -67,7 +67,7 @@
 		E9C385332F5BD4B9000F0758 /* App */ = {
 			isa = PBXGroup;
 			children = (
-				E9C385262F5BD2EE000F0758 /* NoteAppApp.swift */,
+				E9C385262F5BD2EE000F0758 /* NoteApp.swift */,
 				E9C385422F5BDF93000F0758 /* RootView.swift */,
 			);
 			path = App;
@@ -235,7 +235,7 @@
 				E9C385442F5C1000000F0758 /* AnalyzeModels.swift in Sources */,
 				E9C3854C2F5C1000000F0758 /* YouTubeOEmbedService.swift in Sources */,
 				E9C385432F5BDF93000F0758 /* RootView.swift in Sources */,
-				E9C385272F5BD2EE000F0758 /* NoteAppApp.swift in Sources */,
+				E9C385272F5BD2EE000F0758 /* NoteApp.swift in Sources */,
 				E9C385412F5BDF3E000F0758 /* HomeViewModel.swift in Sources */,
 				E9C3853F2F5BD8AE000F0758 /* HomeView.swift in Sources */,
 			);

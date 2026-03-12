@@ -1,5 +1,5 @@
 //
-//  NoteAppApp.swift
+//  NoteApp.swift
 //  NoteApp
 //
 //  Created by 김지수 on 3/7/26.
@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct NoteAppApp: App {
+struct NoteApp: App {
     private let analyzeService: AnalyzeService
     private let youtubeTitleService: YouTubeTitleService
 
