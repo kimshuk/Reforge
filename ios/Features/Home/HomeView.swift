@@ -28,10 +28,7 @@ struct HomeView: View {
                     focusedField = nil
                 }
 
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Analyze YouTube Video")
-                    .font(.title2.bold())
-                
+            VStack(alignment: .leading, spacing: 16) {                
                 if viewModel.shouldShowTitleArea {
                     VStack(alignment: .leading) {
                         Text("Video title")
@@ -54,7 +51,26 @@ struct HomeView: View {
                         .foregroundStyle(.red)
                 }
 
-                Spacer()
+                if viewModel.youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Spacer()
+
+                    VStack(spacing: 8) {
+                        Text("Add a YouTube link to get started")
+                            .font(.title3.weight(.semibold))
+                            .multilineTextAlignment(.center)
+
+                        Text("Paste a video URL in the field below to analyze it.")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    Spacer()
+                } else {
+                    Spacer()
+                }
+
             }
             .padding()
             .safeAreaInset(edge: .bottom) {
