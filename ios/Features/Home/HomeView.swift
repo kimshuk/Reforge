@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import Combine
+import UIKit
 
 struct HomeView: View {
     private enum Field: Hashable {
@@ -14,6 +16,7 @@ struct HomeView: View {
     }
 
     @StateObject private var viewModel: HomeViewModel
+    @StateObject private var keyboardObserver = KeyboardObserver()
     @FocusState private var focusedField: Field?
 
     init(viewModel: HomeViewModel) {
@@ -21,68 +24,109 @@ struct HomeView: View {
     }
     
     var body: some View {
-        ZStack(alignment: .bottom) {
-            Color.clear
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    focusedField = nil
-                }
-
-            VStack(alignment: .leading, spacing: 16) {                
-                if viewModel.shouldShowTitleArea {
-                    VStack(alignment: .leading) {
-                        Text("Video title")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        TextField("Video title", text: $viewModel.titleInput)
-                            .textInputAutocapitalization(.sentences)
-                            .autocorrectionDisabled(false)
-                            .focused($focusedField, equals: .title)
-                            .disabled(viewModel.isLoading)
-                            .padding(12)
-                            .background(Color(.systemGray6))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+        GeometryReader { geometry in
+            ZStack(alignment: .bottom) {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        focusedField = nil
                     }
-                }
 
-                if !viewModel.errorMessage.isEmpty {
-                    Text(viewModel.errorMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                }
+                VStack(alignment: .leading, spacing: 16) {
+                    if viewModel.shouldShowTitleArea {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Video title")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            TextField("Video title", text: $viewModel.titleInput)
+                                .textInputAutocapitalization(.sentences)
+                                .autocorrectionDisabled(false)
+                                .focused($focusedField, equals: .title)
+                                .disabled(viewModel.isLoading)
+                                .padding(12)
+                                .background(Color(.systemGray6))
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                if viewModel.youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Spacer()
-
-                    VStack(spacing: 8) {
-                        Text("Add a YouTube link to get started")
-                            .font(.title3.weight(.semibold))
-                            .multilineTextAlignment(.center)
-
-                        Text("Paste a video URL in the field below to analyze it.")
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
+                            if let thumbnailURL = viewModel.youtubeThumbnailURL {
+                                AsyncImage(url: thumbnailURL) { phase in
+                                    switch phase {
+                                    case .empty:
+                                        thumbnailPlaceholder
+                                    case .success(let image):
+                                        image
+                                            .resizable()
+                                            .scaledToFill()
+                                    case .failure:
+                                        thumbnailPlaceholder
+                                    @unknown default:
+                                        thumbnailPlaceholder
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .aspectRatio(16 / 9, contentMode: .fit)
+                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            }
+                        }
                     }
-                    .frame(maxWidth: .infinity)
 
-                    Spacer()
-                } else {
-                    Spacer()
+                    if !viewModel.errorMessage.isEmpty {
+                        Text(viewModel.errorMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+
+                    if viewModel.youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Spacer()
+
+                        VStack(spacing: 8) {
+                            Text("Add a YouTube link to get started")
+                                .font(.title3.weight(.semibold))
+                                .multilineTextAlignment(.center)
+
+                            Text("Paste a video URL in the field below to analyze it.")
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+
+                        Spacer()
+                    } else {
+                        Spacer()
+                    }
+
                 }
+                .padding()
+                .safeAreaInset(edge: .bottom) {
+                    Color.clear.frame(height: 88)
+                }
+                .ignoresSafeArea(.keyboard)
 
+                bottomFloatingBar
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, bottomBarPadding(in: geometry))
+                    .animation(.easeOut(duration: keyboardObserver.animationDuration), value: keyboardObserver.visibleHeight)
             }
-            .padding()
-            .safeAreaInset(edge: .bottom) {
-                Color.clear.frame(height: 88)
-            }
-
-            bottomFloatingBar
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
         }
         .navigationDestination(item: $viewModel.analysisResult) { result in
             AnalyzeResultView(result: result)
+        }
+    }
+
+    private func bottomBarPadding(in geometry: GeometryProxy) -> CGFloat {
+        let bottomInset = geometry.safeAreaInsets.bottom
+        let keyboardLift = max(0, keyboardObserver.visibleHeight - bottomInset)
+        return 12 + keyboardLift
+    }
+
+    private var thumbnailPlaceholder: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(.systemGray6))
+
+            Image(systemName: "photo")
+                .font(.system(size: 28, weight: .medium))
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -152,5 +196,38 @@ struct HomeView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+}
+
+@MainActor
+private final class KeyboardObserver: ObservableObject {
+    @Published private(set) var visibleHeight: CGFloat = 0
+    @Published private(set) var animationDuration: Double = 0.25
+
+    private var cancellables = Set<AnyCancellable>()
+
+    init(notificationCenter: NotificationCenter = .default) {
+        notificationCenter.publisher(for: UIResponder.keyboardWillChangeFrameNotification)
+            .merge(with: notificationCenter.publisher(for: UIResponder.keyboardWillHideNotification))
+            .sink { [weak self] notification in
+                self?.handleKeyboardNotification(notification)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func handleKeyboardNotification(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
+
+        if let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double {
+            animationDuration = duration
+        }
+
+        guard let endFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else {
+            visibleHeight = 0
+            return
+        }
+
+        let screenHeight = UIScreen.main.bounds.height
+        visibleHeight = max(0, screenHeight - endFrame.minY)
     }
 }

@@ -29,6 +29,15 @@ final class HomeViewModel: ObservableObject {
         return videoUnavailableReason == nil
     }
 
+    var youtubeThumbnailURL: URL? {
+        let trimmed = youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let videoID = extractYouTubeVideoID(from: trimmed) else {
+            return nil
+        }
+
+        return URL(string: "https://img.youtube.com/vi/\(videoID)/hqdefault.jpg")
+    }
+
     var titleDisplayText: String {
         let trimmed = titleInput.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "Loading title..." : trimmed
@@ -146,5 +155,49 @@ final class HomeViewModel: ObservableObject {
             return false
         }
         return host.contains("youtube.com") || host.contains("youtu.be")
+    }
+
+    private func extractYouTubeVideoID(from value: String) -> String? {
+        guard let components = URLComponents(string: value),
+              let host = components.host?.lowercased() else {
+            return nil
+        }
+
+        if host.contains("youtu.be") {
+            return components.path
+                .split(separator: "/")
+                .first
+                .map(String.init)
+                .flatMap(sanitizedVideoID)
+        }
+
+        guard host.contains("youtube.com") else {
+            return nil
+        }
+
+        if let videoID = components.queryItems?
+            .first(where: { $0.name == "v" })?
+            .value?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           let sanitized = sanitizedVideoID(videoID) {
+            return sanitized
+        }
+
+        let pathComponents = components.path.split(separator: "/")
+        guard pathComponents.count >= 2 else {
+            return nil
+        }
+
+        switch pathComponents[0] {
+        case "shorts", "embed":
+            return sanitizedVideoID(String(pathComponents[1]))
+        default:
+            return nil
+        }
+    }
+
+    private func sanitizedVideoID(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
