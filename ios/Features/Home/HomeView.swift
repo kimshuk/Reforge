@@ -212,7 +212,7 @@ struct HomeView: View {
             return category
         }
 
-        return result.categories.first
+        return nil
     }
 
     private func toggleExpandedCategory(_ category: AnalyzeCategory) {
@@ -223,13 +223,13 @@ struct HomeView: View {
     }
 
     private func configureCategorySelection(for result: AnalyzeResponse?) {
-        guard let result, let firstCategory = result.categories.first else {
+        guard let result else {
             expandedCategoryTitle = nil
             selectedKeywordTermByCategory.removeAll()
             return
         }
 
-        expandedCategoryTitle = firstCategory.title
+        expandedCategoryTitle = nil
         selectedKeywordTermByCategory = result.categories.reduce(into: [:]) { partialResult, category in
             partialResult[category.title] = category.keywords.first?.term
         }
