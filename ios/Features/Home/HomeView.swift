@@ -19,7 +19,17 @@ struct HomeView: View {
     @StateObject private var keyboardObserver = KeyboardObserver()
     @State private var expandedCategoryTitle: String?
     @State private var selectedKeywordTermByCategory: [String: String] = [:]
+    @State private var loadingMessageIndex = 0
+    @State private var loadingMessageTask: Task<Void, Never>?
     @FocusState private var focusedField: Field?
+
+    private let loadingMessages = [
+        "Watching your YouTube video.",
+        "Pulling transcript highlights together.",
+        "Taking notes on the strongest themes.",
+        "Grouping ideas into clean categories.",
+        "Asking GPT to organize the final insights."
+    ]
 
     init(viewModel: HomeViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -109,9 +119,17 @@ struct HomeView: View {
                     .padding(.bottom, bottomBarPadding(in: geometry))
                     .animation(.easeOut(duration: keyboardObserver.animationDuration), value: keyboardObserver.visibleHeight)
             }
+            .overlay {
+                if viewModel.isLoading {
+                    loadingOverlay
+                }
+            }
         }
         .onChange(of: viewModel.analysisResult) {
             configureCategorySelection(for: viewModel.analysisResult)
+        }
+        .onChange(of: viewModel.isLoading) {
+            updateLoadingState()
         }
     }
 
@@ -132,6 +150,70 @@ struct HomeView: View {
         }
     }
 
+    private var loadingOverlay: some View {
+        ZStack {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea()
+
+            VStack(spacing: 22) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.blue.opacity(0.18), Color.cyan.opacity(0.08)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 110, height: 110)
+
+                    Image(systemName: "play.rectangle.on.rectangle")
+                        .font(.system(size: 40, weight: .medium))
+                        .foregroundStyle(.blue)
+                }
+
+                VStack(spacing: 8) {
+                    Text("Analyzing Video")
+                        .font(.system(size: 26, weight: .bold))
+
+                    Text(loadingMessages[loadingMessageIndex])
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 280)
+                }
+
+                HStack(spacing: 8) {
+                    ForEach(Array(loadingMessages.indices), id: \.self) { index in
+                        Capsule()
+                            .fill(index == loadingMessageIndex ? Color.blue : Color(.systemGray4))
+                            .frame(width: index == loadingMessageIndex ? 28 : 8, height: 8)
+                            .animation(.easeInOut(duration: 0.2), value: loadingMessageIndex)
+                    }
+                }
+
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .tint(.blue)
+                    .scaleEffect(1.2)
+            }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 34)
+            .frame(maxWidth: 340)
+            .background(
+                RoundedRectangle(cornerRadius: 32, style: .continuous)
+                    .fill(Color(.systemBackground).opacity(0.96))
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 32, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.55), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.08), radius: 24, y: 12)
+        }
+        .transition(.opacity)
+    }
+
     private func categorySection(for result: AnalyzeResponse) -> some View {
         VStack(alignment: .leading, spacing: 22) {
             ScrollView(.horizontal, showsIndicators: false) {
@@ -142,17 +224,21 @@ struct HomeView: View {
                         } label: {
                             HStack(spacing: 12) {
                                 Text(category.title)
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.system(size: 14, weight: .semibold))
                                     .foregroundStyle(Color(.label))
                                     .lineLimit(1)
 
                                 Image(systemName: expandedCategoryTitle == category.title ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 18, weight: .medium))
+                                    .font(.system(size: 12, weight: .medium))
                                     .foregroundStyle(.secondary)
                             }
-                            .padding(.horizontal, 22)
-                            .frame(height: 64)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 16)
                             .background(Color.white, in: Capsule())
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .strokeBorder(Color(.systemGray4), lineWidth: 1)
+                            }
                         }
                         .buttonStyle(.plain)
                     }
@@ -216,6 +302,11 @@ struct HomeView: View {
     }
 
     private func toggleExpandedCategory(_ category: AnalyzeCategory) {
+        if expandedCategoryTitle == category.title {
+            expandedCategoryTitle = nil
+            return
+        }
+
         expandedCategoryTitle = category.title
         if selectedKeywordTermByCategory[category.title] == nil {
             selectedKeywordTermByCategory[category.title] = category.keywords.first?.term
@@ -232,6 +323,26 @@ struct HomeView: View {
         expandedCategoryTitle = nil
         selectedKeywordTermByCategory = result.categories.reduce(into: [:]) { partialResult, category in
             partialResult[category.title] = category.keywords.first?.term
+        }
+    }
+
+    private func updateLoadingState() {
+        loadingMessageTask?.cancel()
+
+        guard viewModel.isLoading else {
+            loadingMessageIndex = 0
+            return
+        }
+
+        loadingMessageIndex = 0
+        loadingMessageTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_400_000_000)
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    loadingMessageIndex = min(loadingMessageIndex + 1, loadingMessages.count - 1)
+                }
+            }
         }
     }
 
