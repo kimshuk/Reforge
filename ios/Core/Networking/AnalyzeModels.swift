@@ -17,7 +17,7 @@ struct AnalyzeResponse: Codable, Identifiable, Hashable {
     let sourceType: String
     let categories: [AnalyzeCategory]
     let expiresInSeconds: Int
-    let videoId: String
+    let videoId: String?
 
     var id: String { transcriptId }
 }

@@ -13,6 +13,8 @@ final class HomeViewModel: ObservableObject {
     @Published var titleInput: String = ""
     @Published var youtubeLink: String = ""
     @Published var isLoading: Bool = false
+    @Published var loadingStage: String = ""
+    @Published var loadingStatusMessage: String = ""
     @Published var errorMessage: String = ""
     @Published var analysisResult: AnalyzeResponse?
     @Published var videoUnavailableReason: VideoUnavailableReason?
@@ -69,6 +71,8 @@ final class HomeViewModel: ObservableObject {
         if trimmedURL.isEmpty {
             titleInput = ""
             lastAutoFilledURL = ""
+            loadingStage = ""
+            loadingStatusMessage = ""
             errorMessage = ""
             return
         }
@@ -114,17 +118,31 @@ final class HomeViewModel: ObservableObject {
         }
 
         isLoading = true
+        loadingStage = "started"
+        loadingStatusMessage = "Starting analysis."
         errorMessage = ""
         analysisResult = nil
 
         do {
-            let result = try await analyzeService.analyzeYouTube(title: trimmedTitle, youtubeUrl: trimmedURL)
+            let result = try await analyzeService.analyzeYouTube(
+                title: trimmedTitle,
+                youtubeUrl: trimmedURL
+            ) { [weak self] update in
+                Task { @MainActor in
+                    self?.loadingStage = update.stage
+                    self?.loadingStatusMessage = update.message
+                }
+            }
+            loadingStage = "completed"
+            loadingStatusMessage = "Analysis complete."
             analysisResult = result
         } catch {
             errorMessage = error.localizedDescription
         }
 
         isLoading = false
+        loadingStage = ""
+        loadingStatusMessage = ""
     }
 
     private func autoFillTitleIfPossible(for youtubeURL: String) async {

@@ -7,7 +7,7 @@ struct AnalyzeResultView: View {
         List {
             Section("Summary") {
                 KeyValueRow(title: "Transcript ID", value: result.transcriptId)
-                KeyValueRow(title: "Video ID", value: result.videoId)
+                KeyValueRow(title: "Video ID", value: result.videoId ?? "N/A")
                 KeyValueRow(title: "Source Type", value: result.sourceType)
             }
 
@@ -56,4 +56,3 @@ private struct KeyValueRow: View {
         }
     }
 }
-

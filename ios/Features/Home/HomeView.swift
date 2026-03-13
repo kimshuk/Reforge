@@ -19,17 +19,7 @@ struct HomeView: View {
     @StateObject private var keyboardObserver = KeyboardObserver()
     @State private var expandedCategoryTitle: String?
     @State private var selectedKeywordTermByCategory: [String: String] = [:]
-    @State private var loadingMessageIndex = 0
-    @State private var loadingMessageTask: Task<Void, Never>?
     @FocusState private var focusedField: Field?
-
-    private let loadingMessages = [
-        "Watching your YouTube video.",
-        "Pulling transcript highlights together.",
-        "Taking notes on the strongest themes.",
-        "Grouping ideas into clean categories.",
-        "Asking GPT to organize the final insights."
-    ]
 
     init(viewModel: HomeViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -128,9 +118,6 @@ struct HomeView: View {
         .onChange(of: viewModel.analysisResult) {
             configureCategorySelection(for: viewModel.analysisResult)
         }
-        .onChange(of: viewModel.isLoading) {
-            updateLoadingState()
-        }
     }
 
     private func bottomBarPadding(in geometry: GeometryProxy) -> CGFloat {
@@ -177,7 +164,7 @@ struct HomeView: View {
                     Text("Analyzing Video")
                         .font(.system(size: 26, weight: .bold))
 
-                    Text(loadingMessages[loadingMessageIndex])
+                    Text(viewModel.loadingStatusMessage.isEmpty ? "Preparing analysis." : viewModel.loadingStatusMessage)
                         .font(.system(size: 17, weight: .medium))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -185,11 +172,11 @@ struct HomeView: View {
                 }
 
                 HStack(spacing: 8) {
-                    ForEach(Array(loadingMessages.indices), id: \.self) { index in
+                    ForEach(Array(loadingStages.indices), id: \.self) { index in
                         Capsule()
-                            .fill(index == loadingMessageIndex ? Color.blue : Color(.systemGray4))
-                            .frame(width: index == loadingMessageIndex ? 28 : 8, height: 8)
-                            .animation(.easeInOut(duration: 0.2), value: loadingMessageIndex)
+                            .fill(index <= currentLoadingStageIndex ? Color.blue : Color(.systemGray4))
+                            .frame(width: index == currentLoadingStageIndex ? 28 : 8, height: 8)
+                            .animation(.easeInOut(duration: 0.2), value: currentLoadingStageIndex)
                     }
                 }
 
@@ -236,7 +223,7 @@ struct HomeView: View {
                             .padding(.vertical, 16)
                             .background(Color.white, in: Capsule())
                             .overlay {
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                RoundedRectangle(cornerRadius: 22, style: .continuous)
                                     .strokeBorder(Color(.systemGray4), lineWidth: 1)
                             }
                         }
@@ -326,24 +313,23 @@ struct HomeView: View {
         }
     }
 
-    private func updateLoadingState() {
-        loadingMessageTask?.cancel()
+    private var loadingStages: [String] {
+        [
+            "started",
+            "fetching_transcript",
+            "sanitizing_transcript",
+            "transcript_ready",
+            "storing_transcript",
+            "analyzing_categories",
+            "completed"
+        ]
+    }
 
-        guard viewModel.isLoading else {
-            loadingMessageIndex = 0
-            return
+    private var currentLoadingStageIndex: Int {
+        guard let index = loadingStages.firstIndex(of: viewModel.loadingStage) else {
+            return 0
         }
-
-        loadingMessageIndex = 0
-        loadingMessageTask = Task {
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 1_400_000_000)
-                guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    loadingMessageIndex = min(loadingMessageIndex + 1, loadingMessages.count - 1)
-                }
-            }
-        }
+        return index
     }
 
     private var bottomFloatingBar: some View {
