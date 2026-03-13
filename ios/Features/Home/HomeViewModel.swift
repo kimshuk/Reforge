@@ -63,6 +63,7 @@ final class HomeViewModel: ObservableObject {
     func handleYouTubeLinkChange() {
         autoFillTask?.cancel()
         videoUnavailableReason = nil
+        analysisResult = nil
 
         let trimmedURL = youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedURL.isEmpty {
@@ -114,6 +115,7 @@ final class HomeViewModel: ObservableObject {
 
         isLoading = true
         errorMessage = ""
+        analysisResult = nil
 
         do {
             let result = try await analyzeService.analyzeYouTube(title: trimmedTitle, youtubeUrl: trimmedURL)

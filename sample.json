@@ -1,0 +1,122 @@
+{
+  "transcriptId": "7f70d23c-222e-4213-8223-9cd304a9e001",
+  "sourceType": "youtube",
+  "categories": [
+      {
+          "title": "AI Leadership Strategies",
+          "keywords": [
+              {
+                  "term": "AI 활용법",
+                  "brief": "AI usage methods for leaders.",
+                  "level1": "Methods for leaders to use AI effectively.",
+                  "level2": "Discusses how leaders should adapt AI tools for their teams.",
+                  "level3": "Leaders need to customize AI tools and prompts to fit their unique team dynamics and goals.",
+                  "source": {
+                      "type": "youtube",
+                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=0s"
+                  }
+              },
+              {
+                  "term": "AI 리더십",
+                  "brief": "Leadership in the age of AI.",
+                  "level1": "The role of leadership in AI integration.",
+                  "level2": "Explores how leaders can guide their teams in AI adoption.",
+                  "level3": "Effective leadership in AI involves understanding technology and fostering collaboration among team members.",
+                  "source": {
+                      "type": "youtube",
+                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=0s"
+                  }
+              },
+              {
+                  "term": "AI 에이전트",
+                  "brief": "The rise of AI agents.",
+                  "level1": "AI agents are becoming a focal point in technology.",
+                  "level2": "The discussion highlights the shift towards AI agents in various applications.",
+                  "level3": "AI agents are now central to discussions about future technology, emphasizing their potential in automating tasks.",
+                  "source": {
+                      "type": "youtube",
+                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=545s"
+                  }
+              }
+          ]
+      },
+      {
+          "title": "Investment Trends in AI",
+          "keywords": [
+              {
+                  "term": "AI 투자",
+                  "brief": "Investment strategies in AI.",
+                  "level1": "Current trends in AI investment.",
+                  "level2": "Focus on how venture capital is shifting towards AI startups.",
+                  "level3": "Investors are increasingly looking at AI startups, recognizing the potential for significant returns in this evolving market.",
+                  "source": {
+                      "type": "youtube",
+                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=127s"
+                  }
+              },
+              {
+                  "term": "스타트업 투자",
+                  "brief": "Investing in startups.",
+                  "level1": "Challenges and opportunities in startup investment.",
+                  "level2": "Highlights the competitive landscape for startup funding.",
+                  "level3": "Investors face challenges in identifying promising startups amidst a crowded market, especially in AI.",
+                  "source": {
+                      "type": "youtube",
+                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=607s"
+                  }
+              },
+              {
+                  "term": "VC 생태계",
+                  "brief": "Venture capital ecosystem differences.",
+                  "level1": "Comparing VC ecosystems in Korea and Silicon Valley.",
+                  "level2": "Discusses the structural differences in venture capital between regions.",
+                  "level3": "The VC ecosystem in Silicon Valley is more evolved, allowing for greater risk-taking and potential rewards compared to Korea.",
+                  "source": {
+                      "type": "youtube",
+                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=736s"
+                  }
+              }
+          ]
+      },
+      {
+          "title": "Challenges for Korean Startups",
+          "keywords": [
+              {
+                  "term": "한국 스타트업",
+                  "brief": "Challenges faced by Korean startups.",
+                  "level1": "Common pitfalls for Korean startups in global markets.",
+                  "level2": "Explores reasons why many Korean startups struggle abroad.",
+                  "level3": "Korean startups often face cultural and operational challenges when entering the U.S. market, impacting their success.",
+                  "source": {
+                      "type": "youtube",
+                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=799s"
+                  }
+              },
+              {
+                  "term": "글로벌 진출",
+                  "brief": "Global expansion strategies.",
+                  "level1": "Strategies for successful global market entry.",
+                  "level2": "Discusses the importance of understanding foreign markets.",
+                  "level3": "Startups must adapt their products and strategies to fit the cultural and operational norms of the markets they enter.",
+                  "source": {
+                      "type": "youtube",
+                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=896s"
+                  }
+              },
+              {
+                  "term": "실패 사례",
+                  "brief": "Common failure cases.",
+                  "level1": "Examples of failures in international expansion.",
+                  "level2": "Highlights frequent reasons for failure among Korean startups abroad.",
+                  "level3": "Many Korean startups fail internationally due to a lack of market understanding and cultural adaptation.",
+                  "source": {
+                      "type": "youtube",
+                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=831s"
+                  }
+              }
+          ]
+      }
+  ],
+  "expiresInSeconds": 3600,
+  "videoId": "bBsKvVq3Ako"
+}
