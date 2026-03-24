@@ -240,20 +240,25 @@ struct HomeView: View {
                 .padding(.vertical, 2)
             }
 
-            if let expandedCategory = expandedCategory(in: result) {
+            if let expanded = expandedCategory(in: result) {
                 VStack(alignment: .leading, spacing: 18) {
-                    PillFlowLayout(spacing: 12) {
-                        ForEach(expandedCategory.keywords, id: \.term) { keyword in
-                            keywordPill(keyword, in: expandedCategory.title)
+                    PillFlowLayout(itemSpacing: 10, rowSpacing: 12) {
+                        ForEach(expanded.keywords, id: \.term) { keyword in
+                            keywordPill(keyword, in: expanded.title)
                         }
                     }
                 }
-                .padding(18)
+                .padding(.horizontal, 22)
+                .padding(.vertical, 24)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(Color(.systemGray6))
+                        .fill(Color(.systemBackground))
                 )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .stroke(Color(.label), lineWidth: 2)
+                }
             }
         }
         .padding(.top, 4)
@@ -265,23 +270,29 @@ struct HomeView: View {
         return Button {
             selectedKeywordTermByCategory[categoryTitle] = keyword.term
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 6) {
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 8, weight: .bold))
                 }
 
                 Text(keyword.term)
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.system(size: 10, weight: .medium))
                     .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
-            .foregroundStyle(isSelected ? Color.white : Color(.label))
-            .padding(.horizontal, 18)
-            .frame(height: 52)
+            .foregroundStyle(isSelected ? Color.white : Color.accentColor)
+            .padding(.leading, isSelected ? 12 : 14)
+            .padding(.trailing, 14)
+            .padding(.vertical, 8)
             .background(
-                Capsule()
-                    .fill(isSelected ? Color.accentColor : Color(.systemGray5))
+                Capsule(style: .continuous)
+                    .fill(isSelected ? Color.accentColor : Color(.systemBackground))
             )
+            .overlay {
+                Capsule(style: .continuous)
+                    .stroke(Color.accentColor, lineWidth: 1)
+            }
         }
         .buttonStyle(.plain)
     }
@@ -405,10 +416,12 @@ struct HomeView: View {
 }
 
 private struct PillFlowLayout: Layout {
-    var spacing: CGFloat
+    var itemSpacing: CGFloat
+    var rowSpacing: CGFloat
 
-    init(spacing: CGFloat = 12) {
-        self.spacing = spacing
+    init(itemSpacing: CGFloat = 12, rowSpacing: CGFloat = 12) {
+        self.itemSpacing = itemSpacing
+        self.rowSpacing = rowSpacing
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
@@ -420,10 +433,10 @@ private struct PillFlowLayout: Layout {
 
         for subview in subviews {
             let size = subview.sizeThatFits(.unspecified)
-            let proposedRowWidth = currentRowWidth == 0 ? size.width : currentRowWidth + spacing + size.width
+            let proposedRowWidth = currentRowWidth == 0 ? size.width : currentRowWidth + itemSpacing + size.width
 
             if proposedRowWidth > containerWidth, currentRowWidth > 0 {
-                totalHeight += currentRowHeight + spacing
+                totalHeight += currentRowHeight + rowSpacing
                 maxWidth = max(maxWidth, currentRowWidth)
                 currentRowWidth = size.width
                 currentRowHeight = size.height
@@ -449,7 +462,7 @@ private struct PillFlowLayout: Layout {
 
             if exceedsRow {
                 currentX = bounds.minX
-                currentY += rowHeight + spacing
+                currentY += rowHeight + rowSpacing
                 rowHeight = 0
             }
 
@@ -458,7 +471,7 @@ private struct PillFlowLayout: Layout {
                 proposal: ProposedViewSize(width: size.width, height: size.height)
             )
 
-            currentX += size.width + spacing
+            currentX += size.width + itemSpacing
             rowHeight = max(rowHeight, size.height)
         }
     }
