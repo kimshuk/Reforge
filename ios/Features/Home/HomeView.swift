@@ -51,6 +51,9 @@ struct HomeView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
 
                                 if let thumbnailURL = viewModel.youtubeThumbnailURL {
+                                    let width = geometry.size.width * 0.7
+                                    let height = width * 9 / 16
+                                    
                                     AsyncImage(url: thumbnailURL) { phase in
                                         switch phase {
                                         case .empty:
@@ -65,9 +68,10 @@ struct HomeView: View {
                                             thumbnailPlaceholder
                                         }
                                     }
-                                    .frame(maxWidth: .infinity)
-                                    .aspectRatio(16 / 9, contentMode: .fit)
+                                    .frame(width: width, height: height)
+                                    .clipped()
                                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                    .frame(maxWidth: .infinity)
                                 }
                             }
                         }
@@ -209,23 +213,26 @@ struct HomeView: View {
                         Button {
                             toggleExpandedCategory(category)
                         } label: {
-                            HStack(spacing: 12) {
+                            VStack(spacing: 10) {
                                 Text(category.title)
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(Color(.label))
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(
+                                        expandedCategoryTitle == category.title
+                                        ? Color(.label)
+                                        : Color(.secondaryLabel)
+                                    )
                                     .lineLimit(1)
 
-                                Image(systemName: expandedCategoryTitle == category.title ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(.secondary)
+                                Capsule()
+                                    .fill(
+                                        expandedCategoryTitle == category.title
+                                        ? Color.accentColor
+                                        : Color.clear
+                                    )
+                                    .frame(height: 4)
                             }
                             .padding(.horizontal, 14)
-                            .padding(.vertical, 16)
-                            .background(Color.white, in: Capsule())
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                    .strokeBorder(Color(.systemGray4), lineWidth: 1)
-                            }
+                            .padding(.vertical, 8)
                         }
                         .buttonStyle(.plain)
                     }
@@ -289,11 +296,6 @@ struct HomeView: View {
     }
 
     private func toggleExpandedCategory(_ category: AnalyzeCategory) {
-        if expandedCategoryTitle == category.title {
-            expandedCategoryTitle = nil
-            return
-        }
-
         expandedCategoryTitle = category.title
         if selectedKeywordTermByCategory[category.title] == nil {
             selectedKeywordTermByCategory[category.title] = category.keywords.first?.term
@@ -307,7 +309,7 @@ struct HomeView: View {
             return
         }
 
-        expandedCategoryTitle = nil
+        expandedCategoryTitle = result.categories.first?.title
         selectedKeywordTermByCategory = result.categories.reduce(into: [:]) { partialResult, category in
             partialResult[category.title] = category.keywords.first?.term
         }
