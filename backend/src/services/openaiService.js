@@ -1,5 +1,6 @@
 const openai = require("../config/openai");
 const { AppError } = require("../middleware/errorHandler");
+const logger = require("./logger");
 const {
   CATEGORY_EXTRACTION_SCHEMA,
   buildCategoryExtractionPrompt,
@@ -57,6 +58,22 @@ function toYoutubeTimestampUrl(youtubeUrl, startSec) {
   return url.toString();
 }
 
+function summarizeKeywordForLog(keyword) {
+  if (!keyword || typeof keyword !== "object") {
+    return keyword;
+  }
+
+  return {
+    term: typeof keyword.term === "string" ? keyword.term : null,
+    source: keyword.source,
+  };
+}
+
+function throwInvalidYoutubeSourceRef(message, details) {
+  logger.error("openai.invalid_youtube_source_ref", details);
+  throw new AppError(502, "OPENAI_INVALID_SOURCE_REF", message);
+}
+
 function resolveYoutubeSources(payload, youtubeUrl, segmentIndex) {
   if (!Array.isArray(segmentIndex) || segmentIndex.length === 0) {
     throw new AppError(502, "OPENAI_INVALID_SOURCE_REF", "No transcript segments available for citation");
@@ -69,33 +86,66 @@ function resolveYoutubeSources(payload, youtubeUrl, segmentIndex) {
     }
   }
 
-  for (const category of payload.categories) {
+  for (const [categoryIndex, category] of payload.categories.entries()) {
     if (!category || !Array.isArray(category.keywords)) {
       continue;
     }
 
-    for (const keyword of category.keywords) {
+    for (const [keywordIndex, keyword] of category.keywords.entries()) {
       const source = keyword?.source;
       if (!source) {
-        throw new AppError(
-          502,
-          "OPENAI_INVALID_SOURCE_REF",
-          "YouTube keyword source must be a segment ID reference"
-        );
+        throwInvalidYoutubeSourceRef("YouTube keyword source must be a segment ID reference", {
+          categoryIndex,
+          categoryTitle: category?.title || null,
+          keywordIndex,
+          keyword: summarizeKeywordForLog(keyword),
+          reason: "missing_source",
+        });
+      }
+
+      if (source.type !== "youtube") {
+        throwInvalidYoutubeSourceRef("YouTube keyword source.type must be 'youtube'", {
+          categoryIndex,
+          categoryTitle: category?.title || null,
+          keywordIndex,
+          keyword: summarizeKeywordForLog(keyword),
+          reason: "invalid_source_type",
+        });
       }
 
       const rawRef = typeof source.ref === "string" ? source.ref.trim().toUpperCase() : "";
       if (!rawRef) {
-        throw new AppError(502, "OPENAI_INVALID_SOURCE_REF", "Missing source segment reference");
+        throwInvalidYoutubeSourceRef("Missing source segment reference", {
+          categoryIndex,
+          categoryTitle: category?.title || null,
+          keywordIndex,
+          keyword: summarizeKeywordForLog(keyword),
+          reason: "empty_source_ref",
+        });
+      }
+
+      if (!/^S\d+$/i.test(rawRef)) {
+        throwInvalidYoutubeSourceRef("YouTube source.ref must be a segment ID like S014", {
+          categoryIndex,
+          categoryTitle: category?.title || null,
+          keywordIndex,
+          keyword: summarizeKeywordForLog(keyword),
+          normalizedRef: rawRef,
+          reason: "non_segment_source_ref",
+        });
       }
 
       const segment = indexById.get(rawRef);
       if (!segment) {
-        throw new AppError(
-          502,
-          "OPENAI_INVALID_SOURCE_REF",
-          `Model returned unknown source segment ID: ${rawRef}`
-        );
+        throwInvalidYoutubeSourceRef(`Model returned unknown source segment ID: ${rawRef}`, {
+          categoryIndex,
+          categoryTitle: category?.title || null,
+          keywordIndex,
+          keyword: summarizeKeywordForLog(keyword),
+          normalizedRef: rawRef,
+          knownSegmentCount: indexById.size,
+          reason: "unknown_segment_id",
+        });
       }
 
       keyword.source.ref = toYoutubeTimestampUrl(youtubeUrl, segment.startSec);

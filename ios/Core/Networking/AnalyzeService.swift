@@ -7,6 +7,10 @@ struct AnalyzeErrorResponse: Decodable {
     let details: [String: JSONValue]?
 }
 
+private struct AnalyzeErrorEnvelope: Decodable {
+    let error: AnalyzeErrorResponse
+}
+
 enum JSONValue: Decodable {
     case string(String)
     case number(Double)
@@ -48,7 +52,7 @@ enum AnalyzeServiceError: Error, LocalizedError {
     case invalidHTTPResponse
     case serverError(statusCode: Int, message: String)
     case backendError(code: String, message: String, videoId: String?)
-    case decodingFailed
+    case decodingFailed(payload: String)
     case missingStreamResult
 
     var errorDescription: String? {
@@ -61,14 +65,26 @@ enum AnalyzeServiceError: Error, LocalizedError {
             switch code {
             case "YOUTUBE_VIDEO_UNAVAILABLE":
                 return "This YouTube video is unavailable (private, hidden, or removed)."
-            case "YOUTUBE_URL_INVALID":
+            case "YOUTUBE_URL_INVALID", "INVALID_YOUTUBE_URL":
                 return "Invalid YouTube URL. Please check and try again."
             case "TRANSCRIPT_UNAVAILABLE":
                 return "The video is available, but transcript is not available."
-            case "TRANSCRIPT_PROVIDER_RATE_LIMITED":
+            case "TRANSCRIPT_PROVIDER_RATE_LIMITED", "OPENAI_QUOTA_OR_RATE_LIMIT":
                 return "Transcript provider is rate-limiting requests. Please try again."
-            case "TRANSCRIPT_PROVIDER_ERROR":
+            case "TRANSCRIPT_PROVIDER_ERROR", "TRANSCRIPT_FETCH_FAILED":
                 return "Transcript provider failed. Please try again."
+            case "PYTHON_DEPENDENCY_MISSING":
+                return "Backend transcript dependency is missing."
+            case "PYTHON_RUNTIME_ERROR":
+                return "Backend could not start the transcript fetcher."
+            case "TRANSCRIPT_PARSE_FAILED":
+                return "Backend returned an invalid transcript response."
+            case "OPENAI_API_KEY_MISSING", "OPENAI_AUTH_ERROR":
+                return "Backend OpenAI configuration is invalid."
+            case "OPENAI_BAD_REQUEST", "OPENAI_CONTEXT_LENGTH_EXCEEDED", "OPENAI_INVALID_SOURCE_REF",
+                 "OPENAI_ANALYZE_FAILED", "OPENAI_ANALYZE_INCOMPLETE", "OPENAI_ANALYZE_INVALID_JSON",
+                 "OPENAI_ANALYZE_SOURCE_MISMATCH", "OPENAI_ANALYZE_EMPTY":
+                return "Analysis failed on the backend. Please try again."
             default:
                 return message.isEmpty ? "Request failed with code \(code)." : message
             }
@@ -77,8 +93,11 @@ enum AnalyzeServiceError: Error, LocalizedError {
                 return "Server error (\(statusCode))."
             }
             return "Server error (\(statusCode)): \(message)"
-        case .decodingFailed:
-            return "Could not decode server response."
+        case .decodingFailed(let payload):
+            if payload.isEmpty {
+                return "Could not decode server response."
+            }
+            return "Could not decode server response. Raw payload: \(payload)"
         case .missingStreamResult:
             return "Server finished without returning analysis data."
         }
@@ -136,7 +155,7 @@ struct URLSessionAnalyzeService: AnalyzeService {
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let data = try await collectData(from: bytes)
-            if let backendError = try? JSONDecoder().decode(AnalyzeErrorResponse.self, from: data) {
+            if let backendError = decodeBackendError(from: data) {
                 throw AnalyzeServiceError.backendError(
                     code: backendError.code,
                     message: backendError.message,
@@ -236,10 +255,9 @@ struct URLSessionAnalyzeService: AnalyzeService {
                 let nestedData = try JSONSerialization.data(withJSONObject: nested)
                 result = try decode(AnalyzeResponse.self, from: nestedData)
             } else {
-                throw AnalyzeServiceError.serverError(
-                    statusCode: 200,
-                    message: String(data: payloadData, encoding: .utf8) ?? "Could not decode server response."
-                )
+                let rawPayload = String(data: payloadData, encoding: .utf8) ?? ""
+                logDecodingFailure(rawPayload)
+                throw AnalyzeServiceError.decodingFailed(payload: rawPayload)
             }
         case "error":
             let error = try decode(AnalyzeStreamErrorResponse.self, from: payloadData)
@@ -336,7 +354,27 @@ struct URLSessionAnalyzeService: AnalyzeService {
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
-            throw AnalyzeServiceError.decodingFailed
+            let rawPayload = String(data: data, encoding: .utf8) ?? ""
+            logDecodingFailure(rawPayload)
+            throw AnalyzeServiceError.decodingFailed(payload: rawPayload)
         }
+    }
+
+    private func decodeBackendError(from data: Data) -> AnalyzeErrorResponse? {
+        if let direct = try? JSONDecoder().decode(AnalyzeErrorResponse.self, from: data) {
+            return direct
+        }
+
+        if let envelope = try? JSONDecoder().decode(AnalyzeErrorEnvelope.self, from: data) {
+            return envelope.error
+        }
+
+        return nil
+    }
+
+    private func logDecodingFailure(_ payload: String) {
+        #if DEBUG
+        print("AnalyzeService decode failure payload: \(payload)")
+        #endif
     }
 }

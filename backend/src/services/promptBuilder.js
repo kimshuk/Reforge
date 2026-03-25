@@ -198,6 +198,8 @@ STYLE (generated text)
 SOURCE
 
 Each keyword must include "source".
+Every keyword must include a non-empty source object.
+Do not omit source for any keyword.
 
 If transcriptType = "youtube":
 
@@ -211,6 +213,9 @@ Rules:
 - Set source.ref to exactly one segment ID (example: "S014").
 - Use only IDs that exist in the transcript.
 - Never invent segment IDs.
+- Never return a URL, timestamp, sentence, excerpt, array, null, or empty string in source.ref.
+- Never omit source or source.ref, even if evidence is weak.
+- If you cannot find a valid segment ID for a candidate keyword, do not output that keyword.
 - Choose the segment where the keyword is explicitly discussed.
 
 If transcriptType = "manual":

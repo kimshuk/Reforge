@@ -206,7 +206,7 @@ struct HomeView: View {
     }
 
     private func categorySection(for result: AnalyzeResponse) -> some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 12) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
                     ForEach(result.categories, id: \.title) { category in
@@ -232,7 +232,6 @@ struct HomeView: View {
                                     .frame(height: 4)
                             }
                             .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
                         }
                         .buttonStyle(.plain)
                     }
@@ -241,24 +240,21 @@ struct HomeView: View {
             }
 
             if let expanded = expandedCategory(in: result) {
-                VStack(alignment: .leading, spacing: 18) {
-                    PillFlowLayout(itemSpacing: 10, rowSpacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
+                    PillFlowLayout(itemSpacing: 10, rowSpacing: 10) {
                         ForEach(expanded.keywords, id: \.term) { keyword in
                             keywordPill(keyword, in: expanded.title)
                         }
                     }
                 }
-                .padding(.horizontal, 22)
-                .padding(.vertical, 24)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 20)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(Color(.systemBackground))
+                        .fill(Color(.systemGray6))
                 )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .stroke(Color(.label), lineWidth: 2)
-                }
+                .border(.green)
             }
         }
         .padding(.top, 4)
@@ -295,6 +291,7 @@ struct HomeView: View {
             }
         }
         .buttonStyle(.plain)
+        .border(.red)
     }
 
     private func expandedCategory(in result: AnalyzeResponse) -> AnalyzeCategory? {
