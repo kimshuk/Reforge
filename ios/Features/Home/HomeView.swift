@@ -103,9 +103,6 @@ struct HomeView: View {
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .topLeading)
-                .safeAreaInset(edge: .bottom) {
-                    Color.clear.frame(height: 120)
-                }
                 .ignoresSafeArea(.keyboard)
             }
             .overlay(alignment: .bottom) {
@@ -273,6 +270,7 @@ struct HomeView: View {
                 ForEach(categoriesWithSelections, id: \.0.title) { category, keywords in
                     selectedCategoryGroup(category: category, keywords: keywords)
                 }
+                Spacer(minLength: 84)
             }
         }
     }
