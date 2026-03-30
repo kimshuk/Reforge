@@ -206,30 +206,22 @@ struct HomeView: View {
     private func categorySection(for result: AnalyzeResponse) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
+                HStack(spacing: 8) {
                     ForEach(result.categories, id: \.title) { category in
+                        let isSelected = expandedCategoryTitle == category.title
                         Button {
                             toggleExpandedCategory(category)
                         } label: {
-                            VStack(spacing: 6) {
-                                Text(category.title)
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(
-                                        expandedCategoryTitle == category.title
-                                        ? Color(.label)
-                                        : Color(.secondaryLabel)
-                                    )
-                                    .lineLimit(1)
-
-                                Capsule()
-                                    .fill(
-                                        expandedCategoryTitle == category.title
-                                        ? Color.accentColor
-                                        : Color.clear
-                                    )
-                                    .frame(height: 4)
-                            }
-                            .padding(.horizontal, 14)
+                            Text(category.title)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(isSelected ? Color(.systemBackground) : Color(.label))
+                                .lineLimit(1)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(
+                                    Capsule(style: .continuous)
+                                        .fill(isSelected ? Color(.label) : Color(.systemGray5))
+                                )
                         }
                         .buttonStyle(.plain)
                     }
@@ -293,6 +285,13 @@ struct HomeView: View {
                 .font(.system(size: 14))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
+            if let sourceURL = URL(string: keyword.source.ref) {
+                Link(destination: sourceURL) {
+                    Image(systemName: "arrow.up.right.square")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
             if level < 3 {
                 Button {
                     keywordDisplayLevelByCategory[categoryTitle, default: [:]][keyword.term] = level + 1
