@@ -23,8 +23,11 @@ final class HomeViewModel: ObservableObject {
     private let youtubeTitleService: YouTubeTitleService
     private var autoFillTask: Task<Void, Never>?
     private var lastAutoFilledURL: String = ""
+    private var submittedURL: String = ""
+    private var submittedTitle: String = ""
 
     var shouldShowTitleArea: Bool {
+        if analysisResult != nil { return true }
         let trimmed = youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
         guard isYouTubeLink(trimmed) else { return false }
@@ -32,8 +35,8 @@ final class HomeViewModel: ObservableObject {
     }
 
     var youtubeThumbnailURL: URL? {
-        let trimmed = youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let videoID = extractYouTubeVideoID(from: trimmed) else {
+        let urlForThumbnail = analysisResult != nil ? submittedURL : youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let videoID = extractYouTubeVideoID(from: urlForThumbnail) else {
             return nil
         }
 
@@ -65,11 +68,10 @@ final class HomeViewModel: ObservableObject {
     func handleYouTubeLinkChange() {
         autoFillTask?.cancel()
         videoUnavailableReason = nil
-        analysisResult = nil
 
         let trimmedURL = youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedURL.isEmpty {
-            titleInput = ""
+            if analysisResult == nil { titleInput = "" }
             lastAutoFilledURL = ""
             loadingStage = ""
             loadingStatusMessage = ""
@@ -82,9 +84,11 @@ final class HomeViewModel: ObservableObject {
             return
         }
 
-        if lastAutoFilledURL != trimmedURL {
+        if lastAutoFilledURL != trimmedURL && analysisResult == nil {
             titleInput = ""
         }
+
+        guard analysisResult == nil else { return }
 
         autoFillTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 500_000_000)
@@ -122,6 +126,8 @@ final class HomeViewModel: ObservableObject {
         loadingStatusMessage = "Starting analysis."
         errorMessage = ""
         analysisResult = nil
+        submittedURL = trimmedURL
+        submittedTitle = trimmedTitle
 
         do {
             let result = try await analyzeService.analyzeYouTube(
