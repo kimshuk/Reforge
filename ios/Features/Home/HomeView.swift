@@ -19,6 +19,7 @@ struct HomeView: View {
     @StateObject private var keyboardObserver = KeyboardObserver()
     @State private var expandedCategoryTitle: String?
     @State private var selectedKeywordTermByCategory: [String: Set<String>] = [:]
+    @State private var keywordDisplayLevelByCategory: [String: [String: Int]] = [:]
     @FocusState private var focusedField: Field?
 
     init(viewModel: HomeViewModel) {
@@ -270,17 +271,58 @@ struct HomeView: View {
         if !categoriesWithSelections.isEmpty {
             VStack(alignment: .leading, spacing: 16) {
                 ForEach(categoriesWithSelections, id: \.0.title) { category, keywords in
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(category.title)
-                            .font(.system(size: 15, weight: .semibold))
-                        ForEach(keywords, id: \.term) { keyword in
-                            (Text("- ").foregroundStyle(.secondary) + Text(keyword.term).fontWeight(.semibold).foregroundStyle(.primary) + Text(": \(keyword.level1)").foregroundStyle(.secondary))
-                                .font(.system(size: 14))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
+                    selectedCategoryGroup(category: category, keywords: keywords)
                 }
             }
+        }
+    }
+
+    private func selectedCategoryGroup(category: AnalyzeCategory, keywords: [AnalyzeKeyword]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(category.title)
+                .font(.system(size: 15, weight: .semibold))
+            ForEach(keywords, id: \.term) { keyword in
+                selectedKeywordRow(keyword: keyword, categoryTitle: category.title)
+            }
+        }
+    }
+
+    private func selectedKeywordRow(keyword: AnalyzeKeyword, categoryTitle: String) -> some View {
+        let level = keywordDisplayLevelByCategory[categoryTitle]?[keyword.term] ?? 1
+        let levelText = keywordLevelText(for: keyword, level: level)
+        return HStack(alignment: .top, spacing: 8) {
+            (Text("- ").foregroundStyle(.secondary) + Text(keyword.term).fontWeight(.semibold).foregroundStyle(.primary) + Text(": \(levelText)").foregroundStyle(.secondary))
+                .font(.system(size: 14))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            if level < 3 {
+                Button {
+                    keywordDisplayLevelByCategory[categoryTitle, default: [:]][keyword.term] = level + 1
+                } label: {
+                    Text("expand")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.accentColor)
+                }
+                .buttonStyle(.plain)
+            }
+            Button {
+                selectedKeywordTermByCategory[categoryTitle]?.remove(keyword.term)
+                keywordDisplayLevelByCategory[categoryTitle]?.removeValue(forKey: keyword.term)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(4)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func keywordLevelText(for keyword: AnalyzeKeyword, level: Int) -> String {
+        switch level {
+        case 2: return keyword.level2
+        case 3: return keyword.level3
+        default: return keyword.level1
         }
     }
 
@@ -288,10 +330,9 @@ struct HomeView: View {
         let isSelected = selectedKeywordTermByCategory[categoryTitle]?.contains(keyword.term) ?? false
 
         return Button {
-            if isSelected {
-                selectedKeywordTermByCategory[categoryTitle]?.remove(keyword.term)
-            } else {
+            if !isSelected {
                 selectedKeywordTermByCategory[categoryTitle, default: []].insert(keyword.term)
+                keywordDisplayLevelByCategory[categoryTitle, default: [:]][keyword.term] = 1
             }
         } label: {
             HStack(spacing: 6) {
@@ -342,6 +383,7 @@ struct HomeView: View {
     private func configureCategorySelection(for result: AnalyzeResponse?) {
         expandedCategoryTitle = nil
         selectedKeywordTermByCategory.removeAll()
+        keywordDisplayLevelByCategory.removeAll()
     }
 
     private var loadingStages: [String] {
@@ -527,3 +569,4 @@ private final class KeyboardObserver: ObservableObject {
         visibleHeight = max(0, screenHeight - endFrame.minY)
     }
 }
+
