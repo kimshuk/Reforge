@@ -211,4 +211,5 @@ function sanitizeYoutubeTranscript(rawSnippets, options = {}) {
 
 module.exports = {
   sanitizeYoutubeTranscript,
+  formatTimestamp,
 };

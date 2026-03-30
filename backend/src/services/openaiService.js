@@ -5,6 +5,7 @@ const {
   CATEGORY_EXTRACTION_SCHEMA,
   buildCategoryExtractionPrompt,
 } = require("./promptBuilder");
+const { formatTimestamp } = require("./transcriptSanitizer");
 
 const MODEL = "gpt-4o-mini";
 const TEMPERATURE = 0.2;
@@ -79,10 +80,10 @@ function resolveYoutubeSources(payload, youtubeUrl, segmentIndex) {
     throw new AppError(502, "OPENAI_INVALID_SOURCE_REF", "No transcript segments available for citation");
   }
 
-  const indexById = new Map();
-  for (const segment of Array.isArray(segmentIndex) ? segmentIndex : []) {
-    if (segment && typeof segment.id === "string") {
-      indexById.set(segment.id.trim().toUpperCase(), segment);
+  const indexByTimestamp = new Map();
+  for (const segment of segmentIndex) {
+    if (segment && typeof segment.startSec === "number") {
+      indexByTimestamp.set(formatTimestamp(segment.startSec), segment);
     }
   }
 
@@ -94,7 +95,7 @@ function resolveYoutubeSources(payload, youtubeUrl, segmentIndex) {
     for (const [keywordIndex, keyword] of category.keywords.entries()) {
       const source = keyword?.source;
       if (!source) {
-        throwInvalidYoutubeSourceRef("YouTube keyword source must be a segment ID reference", {
+        throwInvalidYoutubeSourceRef("YouTube keyword source must be a timestamp reference", {
           categoryIndex,
           categoryTitle: category?.title || null,
           keywordIndex,
@@ -113,9 +114,9 @@ function resolveYoutubeSources(payload, youtubeUrl, segmentIndex) {
         });
       }
 
-      const rawRef = typeof source.ref === "string" ? source.ref.trim().toUpperCase() : "";
+      const rawRef = typeof source.ref === "string" ? source.ref.trim() : "";
       if (!rawRef) {
-        throwInvalidYoutubeSourceRef("Missing source segment reference", {
+        throwInvalidYoutubeSourceRef("Missing source timestamp reference", {
           categoryIndex,
           categoryTitle: category?.title || null,
           keywordIndex,
@@ -124,27 +125,27 @@ function resolveYoutubeSources(payload, youtubeUrl, segmentIndex) {
         });
       }
 
-      if (!/^S\d+$/i.test(rawRef)) {
-        throwInvalidYoutubeSourceRef("YouTube source.ref must be a segment ID like S014", {
+      if (!/^\d{1,2}:\d{2}(:\d{2})?$/.test(rawRef)) {
+        throwInvalidYoutubeSourceRef("YouTube source.ref must be a timestamp like 13:38", {
           categoryIndex,
           categoryTitle: category?.title || null,
           keywordIndex,
           keyword: summarizeKeywordForLog(keyword),
           normalizedRef: rawRef,
-          reason: "non_segment_source_ref",
+          reason: "non_timestamp_source_ref",
         });
       }
 
-      const segment = indexById.get(rawRef);
+      const segment = indexByTimestamp.get(rawRef);
       if (!segment) {
-        throwInvalidYoutubeSourceRef(`Model returned unknown source segment ID: ${rawRef}`, {
+        throwInvalidYoutubeSourceRef(`Model returned unknown source timestamp: ${rawRef}`, {
           categoryIndex,
           categoryTitle: category?.title || null,
           keywordIndex,
           keyword: summarizeKeywordForLog(keyword),
           normalizedRef: rawRef,
-          knownSegmentCount: indexById.size,
-          reason: "unknown_segment_id",
+          knownSegmentCount: indexByTimestamp.size,
+          reason: "unknown_timestamp",
         });
       }
 

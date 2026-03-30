@@ -287,8 +287,8 @@ struct HomeView: View {
             Spacer()
             if let sourceURL = URL(string: keyword.source.ref) {
                 Link(destination: sourceURL) {
-                    Image(systemName: "arrow.up.right.square")
-                        .font(.system(size: 13, weight: .medium))
+                    Text(timestampLabel(from: keyword.source.ref))
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.accentColor)
                 }
             }
@@ -357,6 +357,17 @@ struct HomeView: View {
             }
         }
         .buttonStyle(.plain)
+    }
+
+    private func timestampLabel(from ref: String) -> String {
+        guard let components = URLComponents(string: ref),
+              let t = components.queryItems?.first(where: { $0.name == "t" })?.value else {
+            return "0:00"
+        }
+        let seconds = Int(t.trimmingCharacters(in: .letters)) ?? 0
+        let m = seconds / 60
+        let s = seconds % 60
+        return "\(m):\(String(format: "%02d", s))"
     }
 
     private func expandedCategory(in result: AnalyzeResponse) -> AnalyzeCategory? {

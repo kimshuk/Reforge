@@ -210,12 +210,12 @@ Transcript lines are formatted as:
 Rules:
 
 - Set source.type = "youtube".
-- Set source.ref to exactly one segment ID (example: "S014").
-- Use only IDs that exist in the transcript.
-- Never invent segment IDs.
-- Never return a URL, timestamp, sentence, excerpt, array, null, or empty string in source.ref.
+- Set source.ref to the MM:SS timestamp of the segment where the keyword is discussed (example: "13:38").
+- Use only timestamps that exist in the transcript.
+- Never invent timestamps.
+- Never return a segment ID, URL, sentence, excerpt, array, null, or empty string in source.ref.
 - Never omit source or source.ref, even if evidence is weak.
-- If you cannot find a valid segment ID for a candidate keyword, do not output that keyword.
+- If you cannot find a valid timestamp for a candidate keyword, do not output that keyword.
 - Choose the segment where the keyword is explicitly discussed.
 
 If transcriptType = "manual":
