@@ -1,32 +1,28 @@
-# Daily Tasks — 2026-04-22
-## Focus: NestJS Migration
+# Daily Tasks — 2026-04-23
+## Focus: NestJS Migration — Step 1: Bootstrap NestJS Scaffold
 
 ## Today's 3 Tasks
 
-- [ ] **Bootstrap NestJS app scaffold** — Create `backend-nest/` with NestJS CLI init, wire `main.ts` bootstrap (JSON body parser, 1 MB limit, global prefix), and add `AppModule` with a `GET /health` controller that mirrors `server.js`'s health check; confirm `npm run start:dev` serves `{"ok":true}`.
-- [ ] **Port AppError → AppException + global exception filter** — Translate `middleware/errorHandler.js` into a NestJS `AppException extends HttpException` class and a `@Catch()` `AppExceptionFilter` that preserves the `{ error: { code, message } }` envelope the iOS client depends on; register it globally in `main.ts` and add a `RequestIdInterceptor` that attaches `req.requestId` + logs method/path/status/duration via the NestJS `Logger`.
-- [ ] **Create TranscriptModule (service + controller)** — Migrate `transcriptStore.js` to a singleton `@Injectable()` `TranscriptStoreService` implementing `OnModuleDestroy` to clear the cleanup interval, then wire `GET /transcript/:transcriptId` in `TranscriptController`, using `AppExceptionFilter` to emit `TRANSCRIPT_NOT_FOUND` on miss and `INVALID_TRANSCRIPT_ID` on bad UUID — confirming the response shape matches the Express route exactly.
+- [ ] **Initialize NestJS project and configure scripts** — Run `nest new backend-nest --package-manager npm --skip-git`, update `tsconfig.json` for strict mode, and align `package.json` scripts so `npm run dev` maps to `start:dev --watch` and `npm start` maps to `start:prod`, matching the Express backend's dev/prod conventions.
+
+- [ ] **Wire `main.ts` with Express-parity bootstrap settings** — Configure `main.ts` to apply `express.json({ limit: '1mb' })` via `app.use()`, read `PORT` from `process.env.PORT || 3000`, attach the NestJS `Logger`, and log a `server.started` message on listen — replicating the behaviour in `server.js` lines 14 and 43–45 exactly.
+
+- [ ] **Add `AppModule` with `GET /health` and smoke-test the stack** — Create `AppController` with `@Get('health')` returning `{ ok: true }` (mirroring `server.js:33–35`), wire it into `AppModule`, then run `npm run start:dev` and confirm `curl localhost:3000/health` returns `{"ok":true}` so the full bootstrap path is validated before any feature module is added.
 
 ## Migration Progress
-**Done:**
-- Full Express backend feature-complete (server.js, analyze route with SSE, transcript route, errorHandler, all services)
-- Python subprocess integration for YouTube transcript fetching (`scripts/fetch_transcript.py`)
-- OpenAI structured output with JSON schema (`openaiService.js`, `promptBuilder.js`)
-- Transcript sanitizer, validator, in-memory TTL store
-- iOS client consuming the Express API
-
-**Remaining (all NestJS equivalents):**
-- NestJS project scaffold (main.ts, AppModule, bootstrap config)
-- AppException class + global exception filter preserving `{ error: { code, message } }` envelope
-- RequestId middleware + HTTP request logging interceptor
-- Health endpoint (`GET /health`)
-- TranscriptModule: `TranscriptStoreService` (TTL Map + OnModuleDestroy cleanup) + `TranscriptController` (`GET /transcript/:id`)
-- AnalyzeModule: `AnalyzeController` (SSE streaming via `@Res()` + manual header flushing) + `AnalyzeService` (orchestrates YouTube → sanitize → OpenAI pipeline)
-- YoutubeService (Python subprocess spawn with AppException error mapping)
-- OpenAiService (structured output call + source-ref resolution)
-- PromptBuilderService (prompt construction + JSON schema)
-- TranscriptSanitizerService + TranscriptValidatorService (body validation, UUID checks)
-- ConfigModule wiring (dotenv, OpenAI client instantiation)
+**Completed steps:** None — `backend-nest/` directory does not exist; Step 1 was planned on 2026-04-22 but not executed.
+**Current step:** 1 — Bootstrap NestJS scaffold
+**Remaining steps:**
+- 1 — Bootstrap NestJS scaffold (today)
+- 2 — Define project structure (all module folders + stub files)
+- 3 — ConfigModule (dotenv / env vars)
+- 4 — AppException class (single throwable, no filter yet)
+- 5 — TranscriptModule (TranscriptStoreService + GET /transcript/:id)
+- 6 — YoutubeService (Python subprocess + AppException error mapping)
+- 7 — TranscriptSanitizerService + TranscriptValidatorService
+- 8 — PromptBuilderService + OpenAiService
+- 9 — AnalyzeModule (POST /analyze SSE streaming)
+- 10 — Global exception filter + RequestId interceptor
 
 ## Why These Tasks
-Nothing has been migrated yet, so today lays the only viable foundation: the scaffold must exist before any module can be written, the error filter must exist before any controller can throw typed errors, and `TranscriptModule` is the simplest controller/service pair to validate the full request → service → response → filter pipeline before tackling the complex SSE streaming in `AnalyzeModule` tomorrow.
+The three tasks build strictly bottom-up: the CLI init must exist before `main.ts` can be customised, and `main.ts` must be wired before the health controller can be smoke-tested — validating the entire bootstrap path in one day so Step 2 (folder structure) can start from a known-good scaffold tomorrow.
