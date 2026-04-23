@@ -1,19 +1,18 @@
 # Daily Tasks — 2026-04-23
-## Focus: NestJS Migration — Step 1: Bootstrap NestJS Scaffold
+## Focus: NestJS Migration — Step 2: Define Project Structure
 
 ## Today's 3 Tasks
 
-- [ ] **Scaffold the NestJS project** — From `/home/user/Reforge/`, run `npx @nestjs/cli new backend-nest --package-manager npm --skip-git --strict` and verify that `backend-nest/src/main.ts`, `app.module.ts`, and `app.controller.ts` are generated before touching anything else.
+- [ ] **Create `common/` stubs** — Create `src/common/app.exception.ts` with a skeleton `AppException extends Error` class carrying `statusCode`, `code`, and `message` fields (matching `backend/src/middleware/errorHandler.js:3–9`), and `src/common/app-exception.filter.ts` with an empty `@Catch(AppException) AppExceptionFilter` class stub — both left intentionally incomplete; full implementations come in Steps 3 and 9.
 
-- [ ] **Align `main.ts` with Express backend bootstrap** — Edit `backend-nest/src/main.ts` to cast the app as `NestExpressApplication`, call `app.use(express.json({ limit: '1mb' }))` (mirrors `backend/src/server.js:14`), read `PORT` from `process.env.PORT ?? 3000`, and log `"server.started"` with port on listen (mirrors `server.js:43–45`); update `package.json` scripts so `npm run dev` maps to `nest start --watch` and `npm start` maps to `nest start`, matching the Express backend's convention.
+- [ ] **Create `analyze/` service stubs** — Create stub `@Injectable()` classes for `src/analyze/youtube.service.ts` (single `fetchTranscriptText(youtubeUrl: string)` method signature, mirrors `backend/src/services/youtubeService.js:89`), `src/analyze/transcript.sanitizer.ts` (single `sanitize(rawSnippets: unknown[])` method signature, mirrors `transcriptSanitizer.js:178`), `src/analyze/llm.service.ts` (single `analyzeCategories(payload: unknown)` method signature, mirrors `backend/src/services/openaiService.js`), and `src/analyze/analyze.service.ts` (single `analyze(body: unknown)` method signature) — each method body throws `new Error('not implemented')`.
 
-- [ ] **Wire `GET /health` and smoke-test the full bootstrap** — Replace the generated `AppController` stub with a `@Get('health')` handler returning `{ ok: true }` (mirrors `server.js:33–35`), run `npm run dev` inside `backend-nest/`, and confirm `curl -s http://localhost:3000/health` returns `{"ok":true}` — validating the entire scaffold before any feature module is added.
+- [ ] **Create `AnalyzeModule` + `AnalyzeController` and wire into `AppModule`** — Create `src/analyze/analyze.module.ts` declaring all four analyze services as providers and `AnalyzeController` as its controller, create `src/analyze/analyze.controller.ts` with `@Controller('analyze')` and a `@Post()` handler returning `{ ok: true }` as a placeholder, update `src/app.module.ts` to import `AnalyzeModule`, then verify with `npm run build` inside `backend-nest/` that TypeScript compilation succeeds with zero errors — the full structure must compile before Step 3 begins.
 
 ## Migration Progress
-**Completed steps:** None — `backend-nest/` directory does not yet exist; Step 1 was planned on 2026-04-22 and again on 2026-04-23 but not executed.
-**Current step:** 1 — Bootstrap NestJS scaffold
+**Completed steps:** 1 — Bootstrap NestJS scaffold (`feat: bootstrap NestJS app scaffold with health check`, `chore: strict mode tsconfig and dev script alias`)
+**Current step:** 2 — Define project structure (create `analyze/` and `common/` with stub files)
 **Remaining steps:**
-- 2 — Define project structure (create `analyze/` and `common/` with stub files)
 - 3 — AppException class (`common/app.exception.ts`)
 - 4 — YoutubeService (Python subprocess, URL → transcript text)
 - 5 — TranscriptSanitizerService (sanitize raw transcript text)
@@ -23,4 +22,4 @@
 - 9 — AppExceptionFilter (global `{ error: { code, message } }` envelope)
 
 ## Why These Tasks
-The three tasks are strictly ordered bottom-up: the CLI must create the scaffold before `main.ts` can be customised, and the health smoke-test validates the entire bootstrap path — giving a known-good foundation before Step 2 adds the folder skeleton on top of it.
+Tasks 1 and 2 are independent and can be done in parallel — common stubs have no deps on analyze services and vice versa. Task 3 depends on both (it imports and wires them into the module), so it must come last; ending with a clean `npm run build` gives a verified compile baseline before any real logic lands in Step 3.
