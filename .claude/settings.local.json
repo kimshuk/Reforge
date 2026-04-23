@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(grep -r \"XCTest\\\\|@testable\\\\|import XCTest\" /Users/jeezoo/Code/Reforge/ios --include=*.swift)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)"
-    ]
-  }
-}

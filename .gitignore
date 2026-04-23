@@ -34,3 +34,6 @@ pnpm-debug.log*
 **/Package.resolved
 **/Pods/
 **/Carthage/Build/
+
+# Claude Code local settings
+.claude/settings.local.json
