@@ -1,28 +1,28 @@
-# Daily Tasks — 2026-04-24
-## Focus: NestJS Migration — Step 2 (finish) + Step 4: YoutubeService
+# Daily Tasks — 2026-04-25
+## Focus: NestJS Migration — Step 4: YoutubeService (Python subprocess)
 
 ## Today's 3 Tasks
 
-- [ ] **Create `analyze/` stubs and wire AnalyzeModule** — Create `src/analyze/youtube.service.ts`, `transcript.sanitizer.ts`, `llm.service.ts`, `analyze.service.ts` as `@Injectable()` classes with one method each throwing `new Error('not implemented')`; create `src/analyze/analyze.module.ts` declaring all four as providers; create `src/analyze/analyze.controller.ts` with `@Controller('analyze')` and a `@Post()` stub returning `{ ok: true }`; import `AnalyzeModule` in `src/app.module.ts`; verify `npm run build` inside `backend-nest/` passes with zero errors — this completes Step 2.
+- [ ] **Fix `extractVideoId` and define `TranscriptResult` type** — Add the missing `/shorts/` URL pattern to `extractVideoId` in `youtube.service.ts` (matches `backend/src/services/youtubeService.js:29–34`), then define a `TranscriptResult` interface `{ videoId: string; transcriptText: string; transcriptSnippets: unknown[]; languageCode: string | null; language: string | null; isGenerated: boolean | null }` and update `fetchTranscript`'s return type from `Promise<string>` to `Promise<TranscriptResult>`.
 
-- [ ] **Implement `extractVideoId` in YoutubeService** — Port URL parsing from `backend/src/services/youtubeService.js:5–38` to TypeScript inside `YoutubeService`: handle `youtu.be`, `youtube.com/watch?v=`, `/shorts/`, and `m.youtube.com` patterns; throw `new AppException(400, 'INVALID_YOUTUBE_URL', ...)` for unparseable URLs; add a private `extractVideoId(url: string): string` method and call it from the public `fetchTranscript` stub; verify the method resolves the correct ID for all four URL formats.
+- [ ] **Implement `fetchTranscriptViaPython` private method** — Add a private async method that spawns `process.env.PYTHON_BIN ?? 'python3'` with `path.resolve(__dirname, '../../scripts/fetch_transcript.py')` and videoId (matching `backend/src/services/youtubeService.js:40–109`); collect stdout/stderr; on spawn `error` event throw `AppException(502, 'PYTHON_RUNTIME_ERROR', 'Unable to execute Python runtime')`; on non-zero exit code map stderr tokens: `PY_DEP_MISSING` → `AppException(500, 'PYTHON_DEPENDENCY_MISSING', ...)`, `TRANSCRIPT_UNAVAILABLE` → `AppException(502, 'TRANSCRIPT_UNAVAILABLE', ...)`, default → `AppException(502, 'TRANSCRIPT_FETCH_FAILED', ...)`; on exit code 0 parse stdout JSON (parse failure → `AppException(502, 'TRANSCRIPT_PARSE_FAILED', ...)`), normalize fields with the same type guards as lines 94–98 of the reference, and return the result.
 
-- [ ] **Implement Python subprocess in YoutubeService** — Port `fetchTranscriptViaPython` from `backend/src/services/youtubeService.js:40–128` to TypeScript: spawn `process.env.PYTHON_BIN ?? 'python3'` with the resolved script path and video ID; collect stdout/stderr; on non-zero exit map `PY_DEP_MISSING` → `AppException(500, 'PYTHON_DEPENDENCY_MISSING', ...)`, `TRANSCRIPT_UNAVAILABLE` → `AppException(502, 'TRANSCRIPT_UNAVAILABLE', ...)`, default → `AppException(502, 'TRANSCRIPT_FETCH_FAILED', ...)`; on success parse JSON and return `{ videoId, transcriptText, transcriptSnippets, languageCode, language, isGenerated }`, throwing `AppException(502, 'TRANSCRIPT_UNAVAILABLE', ...)` when `transcriptText` is blank.
+- [ ] **Complete public `fetchTranscript` and verify build** — Update `fetchTranscript(url: string): Promise<TranscriptResult>` to call `this.extractVideoId(url)`, then `this.fetchTranscriptViaPython(videoId)`, throw `AppException(502, 'TRANSCRIPT_UNAVAILABLE', 'Transcript unavailable for this video')` when `transcriptText.trim()` is empty (matching `backend/src/services/youtubeService.js:116–118`), and return `{ videoId, ...rest }`; confirm `npm run build` inside `backend-nest/` passes with zero TypeScript errors.
 
 ## Migration Progress
 **Completed steps:**
 - 1 — Bootstrap NestJS scaffold (health module, main.ts, tsconfig strict mode)
-- 3 — `AppException` class implemented in `common/app.exception.ts`
+- 2 — Project structure (analyze/ stubs, AnalyzeModule wired into AppModule)
+- 3 — `AppException` class (`common/app.exception.ts`)
+- 4 (partial) — `extractVideoId` URL parsing in `YoutubeService`
 
-**Current step:** 2 (finish `analyze/` stubs + AnalyzeModule wiring) → 4 — YoutubeService
+**Current step:** 4 — YoutubeService (completing Python subprocess + method wiring)
 **Remaining steps:**
-- 2 finish — `analyze/` directory stubs + AnalyzeModule wiring
-- 4 — YoutubeService (Python subprocess, URL → transcript text) ← today's focus
-- 5 — TranscriptSanitizerService (sanitize raw transcript text)
-- 6 — LlmService (OpenRouter call + structured output)
-- 7 — AnalyzeService (orchestrate full pipeline)
+- 5 — TranscriptSanitizerService (sanitize raw transcript snippets → `llmTranscriptText` + `segmentIndex`)
+- 6 — LlmService (OpenRouter call + structured output / source resolution)
+- 7 — AnalyzeService (orchestrate URL → youtube → sanitize → llm, or text → sanitize → llm)
 - 8 — AnalyzeController (POST /analyze with SSE streaming)
-- 9 — AppExceptionFilter (global `{ error: { code, message } }` envelope, registered last)
+- 9 — AppExceptionFilter (finalize `{ error: { code, message } }` envelope + global registration)
 
 ## Why These Tasks
-Task 1 is the prerequisite for everything: no analyze service can compile until the module is wired. Tasks 2 and 3 split Step 4 at its natural seam — pure URL-parsing logic (no I/O, easy to verify inline) versus the async subprocess wrapper — keeping each task reviewable in a single sitting.
+The three tasks split Step 4 at natural seams — type-level correctness first (interface + URL fix), then the async I/O core (subprocess + error mapping), then the public entry-point wiring with a build gate — so each task is independently reviewable and a failing build surfaces regressions immediately.
