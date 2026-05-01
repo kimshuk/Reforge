@@ -1,4 +1,4 @@
-# Daily Tasks — 2026-04-30
+# Daily Tasks — 2026-05-01
 ## Focus: NestJS Migration — Step 4: YoutubeService (Python subprocess)
 
 ## Today's 3 Tasks
@@ -26,4 +26,4 @@
 - 9 — AppExceptionFilter (finalize { error: { code, message } } envelope + global registration)
 
 ## Why These Tasks
-Step 4 is the third consecutive carry-forward of the same three tasks (planned 2026-04-28, 2026-04-29, 2026-04-30); the sequencing is type-contract first (Task 1 adds the `TranscriptResult` interface so Tasks 2–3 compile), subprocess I/O internals second (Task 2 implements full error-mapping and JSON-normalization logic), then public-method wiring with a build gate (Task 3) so TypeScript errors surface before any downstream step is attempted.
+Step 4 remains the lowest incomplete step; the three tasks are ordered by dependency (type contract first so Tasks 2–3 compile, subprocess internals second, public-method wiring with a build gate third) and are unchanged from prior days since none have been implemented yet.
