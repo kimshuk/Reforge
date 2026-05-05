@@ -1,4 +1,4 @@
-# Daily Tasks — 2026-05-04
+# Daily Tasks — 2026-05-05
 ## Focus: NestJS Migration — Step 4: YoutubeService (Python subprocess)
 
 ## Today's 3 Tasks
@@ -25,4 +25,4 @@
 - 9 — AppExceptionFilter (finalize { error: { code, message } } envelope + global registration)
 
 ## Why These Tasks
-Step 4 carries over from yesterday with all three sub-tasks still pending; they are ordered by compile dependency (type contract → private impl → public wiring + build gate) so each task compiles cleanly before the next begins.
+Step 4 carries over a second day with all three sub-tasks still pending; they remain ordered by compile dependency (type contract → private impl → public wiring + build gate) so each task compiles cleanly before the next begins.
