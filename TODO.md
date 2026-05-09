@@ -3,11 +3,21 @@
 
 ## Today's 3 Tasks
 
-- [ ] **Add `/shorts/` URL branch and `TranscriptResult` interface** — In `youtube.service.ts`, insert the `/shorts/` path check inside the `youtube.com`/`m.youtube.com` block after the `?v=` lookup (matching `backend/src/services/youtubeService.js:29–34`): `if (parsed.pathname.startsWith('/shorts/')) { const shortId = parsed.pathname.split('/')[2]; if (shortId) return shortId; }`; then declare a `TranscriptResult` interface `{ videoId: string; transcriptText: string; transcriptSnippets: unknown[]; languageCode: string | null; language: string | null; isGenerated: boolean | null }` and update `fetchTranscript`'s return type from `Promise<string>` to `Promise<TranscriptResult>`.
+- [ ] **Declare `TranscriptResult` interface and update return type**
+  - Define the shape of what a successful transcript fetch returns: the video ID, the full transcript text, the raw snippet array from Python, and nullable metadata fields for language code, language name, and whether it was auto-generated
+  - Update `fetchTranscript`'s return type signature to return this interface instead of a plain string, so callers get structured data they can work with
+  - YouTube Shorts URLs are intentionally not supported — no need to handle them
 
-- [ ] **Implement `fetchTranscriptViaPython` private method** — Add `private fetchTranscriptViaPython(videoId: string): Promise<Omit<TranscriptResult, 'videoId'>>` that spawns `process.env.PYTHON_BIN ?? 'python3'` with `path.resolve(__dirname, '../../scripts/fetch_transcript.py')` and `videoId` (matching `youtubeService.js:40–109`); collect stdout/stderr via `data` events; on spawn `error` throw `AppException(502, 'PYTHON_RUNTIME_ERROR', 'Unable to execute Python runtime')`; on non-zero exit map stderr tokens: `PY_DEP_MISSING` → `AppException(500, 'PYTHON_DEPENDENCY_MISSING', 'Python package youtube-transcript-api is not installed')`, `TRANSCRIPT_UNAVAILABLE` → `AppException(502, 'TRANSCRIPT_UNAVAILABLE', 'Transcript unavailable for this video')`, default → `AppException(502, 'TRANSCRIPT_FETCH_FAILED', 'Unable to fetch YouTube transcript')`; on exit 0 parse stdout JSON (parse failure → `AppException(502, 'TRANSCRIPT_PARSE_FAILED', 'Invalid transcript response')`), normalize each field with the same type guards as `youtubeService.js:94–98`, and resolve with `{ transcriptText, transcriptSnippets, languageCode, language, isGenerated }`.
+- [ ] **Implement `fetchTranscriptViaPython` private method**
+  - This method is the core of the service: it takes a video ID, spawns the Python script as a child process, and streams its stdout/stderr
+  - On a spawn error, it means the Python runtime itself couldn't start — surface that clearly as a 502
+  - On a non-zero exit code, inspect stderr to distinguish between a missing dependency, an unavailable transcript, and a generic fetch failure — each maps to a different error code
+  - On a clean exit, parse the JSON stdout and normalize each field with defensive type checks before resolving
 
-- [ ] **Wire `fetchTranscript` public method and verify build** — Replace the stub body of `fetchTranscript(url: string): Promise<TranscriptResult>` with: call `this.extractVideoId(url)` to get `videoId`, await `this.fetchTranscriptViaPython(videoId)`, throw `AppException(502, 'TRANSCRIPT_UNAVAILABLE', 'Transcript unavailable for this video')` when `transcriptText.trim()` is empty (matching `youtubeService.js:116–118`), and return `{ videoId, ...rest }`; then run `npm run build` inside `backend-nest/` and confirm zero TypeScript errors.
+- [ ] **Wire `fetchTranscript` public method and verify build**
+  - Connect the pieces: extract the video ID from the URL, call the private Python method, and guard against an empty transcript (an empty string from Python counts as a failure)
+  - Return the combined result with the video ID merged in
+  - Run `npm run build` in `backend-nest/` and confirm zero TypeScript errors before calling this step done
 
 ## Migration Progress
 **Completed steps:**
