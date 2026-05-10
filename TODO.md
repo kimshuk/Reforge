@@ -1,22 +1,22 @@
-# Daily Tasks — 2026-05-09
-## Focus: NestJS Migration — Step 5: TranscriptSanitizerService
+# Daily Tasks — 2026-05-10
+## Focus: NestJS Migration — Step 5: TranscriptSanitizerService (continued)
 
 ## Today's 3 Tasks
 
-- [ ] **Define output shape and implement per-snippet text normalization**
-  - Declare TypeScript interfaces for the sanitizer's input (raw snippet array from Python) and its output (`llmTranscriptText`, `segmentIndex`, `cleanedSnippetCount`) so callers have a typed contract to program against
-  - Port the bracket-noise stripping logic: content like `[music]`, `[applause]`, `(laughter)` should be replaced with whitespace, while unrecognized brackets are left intact — the Express-side `BRACKET_NOISE_PATTERN` and `stripBracketNoise` define the exact match list (English and Korean terms)
-  - Collapse excessively repeated Korean onomatopoeia (`ㅋㅋㅋ...` → `ㅋㅋ`, `ㅎㅎㅎ...` → `ㅎㅎ`) and repeated punctuation runs (`!!!` → `!!`), then drop lines that are purely decorative symbols — cross-reference `normalizeText` in `backend/src/services/transcriptSanitizer.js`
+- [ ] **Implement `normalizeText` and `formatTimestamp`**
+  - Port `normalizeText`: strip leading `>` characters, apply bracket-noise removal via the existing `stripBracketNoise`, collapse Korean onomatopoeia runs (`ㅋㅋㅋ…` → `ㅋㅋ`, `ㅎㅎㅎ…` → `ㅎㅎ`), collapse repeated punctuation runs (`!!!` → `!!`), normalize whitespace, and return an empty string for lines that are purely decorative symbols — cross-reference `normalizeText` in `backend/src/services/transcriptSanitizer.js`
+  - Port `formatTimestamp`: convert a raw seconds value to `MM:SS` for videos under an hour, or `H:MM:SS` for longer ones; guard against negative and NaN input by clamping to zero — this function is a named export that `LlmService` will depend on in Step 6
+  - Both functions are pure and side-effect-free; add unit test cases for each (empty input, Korean chars, punctuation runs, sub/super-hour timestamps) so correctness is locally verifiable without running the full pipeline
 
-- [ ] **Implement snippet flattening, sorting, and segment builder**
-  - Accept a typed flat `RawSnippet[]` input (Python always returns a flat list — no recursive flattening needed), filter out items with invalid or negative `start` values, normalize each item's text, and sort the result by `startSec` — cross-reference `sanitizeSnippetList`
-  - Port the two-phase segment grouping: accumulate consecutive snippets into a running segment, and split into a new segment when a natural pause ≥ 2.5 s appears between snippets, or when soft duration/character thresholds (35 s / 320 chars) are exceeded and the segment is already mature, or when hard limits (45 s / 420 chars) are hit regardless — cross-reference `shouldSplitSegment` and `buildSegments`
-  - Assign sequential IDs (`S001`, `S002`, …) to each finalized segment, join its constituent snippet texts with a single space, and format `llmTranscriptText` as one `"S### | MM:SS | text"` line per segment — this is the exact format the LLM prompt expects
+- [ ] **Implement snippet processing and segment building**
+  - Port `sanitizeSnippetList`: iterate raw snippets, skip entries with invalid or negative `start` values, normalize each snippet's text via `normalizeText`, discard snippets that are empty after normalization, then sort the survivors by `startSec` — this produces the clean, ordered input that the segment builder expects
+  - Port `shouldSplitSegment` and `buildSegments` using the exact threshold constants from the Express backend (`pauseSplitSeconds: 2.5`, soft caps at 35 s / 320 chars with a maturity check, hard caps at 45 s / 420 chars); the split decision encodes the intent that segments should be meaningful, self-contained units of speech rather than arbitrary time slices
+  - `buildSegments` must assign sequential IDs (`S001`, `S002`, …), join each segment's constituent snippet texts with a single space, and format `llmTranscriptText` as one `"S### | MM:SS | text"` line per segment — this exact format is what the LLM prompt in Step 6 expects as its transcript input
 
-- [ ] **Wire the public `sanitize` method, export `formatTimestamp`, and verify build**
-  - Replace the throw-stub `sanitize()` with the real method signature: accepts a raw snippet array and returns the typed `SanitizedTranscript` shape by calling the flattening and segment-building helpers in sequence
-  - Export `formatTimestamp` (seconds → `MM:SS` or `H:MM:SS`) from the service as a named export or public method — `LlmService` will need it in Step 6 to resolve YouTube source timestamp citations back to segment start times
-  - Run `npm run build` in `backend-nest/` and confirm zero TypeScript errors before calling this step done
+- [ ] **Wire `sanitize` method, export `formatTimestamp`, and verify build**
+  - Replace the throw-stub `sanitize()` with the real implementation: accept a raw snippet array, call `sanitizeSnippetList` then `buildSegments` in sequence, and return the fully typed `SanitizedTranscript` shape (`llmTranscriptText`, `segmentIndex`, `cleanedSnippetCount`) — this is the only public entry point callers use
+  - Ensure `formatTimestamp` is exported from the module (named export or public method on the service) so `LlmService` can import it in Step 6 without importing the entire service class
+  - Run `npm run build` in `backend-nest/` and confirm zero TypeScript errors; run `npm test` to confirm the existing `stripBracketNoise` spec and any new tests all pass — a clean build is the completion gate for this step
 
 ## Migration Progress
 **Completed steps:**
@@ -25,7 +25,7 @@
 - 3 — AppException class (common/app.exception.ts)
 - 4 — YoutubeService (Python subprocess, URL → transcript text, error classification)
 
-**Current step:** 5 — TranscriptSanitizerService (transcript.sanitizer.ts is still a throw-stub)
+**Current step:** 5 — TranscriptSanitizerService (interfaces + bracket-noise done; normalizeText, formatTimestamp, snippet pipeline, and sanitize() still outstanding)
 
 **Remaining steps:**
 - 6 — LlmService (OpenRouter call + structured output: categories + keywords)
@@ -34,4 +34,4 @@
 - 9 — AppExceptionFilter (finalize { error: { code, message } } envelope + global registration)
 
 ## Why These Tasks
-The three tasks follow the natural compile dependency order within the sanitizer — types first, then pure helper functions, then the public method that ties them together — so each task leaves the codebase in a buildable state and the next task has a stable foundation to build on.
+These three tasks complete Step 5 in dependency order — pure helper functions first (normalizeText, formatTimestamp), then the pipeline that consumes them (snippet processing and segmenting), then the public API that ties everything together — so each task leaves the codebase in a buildable, testable state and Step 6 (LlmService) can start with a fully working sanitizer to call.
