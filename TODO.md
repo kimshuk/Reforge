@@ -9,7 +9,7 @@
   - Collapse excessively repeated Korean onomatopoeia (`ㅋㅋㅋ...` → `ㅋㅋ`, `ㅎㅎㅎ...` → `ㅎㅎ`) and repeated punctuation runs (`!!!` → `!!`), then drop lines that are purely decorative symbols — cross-reference `normalizeText` in `backend/src/services/transcriptSanitizer.js`
 
 - [ ] **Implement snippet flattening, sorting, and segment builder**
-  - Flatten potentially nested raw snippet arrays into a flat list, filter out items with invalid or negative `start` values, normalize each item's text, and sort the result by `startSec` — cross-reference `flattenRawSnippets` and `sanitizeSnippetList`
+  - Accept a typed flat `RawSnippet[]` input (Python always returns a flat list — no recursive flattening needed), filter out items with invalid or negative `start` values, normalize each item's text, and sort the result by `startSec` — cross-reference `sanitizeSnippetList`
   - Port the two-phase segment grouping: accumulate consecutive snippets into a running segment, and split into a new segment when a natural pause ≥ 2.5 s appears between snippets, or when soft duration/character thresholds (35 s / 320 chars) are exceeded and the segment is already mature, or when hard limits (45 s / 420 chars) are hit regardless — cross-reference `shouldSplitSegment` and `buildSegments`
   - Assign sequential IDs (`S001`, `S002`, …) to each finalized segment, join its constituent snippet texts with a single space, and format `llmTranscriptText` as one `"S### | MM:SS | text"` line per segment — this is the exact format the LLM prompt expects
 
