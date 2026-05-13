@@ -1,4 +1,4 @@
-# Daily Tasks — 2026-05-12
+# Daily Tasks — 2026-05-13
 ## Focus: NestJS Migration — Step 5: TranscriptSanitizerService
 
 ## Today's 3 Tasks
@@ -34,4 +34,4 @@
 - 9 — AppExceptionFilter (finalize { error: { code, message } } envelope + global registration)
 
 ## Why These Tasks
-Step 5 is the blocking dependency for all downstream steps — nothing in Steps 6–9 can be built until the sanitizer produces a valid `SanitizedTranscript`. The three tasks are ordered by internal dependency: pure helpers first (no imports from this file), then the pipeline that consumes them, then the public `sanitize()` method and `formatTimestamp` export that seal the contract for future callers.
+Step 5 is the blocking dependency for all downstream steps — `LlmService` needs `formatTimestamp` to format the prompt, and `AnalyzeService` needs a working `sanitize()` to produce the transcript text it passes to the LLM. The three tasks are ordered by internal dependency: pure helpers first (no intra-file imports), then the pipeline that consumes them, then the public `sanitize()` method and `formatTimestamp` export that seal the contract for Steps 6–7.
