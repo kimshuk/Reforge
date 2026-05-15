@@ -115,6 +115,109 @@ function sanitizeSnippetList(rawSnippets: RawSnippet[]): CleanSnippet[] {
   return snippets;
 }
 
+function shouldSplitSegment(
+  segment: ActiveSegment,
+  next: CleanSnippet,
+  cfg: Required<SegmentOptions>,
+): boolean {
+  const pause = next.startSec - segment.endSec;
+  if (pause > cfg.pauseSplitSeconds) {
+    return true;
+  }
+
+  const nextEnd = Math.max(segment.endSec, next.endSec);
+  const nextDuration = nextEnd - segment.startSec;
+  const nextChars = segment.charCount + 1 + next.text.length;
+
+  if (nextDuration > cfg.maxSegmentSeconds || nextChars > cfg.maxSegmentChars) {
+    const readyToSplit =
+      segment.duration >= cfg.minSegmentSeconds ||
+      segment.charCount >= cfg.minSegmentChars;
+    if (readyToSplit) {
+      return true;
+    }
+
+    if (
+      nextDuration > cfg.hardMaxSegmentSeconds ||
+      nextChars > cfg.hardMaxSegmentChars
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function buildSegments(
+  snippets: CleanSnippet[],
+  options?: SegmentOptions,
+): { llmTranscriptText: string; segmentIndex: SegmentIndexEntry[] } {
+  const cfg: Required<SegmentOptions> = { ...DEFAULTS, ...options };
+  const finalized: Array<{ startSec: number; endSec: number; text: string }> = [];
+  let current: ActiveSegment | null = null;
+
+  const finalizeCurrent = () => {
+    if (!current || !current.parts.length) {
+      current = null;
+      return;
+    }
+
+    const text = current.parts.join(' ').replace(/\s+/g, ' ').trim();
+    if (!text) {
+      current = null;
+      return;
+    }
+
+    finalized.push({ startSec: current.startSec, endSec: current.endSec, text });
+    current = null;
+  };
+
+  for (const snippet of snippets) {
+    if (!current) {
+      current = {
+        startSec: snippet.startSec,
+        endSec: snippet.endSec,
+        parts: [snippet.text],
+        charCount: snippet.text.length,
+        duration: Math.max(0, snippet.endSec - snippet.startSec),
+      };
+      continue;
+    }
+
+    if (shouldSplitSegment(current, snippet, cfg)) {
+      finalizeCurrent();
+      current = {
+        startSec: snippet.startSec,
+        endSec: snippet.endSec,
+        parts: [snippet.text],
+        charCount: snippet.text.length,
+        duration: Math.max(0, snippet.endSec - snippet.startSec),
+      };
+      continue;
+    }
+
+    current.parts.push(snippet.text);
+    current.endSec = Math.max(current.endSec, snippet.endSec);
+    current.charCount += 1 + snippet.text.length;
+    current.duration = Math.max(0, current.endSec - current.startSec);
+  }
+
+  finalizeCurrent();
+
+  const segmentIndex: SegmentIndexEntry[] = finalized.map((seg, i) => ({
+    id: `S${String(i + 1).padStart(3, '0')}`,
+    startSec: seg.startSec,
+    endSec: seg.endSec,
+    text: seg.text,
+  }));
+
+  const llmTranscriptText = segmentIndex
+    .map((seg) => `${seg.id} | ${formatTimestamp(seg.startSec)} | ${seg.text}`)
+    .join('\n');
+
+  return { llmTranscriptText, segmentIndex };
+}
+
 export interface SegmentIndexEntry {
   id: string; // e.g. "S001", "S002"
   startSec: number;
