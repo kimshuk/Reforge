@@ -74,7 +74,7 @@ function normalizeText(input: string | undefined): string {
 }
 
 function formatTimestamp(totalSeconds: number): string {
-  const seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  const seconds = Math.max(0, Number.isFinite(totalSeconds) ? Math.floor(totalSeconds) : 0);
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
