@@ -25,10 +25,10 @@ function normalizeText(input: string | undefined): string {
   }
 
   let text = input;
-  text = text.replace(/^\s*>+\s*/g, ' ');
+  text = text.replace(/^\s*>+\s*/, ' ');
   text = stripBracketNoise(text);
-  text = text.replace(/(ㅋ){3,}/g, '');
-  text = text.replace(/(ㅎ){3,}/g, '');
+  text = text.replace(/ㅋ{3,}/g, '');
+  text = text.replace(/ㅎ{3,}/g, '');
   text = text.replace(/([!?.,~])\1{2,}/g, '$1$1');
   text = text.replace(/\s+/g, ' ').trim();
 
