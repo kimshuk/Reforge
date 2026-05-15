@@ -152,7 +152,15 @@ function buildSegments(
   snippets: CleanSnippet[],
   options?: SegmentOptions,
 ): { llmTranscriptText: string; segmentIndex: SegmentIndexEntry[] } {
-  const cfg: Required<SegmentOptions> = { ...DEFAULTS, ...options };
+  const cfg: Required<SegmentOptions> = {
+    minSegmentSeconds:     options?.minSegmentSeconds     ?? DEFAULTS.minSegmentSeconds,
+    maxSegmentSeconds:     options?.maxSegmentSeconds     ?? DEFAULTS.maxSegmentSeconds,
+    hardMaxSegmentSeconds: options?.hardMaxSegmentSeconds ?? DEFAULTS.hardMaxSegmentSeconds,
+    minSegmentChars:       options?.minSegmentChars       ?? DEFAULTS.minSegmentChars,
+    maxSegmentChars:       options?.maxSegmentChars       ?? DEFAULTS.maxSegmentChars,
+    hardMaxSegmentChars:   options?.hardMaxSegmentChars   ?? DEFAULTS.hardMaxSegmentChars,
+    pauseSplitSeconds:     options?.pauseSplitSeconds     ?? DEFAULTS.pauseSplitSeconds,
+  };
   const finalized: Array<{ startSec: number; endSec: number; text: string }> = [];
   let current: ActiveSegment | null = null;
 
