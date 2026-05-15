@@ -19,6 +19,26 @@ export function stripBracketNoise(text: string): string {
     );
 }
 
+function normalizeText(input: string | undefined): string {
+  if (typeof input !== 'string') {
+    return '';
+  }
+
+  let text = input;
+  text = text.replace(/^\s*>+\s*/g, ' ');
+  text = stripBracketNoise(text);
+  text = text.replace(/(ㅋ){3,}/g, '');
+  text = text.replace(/(ㅎ){3,}/g, '');
+  text = text.replace(/([!?.,~])\1{2,}/g, '$1$1');
+  text = text.replace(/\s+/g, ' ').trim();
+
+  if (/^[>|~\-_=.,!?]+$/.test(text)) {
+    return '';
+  }
+
+  return text;
+}
+
 export interface SegmentIndexEntry {
   id: string; // e.g. "S001", "S002"
   startSec: number;
