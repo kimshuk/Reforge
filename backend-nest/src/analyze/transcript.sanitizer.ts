@@ -9,6 +9,40 @@ export interface RawSnippet {
   text?: string;
 }
 
+export interface SegmentOptions {
+  minSegmentSeconds?: number;
+  maxSegmentSeconds?: number;
+  hardMaxSegmentSeconds?: number;
+  minSegmentChars?: number;
+  maxSegmentChars?: number;
+  hardMaxSegmentChars?: number;
+  pauseSplitSeconds?: number;
+}
+
+const DEFAULTS: Required<SegmentOptions> = {
+  minSegmentSeconds: 20,
+  maxSegmentSeconds: 35,
+  hardMaxSegmentSeconds: 45,
+  minSegmentChars: 180,
+  maxSegmentChars: 320,
+  hardMaxSegmentChars: 420,
+  pauseSplitSeconds: 2.5,
+};
+
+interface CleanSnippet {
+  startSec: number;
+  endSec: number;
+  text: string;
+}
+
+interface ActiveSegment {
+  startSec: number;
+  endSec: number;
+  parts: string[];
+  charCount: number;
+  duration: number;
+}
+
 export function stripBracketNoise(text: string): string {
   return text
     .replace(/\[([^\]]{1,30})\]/g, (match: string, content: string) =>
