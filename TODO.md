@@ -1,4 +1,4 @@
-# Daily Tasks — 2026-05-16
+# Daily Tasks — 2026-05-17
 ## Focus: NestJS Migration — Step 5: TranscriptSanitizerService
 
 ## Today's 3 Tasks
@@ -10,8 +10,9 @@
 
 - [ ] **Implement the snippet pipeline: flatten, filter, sort, and segment**
   - Port `flattenRawSnippets` (recursively collapses arbitrarily nested arrays into a flat list of snippet objects) and `sanitizeSnippetList` (rejects snippets whose `start` is non-finite or negative, normalizes each snippet's text through `normalizeText`, drops results with empty text, computes `endSec` as `start + duration`, and sorts the survivors ascending by `startSec`) — these two together produce the clean ordered list that `buildSegments` consumes
+  - Note: the Express backend's `normalizeText` collapses Korean laugh/hype characters (`ㅋ{3,}` → `ㅋㅋ`, `ㅎ{3,}` → `ㅎㅎ`) rather than deleting them entirely — match this behavior exactly, as the current NestJS stub removes them, which is a divergence from the reference
   - Port `shouldSplitSegment` and `buildSegments` using the threshold constants from the Express backend: a pause greater than 2.5 s between snippets triggers an unconditional split; soft caps at 35 s / 320 chars trigger a split only when the segment has already matured past 20 s / 180 chars; hard caps at 45 s / 420 chars force a split regardless of maturity — these rules keep segments semantically coherent rather than cutting at arbitrary boundaries
-  - `buildSegments` must produce sequential IDs (`S001`, `S002`, …), join each segment's parts with a single space, and format the final `llmTranscriptText` as one `"S### | MM:SS | text"` line per segment using `formatTimestamp` — this exact string is what `AnalyzeService` will pass to `LlmService` in the next steps
+  - `buildSegments` must produce sequential IDs (`S001`, `S002`, …), join each segment's parts with a single space, and format the final `llmTranscriptText` as one `"S### | MM:SS | text"` line per segment using `formatTimestamp` — this exact string is what `AnalyzeService` will pass to `LlmService` in the next step
 
 - [ ] **Wire `sanitize()` and verify clean build**
   - Replace the `sanitize()` throw-stub with a real implementation: accept a `RawSnippet[]`, run it through `sanitizeSnippetList` then `buildSegments`, and return a `SanitizedTranscript` (`llmTranscriptText`, `segmentIndex`, `cleanedSnippetCount`) — this is the only public method `AnalyzeService` will call, so its return shape must match the interface already defined in the file
@@ -34,4 +35,4 @@
 - 9 — AppExceptionFilter (finalize { error: { code, message } } envelope + global registration)
 
 ## Why These Tasks
-Step 5's three remaining pieces have a strict internal dependency order — `formatTimestamp` must exist before `buildSegments` can call it, and the full pipeline must be wired before `sanitize()` can delegate to it — so the tasks follow that order and each one's completion gate feeds directly into the next.
+Step 5's three remaining pieces have a strict internal dependency order — `formatTimestamp` must exist before `buildSegments` can call it, and the full pipeline must be wired before `sanitize()` can delegate to it — so the tasks follow that order and each one's completion gate feeds directly into the next. A `normalizeText` behavioral divergence (Korean character collapsing) was also identified against the Express reference and is called out explicitly in Task 2 to prevent a silent bug from propagating into LlmService's input.
