@@ -53,7 +53,7 @@ export function stripBracketNoise(text: string): string {
     );
 }
 
-function normalizeText(input: string | undefined): string {
+export function normalizeText(input: string | undefined): string {
   if (typeof input !== 'string') {
     return '';
   }
@@ -61,8 +61,8 @@ function normalizeText(input: string | undefined): string {
   let text = input;
   text = text.replace(/^\s*>+\s*/, ' ');
   text = stripBracketNoise(text);
-  text = text.replace(/ㅋ{3,}/g, '');
-  text = text.replace(/ㅎ{3,}/g, '');
+  text = text.replace(/ㅋ{3,}/g, 'ㅋㅋ');
+  text = text.replace(/ㅎ{3,}/g, 'ㅎㅎ');
   text = text.replace(/([!?.,~])\1{2,}/g, '$1$1');
   text = text.replace(/\s+/g, ' ').trim();
 
@@ -73,7 +73,7 @@ function normalizeText(input: string | undefined): string {
   return text;
 }
 
-function formatTimestamp(totalSeconds: number): string {
+export function formatTimestamp(totalSeconds: number): string {
   const seconds = Math.max(0, Number.isFinite(totalSeconds) ? Math.floor(totalSeconds) : 0);
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
