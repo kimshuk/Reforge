@@ -1,22 +1,22 @@
-# Daily Tasks — 2026-05-18
-## Focus: NestJS Migration — Step 5: TranscriptSanitizerService
+# Daily Tasks — 2026-05-19
+## Focus: NestJS Migration — Step 5 (finish) → Step 6: LlmService (start)
 
 ## Today's 3 Tasks
 
-- [ ] **Fix `normalizeText` divergence and implement `formatTimestamp`**
-  - The current `normalizeText` implementation silently diverges from the Express reference: it deletes Korean laugh/hype runs (`ㅋ{3,}`, `ㅎ{3,}`) entirely rather than collapsing them to double characters (`ㅋㅋ`, `ㅎㅎ`). Fix this now before the pipeline is wired, so the bug doesn't propagate silently into LLM input.
-  - Implement `formatTimestamp` as a module-level export (not enclosed in the class): convert raw seconds to `MM:SS` for videos under an hour, or `H:MM:SS` for videos at or beyond 3600 s. The exact string it produces is embedded in every segment line sent to the LLM, so it must match the Express backend exactly.
-  - Add or extend unit tests to cover `formatTimestamp` (sub-hour, super-hour, zero, non-numeric input) and the corrected Korean-collapsing behavior in `normalizeText` — all tests green is the completion gate for this task.
+- [ ] **Complete Step 5: Wire `sanitize()` and verify clean build**
+  - Replace the `sanitize()` throw-stub in `TranscriptSanitizer` with a real implementation that accepts `RawSnippet[]`, passes it through `sanitizeSnippetList` and then `buildSegments`, and returns a `SanitizedTranscript` — this is the only public surface `AnalyzeService` will call, so getting its shape right now avoids a breaking change later.
+  - Confirm `formatTimestamp` remains exported at module level (not enclosed in the class), since `LlmService` will import it as a standalone utility for source resolution in Step 6.
+  - Run `npm run build` and `npm test` in `backend-nest/` with zero errors and all tests green — this is the hard gate that closes Step 5 and unlocks Step 6.
 
-- [ ] **Implement the snippet pipeline: flatten, filter, sort, and segment**
-  - Implement `flattenRawSnippets` (recursively collapses arbitrarily nested arrays into a flat list of snippet objects) and `sanitizeSnippetList` (rejects snippets with non-finite or negative `start`, normalizes each snippet's text through `normalizeText`, drops results with empty text, computes `endSec` as `start + duration`, and sorts survivors ascending by `startSec`) — these two produce the clean ordered list that `buildSegments` consumes.
-  - Implement `shouldSplitSegment` and `buildSegments` using the same threshold constants as the Express backend: a pause greater than 2.5 s triggers an unconditional split; soft caps at 35 s / 320 chars trigger a split only when the segment has matured past 20 s / 180 chars; hard caps at 45 s / 420 chars force a split regardless of maturity.
-  - `buildSegments` must produce sequential `S001`/`S002`/… IDs, join each segment's parts with a single space, and format `llmTranscriptText` as one `"S### | MM:SS | text"` line per segment using `formatTimestamp` — this exact string format is what `AnalyzeService` will pass to `LlmService` in Step 6.
+- [ ] **Step 6 scaffold: define output types, JSON schema, and prompt builder**
+  - Define TypeScript interfaces for the structured LLM output — `AnalysisPayload`, `Category`, `Keyword`, and `Source` — mirroring the shape described in the Express `promptBuilder.js` JSON schema (`CATEGORY_EXTRACTION_SCHEMA`). These types are the contract between `LlmService` and `AnalyzeService`.
+  - Implement `CATEGORY_EXTRACTION_SCHEMA` as a typed constant and `buildCategoryExtractionPrompt()` as a module-level function in `llm.service.ts`, replicating the system prompt and user message structure from the Express reference exactly — the prompt text itself is what drives model output quality, so divergence here silently degrades results.
+  - Keep both the schema and prompt builder as non-class exports within `llm.service.ts` (no separate file needed), so `LlmService` can import them directly in Task 3.
 
-- [ ] **Wire `sanitize()` and verify clean build**
-  - Replace the `sanitize()` throw-stub with a real implementation: accept `RawSnippet[]`, run it through `sanitizeSnippetList` then `buildSegments`, and return a `SanitizedTranscript` (`llmTranscriptText`, `segmentIndex`, `cleanedSnippetCount`) — this is the only public method `AnalyzeService` will call, so its return shape must match the interface already defined in the file.
-  - Confirm `formatTimestamp` remains exported at module level (not enclosed inside the class), since `LlmService` will import it directly as a standalone utility in Step 6.
-  - Run `npm run build` in `backend-nest/` and confirm zero TypeScript errors; run `npm test` to confirm all existing and new tests pass — a clean build and green tests are the completion gate for Step 5 and unlock Step 6 (LlmService).
+- [ ] **Step 6 core: implement OpenRouter call and YouTube source resolution**
+  - Implement the main `analyzeCategories()` method on `LlmService` using OpenRouter's OpenAI-compatible HTTP API (base URL `https://openrouter.ai/api/v1`, model `openai/gpt-4o-mini`); structure the call to use JSON schema structured output the same way the Express backend does via `text.format`, and map HTTP/API error shapes (401, 429, `context_length_exceeded`, 400, other) to the corresponding `AppException` codes (`OPENAI_AUTH_ERROR`, `OPENAI_QUOTA_OR_RATE_LIMIT`, `OPENAI_CONTEXT_LENGTH_EXCEEDED`, `OPENAI_BAD_REQUEST`).
+  - Implement `resolveYoutubeSources()` as a private method: build a lookup map from `formatTimestamp(segment.startSec)` → segment, then for every keyword in the payload validate that `source.type === 'youtube'`, that `source.ref` matches the `MM:SS` or `H:MM:SS` timestamp pattern, and that the timestamp exists in the map — throw `AppException(502, 'OPENAI_INVALID_SOURCE_REF', ...)` on any violation. Replace `source.ref` with the full YouTube timestamp URL (`?t=<sec>s`) before returning.
+  - Validate the final payload: confirm `sourceType` matches the input `transcriptType`, that `categories` is a non-empty array, and that `parseStructuredOutput()` strips any markdown code fences before JSON parsing — these guards prevent silent garbage from reaching the iOS client.
 
 ## Migration Progress
 **Completed steps:**
@@ -25,13 +25,13 @@
 - 3 — AppException class (common/app.exception.ts)
 - 4 — YoutubeService (Python subprocess, URL → transcript text, error classification)
 
-**Current step:** 5 — TranscriptSanitizerService (`stripBracketNoise` and `normalizeText` scaffolded; `normalizeText` has a Korean-char divergence bug; `formatTimestamp`, snippet pipeline, and `sanitize()` all still outstanding)
+**Current step:** 5 → 6 — TranscriptSanitizerService (one stub remaining: `sanitize()`) → LlmService (OpenRouter call + structured output)
 
 **Remaining steps:**
-- 6 — LlmService (OpenRouter call + structured output: categories + keywords)
+- 6 — LlmService (OpenRouter call + structured output: categories + keywords) — *started today*
 - 7 — AnalyzeService (orchestrate URL → youtube → sanitize → llm, or text → sanitize → llm)
 - 8 — AnalyzeController (POST /analyze with SSE streaming)
 - 9 — AppExceptionFilter (finalize { error: { code, message } } envelope + global registration)
 
 ## Why These Tasks
-Task 1 fixes a pre-existing behavioral bug and establishes `formatTimestamp`, which Task 2 depends on directly inside `buildSegments`. Task 3 then wires the completed pipeline through the public `sanitize()` method and gates the whole step with a clean build, ensuring nothing moves forward on a broken foundation.
+Task 1 is a single-file finishing move that closes Step 5 and unlocks the rest of the pipeline. Tasks 2 and 3 front-load Step 6's two hardest surfaces — the prompt contract and the source resolution logic — so that AnalyzeService (Step 7) can wire them together without revisiting LlmService internals.
