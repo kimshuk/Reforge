@@ -1,4 +1,4 @@
-# Daily Tasks — 2026-06-03
+# Daily Tasks — 2026-06-04
 ## Focus: NestJS Migration — Step 5: TranscriptSanitizerService
 
 ## Today's 3 Tasks
@@ -34,4 +34,4 @@
 - 9 — AppExceptionFilter (finalize `{ error: { code, message } }` envelope + global registration)
 
 ## Why These Tasks
-All three Step 5 items remain unimplemented after two days; none can be skipped because `LlmService` and `AnalyzeService` both depend on a working, injectable `TranscriptSanitizer` before anything downstream can be built or tested.
+Step 5 carried over from 2026-06-03 with all three tasks still unfinished; `LlmService` and `AnalyzeService` both depend on a working, injectable `TranscriptSanitizer` before anything downstream can be built or tested, so nothing in steps 6–9 can proceed until these are done.
