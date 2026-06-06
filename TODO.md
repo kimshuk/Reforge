@@ -1,15 +1,15 @@
-# Daily Tasks — 2026-06-05
+# Daily Tasks — 2026-06-06
 ## Focus: NestJS Migration — Step 5: TranscriptSanitizerService
 
 ## Today's 3 Tasks
 
 - [ ] **Implement `TranscriptSanitizer.sanitize()`**
   - The class body currently throws `not implemented`; the two module-level helpers (`sanitizeSnippetList`, `buildSegments`) are fully written and just need to be called in sequence from `sanitize()`
-  - The method signature must accept `RawSnippet[]` as its first argument and an optional `SegmentOptions` object as a second; `cleanedSnippetCount` should be captured as the length of the cleaned array before it is passed to `buildSegments`, since that count reflects how many raw snippets survived the cleaning step — not how many output segments were produced
+  - The method must accept `RawSnippet[]` as its first argument and an optional `SegmentOptions` object as a second; capture `cleanedSnippetCount` as the length of the cleaned snippet array before passing it to `buildSegments` — this reflects how many raw snippets survived filtering, not how many output segments were produced
   - Done when `sanitize()` returns a `SanitizedTranscript` with all three fields (`llmTranscriptText`, `segmentIndex`, `cleanedSnippetCount`) and `npm run build` inside `backend-nest/` exits cleanly
 
 - [ ] **Export `TranscriptSanitizer` from `AnalyzeModule`**
-  - NestJS does not make a module's providers available outside the module unless they are listed in an `exports` array — without this, `AnalyzeService` (Step 7) will fail at runtime with a dependency injection error even though the provider is declared in `providers`
+  - NestJS does not make a module's providers available to other modules unless they appear in an `exports` array — without this, `AnalyzeService` (Step 7) will fail at runtime with a dependency injection error even though `TranscriptSanitizer` is declared in `providers`
   - The change is a single-line addition to `analyze.module.ts`: an `exports: [TranscriptSanitizer]` entry alongside the existing `providers` array
   - Done when `analyze.module.ts` has an `exports` field containing `TranscriptSanitizer` and `npm run build` still passes
 
@@ -34,4 +34,4 @@
 - 9 — AppExceptionFilter (finalize `{ error: { code, message } }` envelope + global registration)
 
 ## Why These Tasks
-All three Step 5 tasks carried over from 2026-06-04 with no progress; `sanitize()` must be implemented and exported before `LlmService` and `AnalyzeService` (steps 6–7) can be built or meaningfully tested, so nothing downstream can advance until this step is closed out.
+All three Step 5 tasks remain unstarted; `sanitize()` must be implemented and exported before `LlmService` and `AnalyzeService` (steps 6–7) can be built or meaningfully tested, so nothing downstream can advance until this step is closed out.
