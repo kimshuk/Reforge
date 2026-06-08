@@ -1,21 +1,21 @@
-# Daily Tasks — 2026-06-07
+# Daily Tasks — 2026-06-08
 ## Focus: NestJS Migration — Step 5: TranscriptSanitizerService
 
 ## Today's 3 Tasks
 
 - [ ] **Implement `TranscriptSanitizer.sanitize()`**
-  - All the heavy lifting (filtering snippets, merging them into timed segments, formatting the LLM-ready transcript) is already written as module-level helpers; the class method just needs to call them in sequence and return the combined result
-  - The method signature should accept `RawSnippet[]` and an optional `SegmentOptions` object — capture the cleaned snippet count from the output of the first helper before passing its result to the second, since that count reflects how many raw snippets survived filtering (not how many segments were produced)
-  - Done when `sanitize()` returns a `SanitizedTranscript` with all three fields populated and `npm run build` inside `backend-nest/` exits without errors
+  - The helper functions (`sanitizeSnippetList`, `buildSegments`) are fully implemented as module-level functions; `sanitize()` just needs to call them in sequence, capture the cleaned snippet count from the first helper's output, and return a `SanitizedTranscript` with all three fields populated (`llmTranscriptText`, `segmentIndex`, `cleanedSnippetCount`)
+  - The `cleanedSnippetCount` must be taken from the intermediate cleaned snippet array (after filtering) rather than from the final segment count — these two numbers differ whenever multiple snippets merge into one segment
+  - Done when calling `sanitize(rawSnippets)` returns a valid `SanitizedTranscript` and `npm run build` inside `backend-nest/` exits cleanly
 
 - [ ] **Export `TranscriptSanitizer` from `AnalyzeModule`**
-  - NestJS only makes a module's providers available to other modules when they appear in an explicit `exports` array — without this, any future service that injects `TranscriptSanitizer` will fail at runtime with a dependency-injection error even though the class is declared in `providers`
-  - The fix is a single-line addition to `analyze.module.ts`: add an `exports: [TranscriptSanitizer]` entry alongside the existing `providers` array
-  - Done when `analyze.module.ts` has an `exports` field containing `TranscriptSanitizer` and `npm run build` still passes cleanly
+  - NestJS dependency injection only makes a module's providers available outside that module when they appear in an explicit `exports` array — without this, any service in another module that injects `TranscriptSanitizer` will fail at runtime even though it is declared in `providers`
+  - Add `exports: [TranscriptSanitizer]` to `analyze.module.ts` alongside the existing `providers` array — this is the only change needed
+  - Done when `analyze.module.ts` contains an `exports` field with `TranscriptSanitizer` and `npm run build` still passes
 
-- [ ] **Add class-level tests for `TranscriptSanitizer.sanitize()` to the existing spec file**
-  - The spec currently only exercises the three standalone helper exports; the `TranscriptSanitizer` class itself is untested, so a wiring mistake in `sanitize()` would go undetected by the test suite
-  - Add a `describe('TranscriptSanitizer.sanitize')` block that instantiates the class directly (no DI bootstrap needed) and covers: a happy-path call verifying the correct `cleanedSnippetCount`, that each `segmentIndex` entry has `id`, `startSec`, `endSec`, and `text`, and that `llmTranscriptText` lines follow the `S001 | MM:SS | text` format; an empty-array input returning zero snippets; and a batch where every snippet is filtered (bad timestamps or noise-only text), expecting `cleanedSnippetCount === 0`
+- [ ] **Add class-level tests for `TranscriptSanitizer.sanitize()` to the existing spec**
+  - The spec currently only exercises the three standalone helper exports; the `TranscriptSanitizer` class is untested, so a wiring mistake in `sanitize()` would go undetected
+  - Add a `describe('TranscriptSanitizer.sanitize')` block that instantiates the class directly (no DI bootstrap needed) and covers: a happy-path call verifying `cleanedSnippetCount`, that each `segmentIndex` entry has `id`, `startSec`, `endSec`, and `text`, and that `llmTranscriptText` lines follow the `S001 | MM:SS | text` format; an empty-array input returning zero snippets and an empty string; and a batch where every snippet is filtered (bad timestamps or noise-only text), expecting `cleanedSnippetCount === 0` and an empty result
   - Done when `npm test` inside `backend-nest/` shows the new describe block passing alongside all existing helper tests
 
 ## Migration Progress
@@ -34,4 +34,4 @@
 - 9 — AppExceptionFilter (finalize `{ error: { code, message } }` envelope + global registration)
 
 ## Why These Tasks
-Step 5 remains unfinished from yesterday — `sanitize()` still throws `not implemented` and `AnalyzeModule` lacks an `exports` array — so nothing in steps 6 or 7 can be built or tested until these three tasks are closed out.
+Step 5 carried over from yesterday with all three tasks still open — `sanitize()` still throws, the module exports no providers, and the spec has no class-level coverage — so nothing in steps 6 or 7 can be built or injected correctly until these three tasks are closed out first.
