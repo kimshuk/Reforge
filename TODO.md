@@ -1,20 +1,20 @@
-# Daily Tasks — 2026-06-11
+# Daily Tasks — 2026-06-12
 ## Focus: NestJS Migration — Step 5: TranscriptSanitizerService
 
 ## Today's 3 Tasks
 
 - [ ] **Implement `TranscriptSanitizer.sanitize(rawSnippets)`**
-  - The two private helpers `sanitizeSnippetList` and `buildSegments` are already fully implemented in the same file — `sanitize()` just needs to wire them together in sequence and return the `SanitizedTranscript` shape
-  - Capture `cleanedSnippetCount` from the length of the list returned by `sanitizeSnippetList` before passing it into `buildSegments`, because segment merging can produce a very different count and the field must reflect the number of *clean input snippets*, not the number of output segments
+  - The two private helpers `sanitizeSnippetList` and `buildSegments` are fully implemented in the same file — `sanitize()` just needs to accept `RawSnippet[]`, call them in sequence, and return the `SanitizedTranscript` shape
+  - Capture `cleanedSnippetCount` from the length of the list returned by `sanitizeSnippetList` before handing it to `buildSegments`, because segment merging can produce a very different count and the field must reflect the number of *clean input snippets*, not the number of output segments
   - Done when `sanitize(rawSnippets: RawSnippet[])` returns a `SanitizedTranscript` with all three fields populated and `npm run build` inside `backend-nest/` exits cleanly
 
 - [ ] **Export `TranscriptSanitizer` from `AnalyzeModule`**
-  - NestJS only allows cross-module injection for providers that are explicitly listed in the module's `exports` array — without this, `AnalyzeService` (Step 7) will fail at runtime when it tries to inject `TranscriptSanitizer`, even though the class is declared in `providers`
+  - NestJS only allows cross-module injection for providers listed explicitly in the module's `exports` array — without this, `AnalyzeService` (Step 7) will fail at runtime when it tries to inject `TranscriptSanitizer`, even though the class is declared in `providers`
   - Add `exports: [TranscriptSanitizer]` to the `@Module` decorator in `analyze.module.ts`; no other file needs to change for this task
   - Done when `analyze.module.ts` carries the `exports` field alongside its existing `providers` and `npm run build` still passes
 
 - [ ] **Add class-level tests to the existing `TranscriptSanitizer` spec**
-  - The spec currently only tests the three exported helper functions; the `TranscriptSanitizer` class itself is untested, meaning a wiring mistake in `sanitize()` — wrong argument order, wrong field name, missing count — would go undetected
+  - The spec currently only covers the three exported helper functions; the `TranscriptSanitizer` class itself is untested, meaning a wiring mistake in `sanitize()` — wrong argument order, wrong field name, missing count — would go undetected
   - Instantiate `TranscriptSanitizer` directly (no NestJS DI bootstrap needed) and cover three cases: a happy-path call with valid snippets verifying that `cleanedSnippetCount` is correct, that each `segmentIndex` entry has `id`/`startSec`/`endSec`/`text`, and that `llmTranscriptText` lines follow the `S001 | MM:SS | text` format; an empty-array input returning zero snippets and an empty `llmTranscriptText`; a batch where every snippet is invalid or noise-only, expecting `cleanedSnippetCount === 0` and empty output
   - Done when `npm test` inside `backend-nest/` shows the new `TranscriptSanitizer` describe block passing alongside all pre-existing helper tests
 
@@ -34,4 +34,4 @@
 - 9 — AppExceptionFilter (finalize `{ error: { code, message } }` envelope + global registration)
 
 ## Why These Tasks
-All three Step 5 tasks carry over from yesterday with no progress — `sanitize()` still throws, the module has no exports array, and the spec has no class-level coverage. Steps 6 and 7 both depend on `TranscriptSanitizer` being injectable and verifiably correct, so these three tasks must close before any downstream work can begin.
+All three Step 5 tasks carry over with no progress from the previous two days — `sanitize()` still throws, the module has no exports array, and the spec has no class-level coverage. Steps 6 and 7 both depend on `TranscriptSanitizer` being injectable and verifiably correct, so these tasks must close before any downstream work can begin.
