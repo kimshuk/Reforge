@@ -1,15 +1,15 @@
-# Daily Tasks — 2026-06-12
+# Daily Tasks — 2026-06-13
 ## Focus: NestJS Migration — Step 5: TranscriptSanitizerService
 
 ## Today's 3 Tasks
 
-- [ ] **Implement `TranscriptSanitizer.sanitize(rawSnippets)`**
-  - The two private helpers `sanitizeSnippetList` and `buildSegments` are fully implemented in the same file — `sanitize()` just needs to accept `RawSnippet[]`, call them in sequence, and return the `SanitizedTranscript` shape
-  - Capture `cleanedSnippetCount` from the length of the list returned by `sanitizeSnippetList` before handing it to `buildSegments`, because segment merging can produce a very different count and the field must reflect the number of *clean input snippets*, not the number of output segments
+- [ ] **Implement `TranscriptSanitizer.sanitize()`**
+  - The two private helpers `sanitizeSnippetList` and `buildSegments` are fully implemented in the same file — `sanitize()` needs to accept `RawSnippet[]`, call them in sequence, and return the `SanitizedTranscript` shape
+  - Capture `cleanedSnippetCount` from the length of the list returned by `sanitizeSnippetList` *before* passing it to `buildSegments`, because segment merging can produce a very different count and the field must reflect the number of clean input snippets, not output segments
   - Done when `sanitize(rawSnippets: RawSnippet[])` returns a `SanitizedTranscript` with all three fields populated and `npm run build` inside `backend-nest/` exits cleanly
 
 - [ ] **Export `TranscriptSanitizer` from `AnalyzeModule`**
-  - NestJS only allows cross-module injection for providers listed explicitly in the module's `exports` array — without this, `AnalyzeService` (Step 7) will fail at runtime when it tries to inject `TranscriptSanitizer`, even though the class is declared in `providers`
+  - NestJS only allows cross-module injection for providers listed explicitly in a module's `exports` array — without this, `AnalyzeService` (Step 7) will fail at runtime when it tries to inject `TranscriptSanitizer`, even though the class is declared in `providers`
   - Add `exports: [TranscriptSanitizer]` to the `@Module` decorator in `analyze.module.ts`; no other file needs to change for this task
   - Done when `analyze.module.ts` carries the `exports` field alongside its existing `providers` and `npm run build` still passes
 
@@ -34,4 +34,4 @@
 - 9 — AppExceptionFilter (finalize `{ error: { code, message } }` envelope + global registration)
 
 ## Why These Tasks
-All three Step 5 tasks carry over with no progress from the previous two days — `sanitize()` still throws, the module has no exports array, and the spec has no class-level coverage. Steps 6 and 7 both depend on `TranscriptSanitizer` being injectable and verifiably correct, so these tasks must close before any downstream work can begin.
+Step 5 remains the blocker: `sanitize()` still throws, the module has no exports array, and the spec has no class-level coverage. Steps 6 and 7 both depend on `TranscriptSanitizer` being injectable and verifiably correct, so these three tasks must close before any downstream work begins.
