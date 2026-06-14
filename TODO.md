@@ -1,4 +1,4 @@
-# Daily Tasks — 2026-06-13
+# Daily Tasks — 2026-06-14
 ## Focus: NestJS Migration — Step 5: TranscriptSanitizerService
 
 ## Today's 3 Tasks
@@ -34,4 +34,4 @@
 - 9 — AppExceptionFilter (finalize `{ error: { code, message } }` envelope + global registration)
 
 ## Why These Tasks
-Step 5 remains the blocker: `sanitize()` still throws, the module has no exports array, and the spec has no class-level coverage. Steps 6 and 7 both depend on `TranscriptSanitizer` being injectable and verifiably correct, so these three tasks must close before any downstream work begins.
+Step 5 remains the blocker: `sanitize()` still throws, the module has no `exports` array, and the spec has no class-level coverage. Steps 6 and 7 both depend on `TranscriptSanitizer` being injectable and verifiably correct, so these three tasks must close before any downstream work begins.
