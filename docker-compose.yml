@@ -1,0 +1,62 @@
+services:
+  backend-nest:
+    build:
+      context: ./backend-nest
+    command: npm run dev
+    environment:
+      PORT: ${PORT:-3000}
+      DATABASE_URL: ${DATABASE_URL:-postgres://reforge:reforge@postgres:5432/reforge}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      TYPEORM_MIGRATIONS_RUN: ${TYPEORM_MIGRATIONS_RUN:-true}
+      PYTHON_BIN: ${PYTHON_BIN:-python3}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.2}
+      LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-3000}
+      ALLOW_ANALYZE_LLM_OVERRIDES: ${ALLOW_ANALYZE_LLM_OVERRIDES:-false}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./backend-nest:/app
+      - backend_nest_node_modules:/app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: reforge
+      POSTGRES_USER: reforge
+      POSTGRES_PASSWORD: reforge
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U reforge -d reforge']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  backend_nest_node_modules:
+  postgres_data:
+  redis_data:

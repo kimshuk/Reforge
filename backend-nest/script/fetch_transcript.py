@@ -5,18 +5,32 @@ import sys
 try:
     from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, VideoUnavailable
 except Exception:
-    print(json.dumps({"error": "PY_DEP_MISSING", "message": "youtube-transcript-api is not installed"}), file=sys.stderr)
+    print(
+        json.dumps(
+            {
+                "error": "PY_DEP_MISSING",
+                "message": "youtube-transcript-api is not installed",
+            }
+        ),
+        file=sys.stderr,
+    )
     sys.exit(2)
 
 
 def main() -> int:
     if len(sys.argv) != 2:
-        print(json.dumps({"error": "INVALID_ARGS", "message": "video_id argument is required"}), file=sys.stderr)
+        print(
+            json.dumps({"error": "INVALID_ARGS", "message": "video_id argument is required"}),
+            file=sys.stderr,
+        )
         return 2
 
     video_id = (sys.argv[1] or "").strip()
     if not video_id:
-        print(json.dumps({"error": "INVALID_VIDEO_ID", "message": "video_id must be non-empty"}), file=sys.stderr)
+        print(
+            json.dumps({"error": "INVALID_VIDEO_ID", "message": "video_id must be non-empty"}),
+            file=sys.stderr,
+        )
         return 2
 
     transcript_api = YouTubeTranscriptApi()
@@ -24,23 +38,13 @@ def main() -> int:
         transcript_list = transcript_api.list(video_id)
     except (TranscriptsDisabled, VideoUnavailable) as exc:
         print(
-            json.dumps(
-                {
-                    "error": "TRANSCRIPT_UNAVAILABLE",
-                    "message": str(exc),
-                }
-            ),
+            json.dumps({"error": "TRANSCRIPT_UNAVAILABLE", "message": str(exc)}),
             file=sys.stderr,
         )
         return 1
     except Exception as exc:
         print(
-            json.dumps(
-                {
-                    "error": "TRANSCRIPT_FETCH_FAILED",
-                    "message": str(exc),
-                }
-            ),
+            json.dumps({"error": "TRANSCRIPT_FETCH_FAILED", "message": str(exc)}),
             file=sys.stderr,
         )
         return 1
@@ -58,9 +62,6 @@ def main() -> int:
         )
         return 1
 
-    # Pick the main language track:
-    # 1) Prefer manually created transcripts.
-    # 2) Otherwise use the first available transcript.
     selected = next((t for t in transcripts if not getattr(t, "is_generated", False)), None)
     if selected is None:
         selected = transcripts[0]
@@ -69,12 +70,7 @@ def main() -> int:
         transcript = selected.fetch().to_raw_data()
     except Exception as exc:
         print(
-            json.dumps(
-                {
-                    "error": "TRANSCRIPT_FETCH_FAILED",
-                    "message": str(exc),
-                }
-            ),
+            json.dumps({"error": "TRANSCRIPT_FETCH_FAILED", "message": str(exc)}),
             file=sys.stderr,
         )
         return 1

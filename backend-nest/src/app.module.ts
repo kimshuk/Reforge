@@ -1,12 +1,25 @@
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+
 import { AnalyzeModule } from './analyze/analyze.module';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { RequestLoggingMiddleware } from './common/request-logging.middleware';
+import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
-import { Module } from '@nestjs/common';
+import { LlmModule } from './llm/llm.module';
+import { RedisModule } from './redis/redis.module';
+import { TranscriptModule } from './transcript/transcript.module';
 
 @Module({
-  imports: [HealthModule, AnalyzeModule],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [
+    DatabaseModule,
+    RedisModule,
+    HealthModule,
+    LlmModule,
+    TranscriptModule,
+    AnalyzeModule,
+  ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestLoggingMiddleware).forRoutes('*');
+  }
+}

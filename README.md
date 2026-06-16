@@ -9,6 +9,15 @@ This repository contains the current Reforge backend and the native iOS client f
 
 ## Backend
 
+The Nest backend can run as a full local stack:
+
+```bash
+docker compose up
+```
+
+This starts `backend-nest`, Postgres, and Redis. Set LLM API keys in your shell
+or a root `.env` file before starting Docker Compose.
+
 Requirements:
 
 - Node.js 18+
