@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Project Is
 
-Reforge is a YouTube video analysis app. Users paste a YouTube URL, the backend fetches the transcript via Python, sends it to OpenAI (GPT-4o-mini), and returns structured categories/keywords. The iOS client displays results in expandable chip layouts with real-time streaming progress.
+Reforge is a YouTube video analysis app. Users paste a YouTube URL, the NestJS backend fetches the transcript via Python, analyzes it with the configured LLM provider, persists durable analysis artifacts, and returns a compatible categories/keywords response. The iOS client displays results in expandable chip layouts with real-time streaming progress.
 
 ## Repository Layout
 
 ```
 ios/        — SwiftUI iOS app (Xcode project: NoteApp.xcodeproj)
-backend/    — Node.js/Express API server
+backend-nest/ — NestJS API server
 sample.json — Example /analyze response shape
 ```
 
@@ -23,13 +23,20 @@ open ios/NoteApp.xcodeproj   # Open in Xcode, then Cmd+R to run
 
 **Backend:**
 ```bash
-cd backend
+cd backend-nest
 npm install
-npm run dev    # nodemon auto-reload
+npm run dev    # Nest watch mode
 npm start      # production
 ```
 
-**Backend requires Python** with `youtube-transcript-api` installed for transcript fetching.
+**Full backend stack:**
+```bash
+docker compose up
+```
+
+This starts `backend-nest`, Postgres, and Redis. The backend image includes Python and `youtube-transcript-api`.
+
+**Local backend without Docker requires Python** with `youtube-transcript-api` installed for transcript fetching.
 
 **Backend URL config** (iOS): set `NOTEAPP_BACKEND_BASE_URL` env var, or add to `ios/.env`. Falls back to `http://localhost:3000`.
 
@@ -52,13 +59,15 @@ Services are injected via initializers, making them swappable. `HomeViewModel` o
 
 ## Backend Architecture
 
-Express app with SSE streaming on the main endpoint:
+NestJS app with SSE streaming on the main endpoint:
 
-- `POST /analyze` — accepts `{ url, title }`, streams Server-Sent Events: `progress` events during processing, then a final `result` event containing the JSON payload
+- `POST /analyze` — accepts `{ type: "youtube", youtubeUrl, title }`, streams Server-Sent Events with progress events during processing, then a final `result` event containing the compatible JSON payload
 - `GET /transcript/:id` — retrieves a stored transcript
 - `GET /health` — health check
 
-Pipeline: URL validation → Python subprocess (transcript fetch) → `transcriptSanitizer` → `transcriptValidator` → OpenAI structured output → JSON response
+Pipeline: request parsing → Python subprocess transcript fetch → transcript sanitizing and stable segment creation → TopicChunk boundary extraction → CandidateClipping extraction → coverage review → TypeORM persistence → compatible JSON response.
+
+Postgres is the durable source of truth for sources, transcripts, transcript segments, analysis runs, topic chunks, candidate clippings, coverage warnings, and eval runs. Redis is scoped to cache/coordination uses.
 
 Error envelope shape: `{ error: { code, message } }` — the iOS client maps specific `code` strings (e.g. `TRANSCRIPT_UNAVAILABLE`, `OPENAI_CONTEXT_LENGTH_EXCEEDED`) to user-facing messages in `AnalyzeServiceError`.
 

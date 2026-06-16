@@ -1,48 +1,52 @@
 # Reforge
 
-This repository contains the current Reforge backend and the native iOS client for NoteApp.
+This repository contains the current Reforge NestJS backend and the native iOS client for NoteApp.
 
 ## Repository layout
 
-- `backend/`: Node.js / Express API for transcript ingestion and category analysis
+- `backend-nest/`: NestJS API for transcript ingestion and clipping-oriented analysis
 - `ios/`: Native iOS app project (`NoteApp.xcodeproj`)
 
 ## Backend
 
-The Nest backend can run as a full local stack:
+The backend runs as a full local stack:
 
 ```bash
 docker compose up
 ```
 
-This starts `backend-nest`, Postgres, and Redis. Set LLM API keys in your shell
-or a root `.env` file before starting Docker Compose.
+This starts `backend-nest`, Postgres, and Redis. Set LLM API keys in your shell,
+a root `.env` file, or `backend-nest/.env` before starting Docker Compose.
 
 Requirements:
 
 - Node.js 18+
 - Python 3 available as `python3` or via `PYTHON_BIN`
 - `youtube-transcript-api` installed in that Python environment
-- OpenAI API key
+- At least one configured LLM API key, such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`
 
-Setup:
+Backend development:
 
 ```bash
-cd backend
+cd backend-nest
 npm install
 ```
 
-Create `backend/.env` with at least:
+Create `backend-nest/.env` from `backend-nest/.env.example` and set the keys you need.
+For the Docker stack, the default services use:
 
 ```env
-OPENAI_API_KEY=your_api_key_here
 PORT=3000
+DATABASE_URL=postgres://reforge:reforge@postgres:5432/reforge
+REDIS_URL=redis://redis:6379
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your_api_key_here
 ```
 
 Run the API:
 
 ```bash
-cd backend
+cd backend-nest
 npm run dev
 ```
 
@@ -50,6 +54,7 @@ The backend exposes:
 
 - `GET /health`
 - `POST /analyze`
+- `POST /analyze?stream=progress`
 - `GET /transcript/:transcriptId`
 
 ## iOS app
@@ -69,5 +74,5 @@ The iOS source currently lives under `ios/App`, `ios/Core`, and `ios/UI`.
 
 ## Notes
 
-- Project-specific ignore rules are kept in `backend/.gitignore` and `ios/.gitignore`; the root `.gitignore` only covers repo-wide artifacts.
-- `backend/node_modules/` and local `.env` files are intentionally ignored and should not be committed.
+- Project-specific ignore rules are kept in `backend-nest/.gitignore` and `ios/.gitignore`; the root `.gitignore` only covers repo-wide artifacts.
+- `backend-nest/node_modules/` and local `.env` files are intentionally ignored and should not be committed.
