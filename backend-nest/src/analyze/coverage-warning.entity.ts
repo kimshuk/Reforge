@@ -24,10 +24,10 @@ export class CoverageWarningEntity {
   @Column()
   reason!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   startSegmentId!: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   endSegmentId!: string | null;
 
   @Column({ type: 'double precision', nullable: true })

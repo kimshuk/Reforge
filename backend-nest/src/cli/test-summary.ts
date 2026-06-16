@@ -1,6 +1,6 @@
 import 'dotenv/config';
 
-import { INestApplicationContext } from '@nestjs/common';
+import { INestApplicationContext, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { readFileSync } from 'fs';
 import * as path from 'path';
@@ -8,10 +8,12 @@ import * as path from 'path';
 import { AnalyzeRequestParser } from '../analyze/analyze-request.parser';
 import { TranscriptSanitizer } from '../analyze/transcript.sanitizer';
 import { YoutubeService } from '../analyze/youtube.service';
-import { AppModule } from '../app.module';
 import { AppException } from '../common/app.exception';
+import { ClaudeAdapter } from '../llm/adapters/claude.adapter';
+import { GeminiAdapter } from '../llm/adapters/gemini.adapter';
+import { OpenAiAdapter } from '../llm/adapters/openai.adapter';
 import { LlmConfigService } from '../llm/llm-config.service';
-import { LlmService } from '../llm/llm.service';
+import { LLM_ADAPTERS, LlmService } from '../llm/llm.service';
 import { LlmRequestOverrides, TranscriptType } from '../llm/llm.types';
 
 interface CliArgs extends LlmRequestOverrides {
@@ -23,6 +25,29 @@ interface CliArgs extends LlmRequestOverrides {
   includeRawText?: boolean;
 }
 
+@Module({
+  providers: [
+    AnalyzeRequestParser,
+    TranscriptSanitizer,
+    YoutubeService,
+    LlmConfigService,
+    OpenAiAdapter,
+    GeminiAdapter,
+    ClaudeAdapter,
+    {
+      provide: LLM_ADAPTERS,
+      useFactory: (
+        openAi: OpenAiAdapter,
+        gemini: GeminiAdapter,
+        claude: ClaudeAdapter,
+      ) => [openAi, gemini, claude],
+      inject: [OpenAiAdapter, GeminiAdapter, ClaudeAdapter],
+    },
+    LlmService,
+  ],
+})
+class SummaryCliModule {}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
@@ -31,7 +56,7 @@ async function main() {
     return;
   }
 
-  const app = await NestFactory.createApplicationContext(AppModule, {
+  const app = await NestFactory.createApplicationContext(SummaryCliModule, {
     logger: false,
   });
 

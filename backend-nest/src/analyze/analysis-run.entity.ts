@@ -16,25 +16,25 @@ export class AnalysisRunEntity {
   @Column()
   sourceType!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   sourceId!: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   transcriptId!: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   transcriptHash!: string | null;
 
   @Column()
   status!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   failureStage!: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   errorCode!: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   safeErrorMessage!: string | null;
 
   @Column()
@@ -52,7 +52,7 @@ export class AnalysisRunEntity {
   @Column({ type: 'double precision' })
   temperature!: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'integer', nullable: true })
   maxOutputTokens!: number | null;
 
   @CreateDateColumn()

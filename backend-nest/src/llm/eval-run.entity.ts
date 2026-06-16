@@ -30,7 +30,7 @@ export class EvalRunEntity {
   @Column()
   latencyMs!: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   estimatedCost!: string | null;
 
   @Column({ type: 'jsonb' })

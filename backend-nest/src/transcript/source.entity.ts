@@ -25,10 +25,10 @@ export class SourceEntity {
   @Column()
   externalId!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   url!: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   title!: string | null;
 
   @OneToMany(() => TranscriptEntity, (transcript) => transcript.source)

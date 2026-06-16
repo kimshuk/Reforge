@@ -34,7 +34,7 @@ export class TranscriptEntity {
   @Column({ type: 'text' })
   transcriptText!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   videoId!: string | null;
 
   @OneToMany(() => TranscriptSegmentEntity, (segment) => segment.transcript)
