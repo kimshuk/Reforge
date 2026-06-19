@@ -1,4 +1,4 @@
-# Daily Tasks — 2026-06-18
+# Daily Tasks — 2026-06-19
 ## Focus: NestJS Migration — Step 5: TranscriptSanitizerService (close-out, carried over)
 
 ## Today's 3 Tasks
@@ -36,4 +36,4 @@
 **Remaining steps:** None — all implementation complete; only step 5 quality tasks remain before the migration can be called done
 
 ## Why These Tasks
-These three tasks have been carried over from 2026-06-16 and 2026-06-17 without being started; closing them out is the only remaining gate before the full NestJS migration can be marked complete. Tasks 1 and 2 cover the untested `sanitize()` surface in `transcript.sanitizer.spec.ts`, and Task 3 is a one-line module change that ensures the service is injectable by future consumers.
+These three tasks have been carried over since 2026-06-16 without being started; they are the only remaining gate before the full NestJS migration can be marked complete. Tasks 1 and 2 cover the entirely untested `sanitize()` surface in `transcript.sanitizer.spec.ts`, and Task 3 is a one-line module change that ensures `TranscriptSanitizer` is injectable by any future consumer of `AnalyzeModule`.
