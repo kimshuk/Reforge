@@ -1,23 +1,23 @@
-# Daily Tasks — 2026-06-20
+# Daily Tasks — 2026-06-21
 ## Focus: NestJS Migration — Step 5: TranscriptSanitizerService (carried over)
 
 ## Today's 3 Tasks
 
 - [ ] **Add `TranscriptSanitizer` class-level tests — core pipeline behavior**
-  - Instantiate `TranscriptSanitizer` directly (no DI needed) and call `sanitize()` with a realistic mix of valid snippets, noisy bracket text, and structurally invalid entries so the full `sanitizeSnippetList → buildSegments` pipeline runs end-to-end in a single test
-  - Assert that `cleanedSnippetCount` equals the number of snippets that survived normalization — this is a pre-merge count and should be larger than the number of output segments produced by `buildSegments`, confirming that merging actually happened
-  - Assert that every line in `llmTranscriptText` matches the `S001 | MM:SS | text` format, since all downstream LLM prompts rely on this structure for segment-grounded citations; a single malformed line would silently corrupt citation lookup
-  - Done when a new `describe('TranscriptSanitizer')` block appears in `transcript.sanitizer.spec.ts` and all tests (existing helper tests plus the new block) pass under `npm test`
+  - Instantiate `TranscriptSanitizer` directly (no DI container needed) and call `sanitize()` with a realistic mix of valid snippets, noise-bracket entries (`[music]`, `[applause]`), and structurally invalid items (missing or negative `start`) — this exercises the full `sanitizeSnippetList → buildSegments` path in a single test
+  - Assert that `cleanedSnippetCount` equals the number of snippets that survive both the `start`-validity filter and the `normalizeText` empty-text filter; this count is a pre-merge tally and should be larger than the number of entries in `segmentIndex`, confirming that short consecutive snippets are merged into longer segments
+  - Assert that every line in `llmTranscriptText` matches the `S001 | MM:SS | text` format exactly — all downstream LLM prompts parse this format to extract segment IDs and timestamps, so a single malformed line silently corrupts citation lookup in the LLM pipeline
+  - Done when a `describe('TranscriptSanitizer')` block appears in `transcript.sanitizer.spec.ts` and all tests (existing helper tests plus the new block) pass under `npm test`
 
 - [ ] **Add `TranscriptSanitizer` class-level tests — edge cases and `sourceSegments`**
-  - Test `sanitize([])`: must return `cleanedSnippetCount: 0` and empty `segmentIndex`, `llmTranscriptText`, and `sourceSegments` arrays — this zero-content guard is what both the pipeline and `TranscriptStoreService` depend on before attempting any persistence
-  - Test a batch where every snippet has an invalid `start` value or normalizes to empty text: expect `cleanedSnippetCount === 0` and all outputs empty, confirming the sanitizer never surfaces bad entries to the LLM regardless of what the Python subprocess returns
-  - Test `sourceSegments` values specifically: verify each entry carries the correct `sequence` index, `startSec`, `endSec`, `rawText`, and `text` — this is the field passed directly into `TranscriptStoreService.setTranscript` for per-snippet persistence and is entirely untested today
-  - Done when all edge-case assertions pass alongside the Task 1 tests without any regression in the existing `stripBracketNoise`, `normalizeText`, or `formatTimestamp` suites
+  - Test `sanitize([])`: must return `cleanedSnippetCount: 0`, an empty `sourceSegments` array, an empty `segmentIndex`, and an empty `llmTranscriptText` string — this is the zero-content guard that both `AnalyzeService` and `TranscriptStoreService` rely on before attempting persistence or LLM calls
+  - Test a batch where every snippet either has an invalid `start` value (negative, `NaN`, non-numeric) or normalizes to empty text after `stripBracketNoise` / `normalizeText`: expect `cleanedSnippetCount === 0` and all four output fields empty, confirming the sanitizer never surfaces corrupted entries regardless of what the Python subprocess returns
+  - Test the `sourceSegments` array specifically: each entry must carry the correct `sequence` index (zero-based position in the post-filter snippet list), `startSec`, `endSec`, `rawText` (the original untouched string), and `text` (the normalized version) — `sourceSegments` is passed directly into `TranscriptStoreService.setTranscript` for per-snippet database persistence and is entirely untested today
+  - Done when all edge-case assertions pass alongside the Task 1 tests without any regression in the existing `stripBracketNoise`, `normalizeText`, or `formatTimestamp` helper suites
 
 - [ ] **Export `TranscriptSanitizer` from `AnalyzeModule` and confirm clean build**
-  - Add `exports: [TranscriptSanitizer]` to the `@Module` decorator in `analyze.module.ts` — without this, any future module that imports `AnalyzeModule` cannot inject `TranscriptSanitizer` even though it is listed in `providers`, which causes a hard-to-diagnose runtime injection error
-  - Run `npm run build` inside `backend-nest/` to confirm no TypeScript compilation errors are introduced and the existing module dependency graph (which already wires `AnalyzeModule` into `AppModule`) remains intact
+  - Add an `exports: [TranscriptSanitizer]` array to the `@Module` decorator in `analyze.module.ts` — without this export, any future module that imports `AnalyzeModule` cannot inject `TranscriptSanitizer` even though it is listed as a provider, causing a hard-to-diagnose runtime "unknown provider" error at startup
+  - Run `npm run build` inside `backend-nest/` to confirm no TypeScript compilation errors are introduced and that the existing module graph (which already wires `AnalyzeModule` into `AppModule` alongside `LlmModule`, `TranscriptModule`, and `DatabaseModule`) remains intact
   - Done when `analyze.module.ts` has an `exports` array containing `TranscriptSanitizer` and `npm run build` exits cleanly with no errors
 
 ## Migration Progress
@@ -36,4 +36,4 @@
 **Remaining steps:** None — all implementation complete; only step 5 quality tasks remain before the migration can be called done
 
 ## Why These Tasks
-These three tasks close out the only remaining gap before the full NestJS migration is complete: `TranscriptSanitizer.sanitize()` has no test coverage despite being on the critical path from raw YouTube snippets to LLM input, and the module export omission would silently block injection in any future consumer of `AnalyzeModule`. Tasks 1 and 2 cover the core and edge-case surfaces of the untested `sanitize()` method; Task 3 is a one-line change that future-proofs the module boundary.
+Step 5 is the only incomplete step in the migration: `TranscriptSanitizer.sanitize()` sits on the critical path from raw YouTube snippets to every LLM call, yet has zero class-level test coverage. Tasks 1 and 2 close that gap by testing the core pipeline and all meaningful edge cases; Task 3 is a one-line module export that makes `TranscriptSanitizer` injectable by any future consumer of `AnalyzeModule`.
