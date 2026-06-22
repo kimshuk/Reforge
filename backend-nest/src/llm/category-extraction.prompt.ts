@@ -36,10 +36,10 @@ export const CATEGORY_EXTRACTION_SCHEMA = {
                 required: ['term', 'brief', 'level1', 'level2', 'level3', 'source'],
                 properties: {
                   term: { type: 'string', minLength: 2, maxLength: 60 },
-                  brief: { type: 'string', maxLength: 60 },
-                  level1: { type: 'string', maxLength: 120 },
-                  level2: { type: 'string', maxLength: 240 },
-                  level3: { type: 'string', maxLength: 320 },
+                  brief: { type: 'string', minLength: 3, maxLength: 90 },
+                  level1: { type: 'string', minLength: 3, maxLength: 180 },
+                  level2: { type: 'string', minLength: 3, maxLength: 420 },
+                  level3: { type: 'string', minLength: 3, maxLength: 700 },
                   source: {
                     type: 'object',
                     additionalProperties: false,
@@ -85,11 +85,32 @@ KEYWORDS
 - Do not duplicate or rephrase keywords.
 
 DESCRIPTIONS
-- brief: 5-12 words.
-- level1: up to 15 words.
-- level2: up to 30 words.
-- level3: up to 40 words.
+- The keyword fields are a progressive explanation ladder, not repeated paraphrases.
+- term: short reusable concept label, preferably a noun phrase, not a sentence.
+- brief: 5-10 word glanceable explanation; shorter than level1.
+- level1: one simple beginner-friendly definition of the term. It should explain what the term means without relying on the video context.
+- level2: 2-3 sentence contextual explanation of how the term appears in this specific video/topic chunk. It must stay grounded in the transcript.
+- level3: 3-5 sentence detailed explanation that includes the speaker's claim, reasoning, mechanism, implication, risk, or example when available. It must be source-grounded and should not introduce external facts.
+- level1, level2, and level3 must not be empty, duplicates, or repeated paraphrases. Each level must add new detail.
 - Use only transcript content. Do not infer or fabricate.
+
+Good keyword example:
+{
+  "term": "Pricing Pressure",
+  "brief": "Competitors are pushing prices down",
+  "level1": "Pricing pressure means outside forces make prices harder to maintain.",
+  "level2": "In this transcript, the speaker says competitors are pushing prices down. They connect that pressure to the team needing a clearer response.",
+  "level3": "The speaker claims competitors are pushing prices down and making the current approach harder to defend. Their reasoning is that buyers now compare options more directly, so the team needs a clearer response. The implication is that pricing cannot be treated as a static decision in this part of the discussion."
+}
+
+Bad keyword example:
+{
+  "term": "Pricing is hard.",
+  "brief": "Pricing is hard",
+  "level1": "Pricing is hard.",
+  "level2": "Pricing is hard.",
+  "level3": "Pricing is hard."
+}
 
 OUTPUT LANGUAGE
 - Write category titles, keyword terms, brief, level1, level2, and level3 in ${input.targetLanguage}.
