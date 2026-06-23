@@ -1,9 +1,9 @@
-# Daily Tasks — 2026-06-22
+# Daily Tasks — 2026-06-23
 ## Focus: NestJS Migration — Step 5: TranscriptSanitizerService (carried over)
 
 ## Today's 3 Tasks
 
-- [ ] **Test `TranscriptSanitizer.sanitize()` — happy path and segment format**
+- [ ] **Test `TranscriptSanitizer.sanitize()` — happy path and segment merging**
   - Instantiate `TranscriptSanitizer` directly (no DI container) and call `sanitize()` with a realistic mix of valid snippets, noise-bracket entries (`[music]`, `[applause]`), and structurally invalid items (missing or negative `start`) — this exercises the full `sanitizeSnippetList → buildSegments` path in one test
   - Assert that `cleanedSnippetCount` equals only the snippets that pass both the `start`-validity filter and the `normalizeText` non-empty filter; confirm it is larger than `segmentIndex.length`, proving that short consecutive snippets are being merged into longer segments as intended
   - Assert that every line in `llmTranscriptText` matches `S001 | MM:SS | text` exactly — downstream LLM prompts parse this format to extract segment IDs and timestamps, so a single malformed line silently corrupts citation lookup
