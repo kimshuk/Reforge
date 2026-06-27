@@ -128,8 +128,10 @@ export class LlmService {
       );
     }
 
+    const chunkSegmentIds = this.extractPromptSegmentIds(input.chunkSegments);
+
     return candidateClippings.map((candidate, index) =>
-      this.parseCandidateClipping(candidate, index),
+      this.parseCandidateClipping(candidate, index, chunkSegmentIds),
     );
   }
 
@@ -292,6 +294,7 @@ export class LlmService {
   private parseCandidateClipping(
     candidate: unknown,
     index: number,
+    chunkSegmentIds: string[],
   ): CandidateClippingOutput {
     if (!candidate || typeof candidate !== 'object') {
       throw new AppException(
@@ -308,9 +311,9 @@ export class LlmService {
       typeof value.title !== 'string' ||
       typeof value.text !== 'string' ||
       typeof value.brief !== 'string' ||
-      typeof value.level1 !== 'string' ||
-      typeof value.level2 !== 'string' ||
-      typeof value.level3 !== 'string' ||
+      typeof value.simpleExplanation !== 'string' ||
+      typeof value.contextualExplanation !== 'string' ||
+      typeof value.detailedExplanation !== 'string' ||
       !['high', 'medium', 'low'].includes(String(value.signalLevel)) ||
       !Array.isArray(sourceRefs) ||
       sourceRefs.length === 0
@@ -322,14 +325,32 @@ export class LlmService {
       );
     }
 
+    const title = value.title.trim();
+    const brief = value.brief.trim();
+    const simpleExplanation = value.simpleExplanation.trim();
+    const contextualExplanation = value.contextualExplanation.trim();
+    const detailedExplanation = value.detailedExplanation.trim();
+    this.assertExplanationLadder({
+      term: title,
+      brief,
+      simpleExplanation,
+      contextualExplanation,
+      detailedExplanation,
+      code: 'LLM_CLIPPINGS_INVALID_JSON',
+    });
+
+    const segmentOrder = new Map(
+      chunkSegmentIds.map((segmentId, segmentIndex) => [segmentId, segmentIndex]),
+    );
+
     return {
       kind: value.kind.trim(),
-      title: value.title.trim(),
+      title,
       text: value.text.trim(),
-      brief: value.brief.trim(),
-      level1: value.level1.trim(),
-      level2: value.level2.trim(),
-      level3: value.level3.trim(),
+      brief,
+      simpleExplanation,
+      contextualExplanation,
+      detailedExplanation,
       signalLevel: value.signalLevel as CandidateClippingOutput['signalLevel'],
       sourceRefs: sourceRefs.map((sourceRef, sourceIndex) => {
         if (!sourceRef || typeof sourceRef !== 'object') {
@@ -353,14 +374,134 @@ export class LlmService {
           );
         }
 
+        const startSegmentId = ref.startSegmentId.trim();
+        const endSegmentId = ref.endSegmentId.trim();
+        const startIndex = segmentOrder.get(startSegmentId);
+        const endIndex = segmentOrder.get(endSegmentId);
+        if (
+          startIndex === undefined ||
+          endIndex === undefined ||
+          startIndex > endIndex
+        ) {
+          throw new AppException(
+            502,
+            'LLM_CLIPPINGS_INVALID_SOURCE_REF',
+            `Source ref outside topic chunk at candidate ${index}, source ${sourceIndex}`,
+          );
+        }
+
         return {
-          startSegmentId: ref.startSegmentId.trim(),
-          endSegmentId: ref.endSegmentId.trim(),
+          startSegmentId,
+          endSegmentId,
           timestamp: ref.timestamp.trim(),
           text: ref.text.trim(),
         };
       }),
     };
+  }
+
+  private extractPromptSegmentIds(chunkSegments: string): string[] {
+    return chunkSegments
+      .split('\n')
+      .map((line) => line.match(/^\s*([^|\s]+)\s*\|/)?.[1]?.trim())
+      .filter((segmentId): segmentId is string => Boolean(segmentId));
+  }
+
+  private assertExplanationLadder(input: {
+    term: string;
+    brief: string;
+    simpleExplanation: string;
+    contextualExplanation: string;
+    detailedExplanation: string;
+    code: string;
+  }) {
+    const values = [
+      input.term,
+      input.brief,
+      input.simpleExplanation,
+      input.contextualExplanation,
+      input.detailedExplanation,
+    ];
+    if (values.some((value) => !value.trim())) {
+      throw new AppException(502, input.code, 'Explanation ladder fields must not be empty');
+    }
+
+    if (input.term.length > 60 || /[.!?]\s*$/.test(input.term)) {
+      throw new AppException(502, input.code, 'Keyword term must be a short label');
+    }
+
+    const normalizedLevels = [
+      input.simpleExplanation,
+      input.contextualExplanation,
+      input.detailedExplanation,
+    ].map((value) => this.normalizeExplanation(value));
+    if (new Set(normalizedLevels).size !== normalizedLevels.length) {
+      throw new AppException(
+        502,
+        input.code,
+        'Explanation ladder levels must not be duplicates',
+      );
+    }
+
+    const briefWordCount = this.wordCount(input.brief);
+    if (
+      briefWordCount < 5 ||
+      briefWordCount > 10 ||
+      input.brief.length >= input.simpleExplanation.length
+    ) {
+      throw new AppException(
+        502,
+        input.code,
+        'Keyword brief must be shorter than the simple explanation',
+      );
+    }
+
+    const simpleSentenceCount = this.sentenceCount(input.simpleExplanation);
+    const contextualSentenceCount = this.sentenceCount(input.contextualExplanation);
+    const detailedSentenceCount = this.sentenceCount(input.detailedExplanation);
+
+    if (
+      simpleSentenceCount !== 1 ||
+      input.simpleExplanation.length >= input.contextualExplanation.length
+    ) {
+      throw new AppException(
+        502,
+        input.code,
+        'Simple explanation must be shorter and simpler than contextual explanation',
+      );
+    }
+
+    if (contextualSentenceCount < 2 || contextualSentenceCount > 3) {
+      throw new AppException(
+        502,
+        input.code,
+        'Contextual explanation must be 2-3 sentences',
+      );
+    }
+
+    if (
+      detailedSentenceCount < 3 ||
+      detailedSentenceCount > 5 ||
+      input.detailedExplanation.length <= input.contextualExplanation.length
+    ) {
+      throw new AppException(
+        502,
+        input.code,
+        'Detailed explanation must add more detail than contextual explanation',
+      );
+    }
+  }
+
+  private normalizeExplanation(value: string): string {
+    return value.toLowerCase().replace(/\s+/g, ' ').replace(/[.?!]+$/g, '').trim();
+  }
+
+  private wordCount(value: string): number {
+    return value.trim().split(/\s+/).filter(Boolean).length;
+  }
+
+  private sentenceCount(value: string): number {
+    return value.split(/[.!?]+/).filter((part) => part.trim()).length;
   }
 
   private resolveAdapter(provider: GenerateAnalysisInput['options']['provider']) {
@@ -484,6 +625,15 @@ export class LlmService {
         'Model returned invalid keyword payload',
       );
     }
+
+    this.assertExplanationLadder({
+      term: keyword.term.trim(),
+      brief: keyword.brief.trim(),
+      simpleExplanation: keyword.level1.trim(),
+      contextualExplanation: keyword.level2.trim(),
+      detailedExplanation: keyword.level3.trim(),
+      code: 'LLM_ANALYZE_INVALID_JSON',
+    });
   }
 
   private resolveYoutubeSources(

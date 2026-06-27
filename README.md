@@ -15,8 +15,8 @@ The backend runs as a full local stack:
 docker compose up
 ```
 
-This starts `backend-nest`, Postgres, and Redis. Set LLM API keys in your shell,
-a root `.env` file, or `backend-nest/.env` before starting Docker Compose.
+This starts `backend-nest`, Postgres, and Redis. Docker Compose reads
+`backend-nest/.env`, so put your LLM API keys there before starting the stack.
 
 Requirements:
 

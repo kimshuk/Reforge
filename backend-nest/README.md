@@ -19,10 +19,13 @@ This starts:
 The backend image includes Node, Python, and `youtube-transcript-api` for
 transcript fetching.
 
-Docker Compose sets `TYPEORM_MIGRATIONS_RUN=true` so local database migrations
+Docker Compose reads `backend-nest/.env` and starts the backend with those
+settings. Set `TYPEORM_MIGRATIONS_RUN=true` there so local database migrations
 run when the backend starts.
 
 ## Environment
+
+Create `backend-nest/.env` from `.env.example`:
 
 ```env
 PORT=3000

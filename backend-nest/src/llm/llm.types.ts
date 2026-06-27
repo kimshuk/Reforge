@@ -113,9 +113,9 @@ export interface CandidateClippingOutput {
   title: string;
   text: string;
   brief: string;
-  level1: string;
-  level2: string;
-  level3: string;
+  simpleExplanation: string;
+  contextualExplanation: string;
+  detailedExplanation: string;
   signalLevel: 'high' | 'medium' | 'low';
   sourceRefs: Array<{
     startSegmentId: string;

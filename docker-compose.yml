@@ -3,20 +3,8 @@ services:
     build:
       context: ./backend-nest
     command: npm run dev
-    environment:
-      PORT: ${PORT:-3000}
-      DATABASE_URL: ${DATABASE_URL:-postgres://reforge:reforge@postgres:5432/reforge}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-      TYPEORM_MIGRATIONS_RUN: ${TYPEORM_MIGRATIONS_RUN:-true}
-      PYTHON_BIN: ${PYTHON_BIN:-python3}
-      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
-      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
-      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.2}
-      LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-3000}
-      ALLOW_ANALYZE_LLM_OVERRIDES: ${ALLOW_ANALYZE_LLM_OVERRIDES:-false}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    env_file:
+      - ./backend-nest/.env
     ports:
       - '3000:3000'
     volumes:

@@ -46,6 +46,12 @@ interface CoverageWarningInput {
   message: string | null;
 }
 
+interface ResolvedTopicBoundary {
+  boundary: TopicChunkBoundary;
+  start: TranscriptSegmentEntity;
+  end: TranscriptSegmentEntity;
+}
+
 @Injectable()
 export class AnalyzeService {
   private readonly logger = new Logger(AnalyzeService.name);
@@ -338,10 +344,9 @@ export class AnalyzeService {
     const chunks: BuiltTopicChunk[] = [];
     const warnings: CoverageWarningInput[] = [];
     let previousEndSequence = -1;
-
-    for (const [index, boundary] of input.boundaries.entries()) {
-      const start = segmentsById.get(boundary.startSegmentId);
-      const end = segmentsById.get(boundary.endSegmentId);
+    const resolvedBoundaries = input.boundaries.map((boundary) => {
+      let start = segmentsById.get(boundary.startSegmentId);
+      let end = segmentsById.get(boundary.endSegmentId);
       if (!start || !end) {
         throw new AppException(
           502,
@@ -350,12 +355,82 @@ export class AnalyzeService {
         );
       }
 
-      if (start.sequence > end.sequence || start.sequence <= previousEndSequence) {
-        throw new AppException(
-          502,
-          'LLM_TOPIC_CHUNKS_INVALID_BOUNDARY',
-          'Model returned overlapping or unordered topic chunks',
+      if (start.sequence > end.sequence) {
+        warnings.push(
+          this.boundaryWarning({
+            reason: 'reversed_topic_chunk_repaired',
+            sourceId: input.sourceId,
+            transcriptId: input.transcriptId,
+            analysisRunId: input.analysisRunId,
+            start,
+            end,
+            message: 'Model returned a reversed topic chunk range; backend swapped the boundary order',
+          }),
         );
+        [start, end] = [end, start];
+      }
+
+      return { boundary, start, end };
+    });
+
+    resolvedBoundaries.sort((left, right) => {
+      if (left.start.sequence !== right.start.sequence) {
+        return left.start.sequence - right.start.sequence;
+      }
+      return left.end.sequence - right.end.sequence;
+    });
+
+    for (const resolved of resolvedBoundaries) {
+      const boundary = resolved.boundary;
+      let start = resolved.start;
+      const end = resolved.end;
+
+      if (start.sequence <= previousEndSequence) {
+        if (end.sequence <= previousEndSequence) {
+          warnings.push(
+            this.boundaryWarning({
+              reason: 'overlapping_topic_chunk_discarded',
+              sourceId: input.sourceId,
+              transcriptId: input.transcriptId,
+              analysisRunId: input.analysisRunId,
+              start,
+              end,
+              message: 'Model returned a topic chunk fully covered by an earlier chunk',
+            }),
+          );
+          continue;
+        }
+
+        const adjustedStart = input.segments.find(
+          (segment) => segment.sequence === previousEndSequence + 1,
+        );
+        if (!adjustedStart) {
+          warnings.push(
+            this.boundaryWarning({
+              reason: 'overlapping_topic_chunk_discarded',
+              sourceId: input.sourceId,
+              transcriptId: input.transcriptId,
+              analysisRunId: input.analysisRunId,
+              start,
+              end,
+              message: 'Model returned a topic chunk overlap that could not be repaired',
+            }),
+          );
+          continue;
+        }
+
+        warnings.push(
+          this.boundaryWarning({
+            reason: 'overlapping_topic_chunk_trimmed',
+            sourceId: input.sourceId,
+            transcriptId: input.transcriptId,
+            analysisRunId: input.analysisRunId,
+            start,
+            end,
+            message: 'Model returned an overlapping topic chunk; backend trimmed it to the next uncovered segment',
+          }),
+        );
+        start = adjustedStart;
       }
 
       if (start.sequence > previousEndSequence + 1) {
@@ -381,7 +456,7 @@ export class AnalyzeService {
         sourceId: input.sourceId,
         transcriptId: input.transcriptId,
         analysisRunId: input.analysisRunId,
-        sequence: index,
+        sequence: chunks.length,
         startSegmentId: start.id,
         endSegmentId: end.id,
         startTime: start.startTime,
@@ -446,6 +521,28 @@ export class AnalyzeService {
     };
   }
 
+  private boundaryWarning(input: {
+    reason: string;
+    sourceId: string;
+    transcriptId: string;
+    analysisRunId: string;
+    start: TranscriptSegmentEntity;
+    end: TranscriptSegmentEntity;
+    message: string;
+  }): CoverageWarningInput {
+    return {
+      sourceId: input.sourceId,
+      transcriptId: input.transcriptId,
+      analysisRunId: input.analysisRunId,
+      reason: input.reason,
+      startSegmentId: input.start.id,
+      endSegmentId: input.end.id,
+      startTime: input.start.startTime,
+      endTime: input.end.endTime,
+      message: input.message,
+    };
+  }
+
   private toCandidateClippingEntity(input: {
     candidate: CandidateClippingOutput;
     chunk: BuiltTopicChunk & { id: string };
@@ -504,9 +601,9 @@ export class AnalyzeService {
       title: input.candidate.title,
       text: input.candidate.text,
       brief: input.candidate.brief,
-      level1: input.candidate.level1,
-      level2: input.candidate.level2,
-      level3: input.candidate.level3,
+      level1: input.candidate.simpleExplanation,
+      level2: input.candidate.contextualExplanation,
+      level3: input.candidate.detailedExplanation,
       signalLevel: input.candidate.signalLevel,
       sourceRefStatus: sourceRefs.length ? 'precise' : 'chunk_level',
       sourceRefs: finalSourceRefs,
