@@ -1,4 +1,4 @@
-# Daily Tasks — 2026-06-27
+# Daily Tasks — 2026-06-28
 ## Focus: NestJS Migration — Step 5: TranscriptSanitizerService (class-level tests + module export)
 
 ## Today's 3 Tasks
@@ -36,4 +36,4 @@
 **Remaining steps:** None beyond Step 5 — all implementation is complete; finishing these three tasks closes the migration
 
 ## Why These Tasks
-`TranscriptSanitizer.sanitize()` is the critical gateway between raw Python subprocess output and every LLM call in the pipeline, yet the only existing tests cover isolated helper functions — the merge logic, noise handling, and output format contract are entirely untested end-to-end. Tasks 1 and 2 close that coverage gap across the normal and degenerate-input paths; Task 3 is the one-line module export that makes `TranscriptSanitizer` injectable by any future `AnalyzeModule` consumer.
+These are carry-forward from yesterday — none of the three tasks were completed. `TranscriptSanitizer.sanitize()` is the critical gateway between raw Python subprocess output and every LLM call in the pipeline, yet the only existing tests cover isolated helper functions — the merge logic, noise handling, and output format contract are entirely untested end-to-end. Tasks 1 and 2 close that coverage gap across the normal and degenerate-input paths; Task 3 is the one-line module export that makes `TranscriptSanitizer` injectable by any future `AnalyzeModule` consumer.
