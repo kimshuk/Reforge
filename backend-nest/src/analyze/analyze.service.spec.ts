@@ -1,5 +1,5 @@
 import { AnalyzeService } from './analyze.service';
-import { TopicChunkBoundary } from '../llm/llm.types';
+import { CandidateClippingOutput, TopicChunkBoundary } from '../llm/llm.types';
 import { TranscriptSegmentEntity } from '../transcript/transcript-segment.entity';
 
 function service() {
@@ -130,5 +130,121 @@ describe('AnalyzeService topic chunk boundary validation', () => {
         endSegmentId: 'seg_2',
       }),
     ]);
+  });
+});
+
+function candidate(
+  refs: Array<{ startSegmentId: string; endSegmentId: string }>,
+): CandidateClippingOutput {
+  return {
+    kind: 'term',
+    title: 'Example',
+    text: 'example text',
+    brief: 'a short brief',
+    simpleExplanation: 'simple',
+    contextualExplanation: 'contextual',
+    detailedExplanation: 'detailed',
+    signalLevel: 'high',
+    sourceRefs: refs.map((ref) => ({
+      ...ref,
+      timestamp: '00:00',
+      text: 'ref text',
+    })),
+  };
+}
+
+describe('AnalyzeService segment id label contract', () => {
+  it('formats prompt segments with stable S-labels instead of raw entity ids', () => {
+    const lines = service()
+      .formatSegmentsForPrompt([segment(0), segment(1)])
+      .split('\n');
+
+    expect(lines[0]).toMatch(/^S001 \| /);
+    expect(lines[1]).toMatch(/^S002 \| /);
+    expect(lines.join('\n')).not.toContain('seg_');
+  });
+
+  it('resolves topic boundary S-labels back to entity ids', () => {
+    const resolved = service().resolveBoundaryLabels(
+      [
+        {
+          startSegmentId: 'S001',
+          endSegmentId: 'S003',
+          title: 'Chunk',
+          summary: 'Chunk',
+          signalLevel: 'high',
+        },
+      ],
+      [0, 1, 2].map(segment),
+    );
+
+    expect(resolved[0]).toMatchObject({
+      startSegmentId: 'seg_0',
+      endSegmentId: 'seg_2',
+    });
+  });
+
+  it('passes unknown boundary labels through unchanged so validation still fails', () => {
+    const resolved = service().resolveBoundaryLabels(
+      [
+        {
+          startSegmentId: 'S999',
+          endSegmentId: 'S001',
+          title: 'Chunk',
+          summary: 'Chunk',
+          signalLevel: 'high',
+        },
+      ],
+      [0, 1, 2].map(segment),
+    );
+
+    expect(resolved[0]).toMatchObject({
+      startSegmentId: 'S999',
+      endSegmentId: 'seg_0',
+    });
+  });
+
+  it('resolves candidate source ref S-labels back to entity ids', () => {
+    const resolved = service().resolveCandidateRefLabels(
+      [candidate([{ startSegmentId: 'S001', endSegmentId: 'S002' }])],
+      [0, 1, 2].map(segment),
+    );
+
+    expect(resolved[0].sourceRefs[0]).toMatchObject({
+      startSegmentId: 'seg_0',
+      endSegmentId: 'seg_1',
+    });
+  });
+
+  it('resolves boundary labels even when the model drops the S prefix', () => {
+    const resolved = service().resolveBoundaryLabels(
+      [
+        {
+          startSegmentId: '1',
+          endSegmentId: '003',
+          title: 'Chunk',
+          summary: 'Chunk',
+          signalLevel: 'high',
+        },
+      ],
+      [0, 1, 2].map(segment),
+    );
+
+    expect(resolved[0]).toMatchObject({
+      startSegmentId: 'seg_0',
+      endSegmentId: 'seg_2',
+    });
+  });
+
+  it('resolves candidate refs even when the model drops the S prefix', () => {
+    const resolved = service().resolveCandidateRefLabels(
+      [candidate([{ startSegmentId: '022', endSegmentId: '023' }])],
+      Array.from({ length: 25 }, (_, sequence) => segment(sequence)),
+    );
+
+    expect(resolved[0].sourceRefs[0]).toMatchObject({
+      startSegmentId: 'seg_21',
+      endSegmentId: 'seg_22',
+    });
   });
 });

@@ -81,6 +81,38 @@ describe('LlmService candidate clipping contract', () => {
     });
   });
 
+  it('accepts source refs that drop the label prefix and canonicalizes them', async () => {
+    const service = serviceWithPayload({
+      candidateClippings: [
+        {
+          ...validCandidate,
+          sourceRefs: [
+            {
+              startSegmentId: '001',
+              endSegmentId: '002',
+              timestamp: '00:10',
+              text: 'competitors are pushing prices down',
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await service.generateCandidateClippings({
+      chunkTitle: 'Market Response',
+      chunkSummary: 'Pricing and competitor response',
+      chunkSegments:
+        'S001 | 00:10 | competitors are pushing prices down\nS002 | 00:20 | we need a clearer response',
+      targetLanguage: 'English',
+      options: { provider: 'openai', model: 'test-model', temperature: 0 },
+    });
+
+    expect(result[0].sourceRefs[0]).toMatchObject({
+      startSegmentId: 'S001',
+      endSegmentId: 'S002',
+    });
+  });
+
   it('rejects source refs outside the parent topic chunk', async () => {
     await expect(
       generateCandidate({

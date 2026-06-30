@@ -340,7 +340,10 @@ export class LlmService {
     });
 
     const segmentOrder = new Map(
-      chunkSegmentIds.map((segmentId, segmentIndex) => [segmentId, segmentIndex]),
+      chunkSegmentIds.map((segmentId, segmentIndex) => [
+        this.normalizeSegmentRef(segmentId),
+        { index: segmentIndex, label: segmentId },
+      ]),
     );
 
     return {
@@ -374,15 +377,9 @@ export class LlmService {
           );
         }
 
-        const startSegmentId = ref.startSegmentId.trim();
-        const endSegmentId = ref.endSegmentId.trim();
-        const startIndex = segmentOrder.get(startSegmentId);
-        const endIndex = segmentOrder.get(endSegmentId);
-        if (
-          startIndex === undefined ||
-          endIndex === undefined ||
-          startIndex > endIndex
-        ) {
+        const start = segmentOrder.get(this.normalizeSegmentRef(ref.startSegmentId.trim()));
+        const end = segmentOrder.get(this.normalizeSegmentRef(ref.endSegmentId.trim()));
+        if (!start || !end || start.index > end.index) {
           throw new AppException(
             502,
             'LLM_CLIPPINGS_INVALID_SOURCE_REF',
@@ -391,13 +388,20 @@ export class LlmService {
         }
 
         return {
-          startSegmentId,
-          endSegmentId,
+          startSegmentId: start.label,
+          endSegmentId: end.label,
           timestamp: ref.timestamp.trim(),
           text: ref.text.trim(),
         };
       }),
     };
+  }
+
+  // The model frequently echoes a segment label without its prefix or padding
+  // ("022" for "S022"); match on the numeric part so those refs still resolve.
+  private normalizeSegmentRef(id: string): string {
+    const digits = id.replace(/\D/g, '');
+    return digits ? String(parseInt(digits, 10)) : id;
   }
 
   private extractPromptSegmentIds(chunkSegments: string): string[] {
