@@ -377,7 +377,9 @@ export class AnalyzeService {
       if (left.start.sequence !== right.start.sequence) {
         return left.start.sequence - right.start.sequence;
       }
-      return left.end.sequence - right.end.sequence;
+      // On a shared start, keep the widest chunk first so a smaller contained
+      // chunk is discarded rather than truncating the larger one.
+      return right.end.sequence - left.end.sequence;
     });
 
     for (const resolved of resolvedBoundaries) {

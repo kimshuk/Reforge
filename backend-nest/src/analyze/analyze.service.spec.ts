@@ -112,6 +112,31 @@ describe('AnalyzeService topic chunk boundary validation', () => {
     ]);
   });
 
+  it('keeps the widest chunk when boundaries share a start instead of truncating it', () => {
+    const result = service().buildTopicChunks({
+      boundaries: [boundary(0, 2, 'Narrow'), boundary(0, 4, 'Wide')],
+      segments: [0, 1, 2, 3, 4].map(segment),
+      sourceId: 'source_1',
+      transcriptId: 'transcript_1',
+      analysisRunId: 'run_1',
+    });
+
+    expect(result.chunks).toHaveLength(1);
+    expect(result.chunks[0]).toMatchObject({
+      title: 'Wide',
+      startSegmentId: 'seg_0',
+      endSegmentId: 'seg_4',
+      text: 'text 0 text 1 text 2 text 3 text 4',
+    });
+    expect(result.warnings).toEqual([
+      expect.objectContaining({
+        reason: 'overlapping_topic_chunk_discarded',
+        startSegmentId: 'seg_0',
+        endSegmentId: 'seg_2',
+      }),
+    ]);
+  });
+
   it('drops fully overlapping duplicate boundaries with a coverage warning', () => {
     const result = service().buildTopicChunks({
       boundaries: [boundary(0, 3, 'First'), boundary(1, 2, 'Duplicate')],

@@ -3,8 +3,12 @@ services:
     build:
       context: ./backend-nest
     command: npm run dev
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://reforge:reforge@postgres:5432/reforge}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     env_file:
-      - ./backend-nest/.env
+      - path: ./backend-nest/.env
+        required: false
     ports:
       - '3000:3000'
     volumes:
