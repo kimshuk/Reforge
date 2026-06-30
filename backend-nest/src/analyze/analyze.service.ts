@@ -153,7 +153,7 @@ export class AnalyzeService {
 
       failureStage = 'validating_chunks';
       const { chunks, warnings } = this.buildTopicChunks({
-        boundaries: topicBoundaries,
+        boundaries: this.resolveBoundaryLabels(topicBoundaries, transcriptSegments),
         segments: transcriptSegments,
         sourceId: storedTranscript.sourceId,
         transcriptId: storedTranscript.transcriptId,
@@ -187,7 +187,7 @@ export class AnalyzeService {
         });
 
         clippings.push(
-          ...candidates.map((candidate) =>
+          ...this.resolveCandidateRefLabels(candidates, transcriptSegments).map((candidate) =>
             this.toCandidateClippingEntity({
               candidate,
               chunk,
@@ -718,9 +718,67 @@ export class AnalyzeService {
     return segments
       .map(
         (segment) =>
-          `${segment.id} | ${formatTimestamp(segment.startTime)} | ${segment.text}`,
+          `${this.segmentLabel(segment)} | ${formatTimestamp(segment.startTime)} | ${segment.text}`,
       )
       .join('\n');
+  }
+
+  // The model echoes segment references back into its JSON. Entity ids are
+  // content hashes the model cannot reproduce verbatim, so we present short
+  // sequential labels (S001, S002, ...) and translate them back afterwards.
+  private segmentLabel(segment: TranscriptSegmentEntity): string {
+    return `S${String(segment.sequence + 1).padStart(3, '0')}`;
+  }
+
+  // Match on the numeric part so a label echoed without its prefix or padding
+  // (the model often returns "022" for "S022") still resolves.
+  private normalizeSegmentRef(id: string): string {
+    const digits = id.replace(/\D/g, '');
+    return digits ? String(parseInt(digits, 10)) : id;
+  }
+
+  private labelToSegmentId(segments: TranscriptSegmentEntity[]): Map<string, string> {
+    return new Map(
+      segments.map((segment) => [
+        this.normalizeSegmentRef(this.segmentLabel(segment)),
+        segment.id,
+      ]),
+    );
+  }
+
+  // Unknown labels pass through unchanged so downstream validation surfaces the
+  // same INVALID_BOUNDARY / INVALID_SOURCE_REF errors as before.
+  private resolveBoundaryLabels(
+    boundaries: TopicChunkBoundary[],
+    segments: TranscriptSegmentEntity[],
+  ): TopicChunkBoundary[] {
+    const labelToId = this.labelToSegmentId(segments);
+    return boundaries.map((boundary) => ({
+      ...boundary,
+      startSegmentId:
+        labelToId.get(this.normalizeSegmentRef(boundary.startSegmentId)) ??
+        boundary.startSegmentId,
+      endSegmentId:
+        labelToId.get(this.normalizeSegmentRef(boundary.endSegmentId)) ??
+        boundary.endSegmentId,
+    }));
+  }
+
+  private resolveCandidateRefLabels(
+    candidates: CandidateClippingOutput[],
+    segments: TranscriptSegmentEntity[],
+  ): CandidateClippingOutput[] {
+    const labelToId = this.labelToSegmentId(segments);
+    return candidates.map((candidate) => ({
+      ...candidate,
+      sourceRefs: candidate.sourceRefs.map((ref) => ({
+        ...ref,
+        startSegmentId:
+          labelToId.get(this.normalizeSegmentRef(ref.startSegmentId)) ?? ref.startSegmentId,
+        endSegmentId:
+          labelToId.get(this.normalizeSegmentRef(ref.endSegmentId)) ?? ref.endSegmentId,
+      })),
+    }));
   }
 
   private sourceRef(source: AnalyzeSource, startTime: number, text: string): string {
