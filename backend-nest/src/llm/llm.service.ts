@@ -430,10 +430,6 @@ export class LlmService {
       throw new AppException(502, input.code, 'Explanation ladder fields must not be empty');
     }
 
-    if (input.term.length > 60 || /[.!?]\s*$/.test(input.term)) {
-      throw new AppException(502, input.code, 'Keyword term must be a short label');
-    }
-
     const normalizedLevels = [
       input.simpleExplanation,
       input.contextualExplanation,
@@ -447,47 +443,7 @@ export class LlmService {
       );
     }
 
-    const briefWordCount = this.wordCount(input.brief);
-    if (
-      briefWordCount < 5 ||
-      briefWordCount > 10 ||
-      input.brief.length >= input.simpleExplanation.length
-    ) {
-      throw new AppException(
-        502,
-        input.code,
-        'Keyword brief must be shorter than the simple explanation',
-      );
-    }
-
-    const simpleSentenceCount = this.sentenceCount(input.simpleExplanation);
-    const contextualSentenceCount = this.sentenceCount(input.contextualExplanation);
-    const detailedSentenceCount = this.sentenceCount(input.detailedExplanation);
-
-    if (
-      simpleSentenceCount !== 1 ||
-      input.simpleExplanation.length >= input.contextualExplanation.length
-    ) {
-      throw new AppException(
-        502,
-        input.code,
-        'Simple explanation must be shorter and simpler than contextual explanation',
-      );
-    }
-
-    if (contextualSentenceCount < 2 || contextualSentenceCount > 3) {
-      throw new AppException(
-        502,
-        input.code,
-        'Contextual explanation must be 2-3 sentences',
-      );
-    }
-
-    if (
-      detailedSentenceCount < 3 ||
-      detailedSentenceCount > 5 ||
-      input.detailedExplanation.length <= input.contextualExplanation.length
-    ) {
+    if (input.detailedExplanation.length <= input.contextualExplanation.length) {
       throw new AppException(
         502,
         input.code,
@@ -498,14 +454,6 @@ export class LlmService {
 
   private normalizeExplanation(value: string): string {
     return value.toLowerCase().replace(/\s+/g, ' ').replace(/[.?!]+$/g, '').trim();
-  }
-
-  private wordCount(value: string): number {
-    return value.trim().split(/\s+/).filter(Boolean).length;
-  }
-
-  private sentenceCount(value: string): number {
-    return value.split(/[.!?]+/).filter((part) => part.trim()).length;
   }
 
   private resolveAdapter(provider: GenerateAnalysisInput['options']['provider']) {
