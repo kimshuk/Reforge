@@ -1,10 +1,11 @@
 # Reforge
 
-This repository contains the current Reforge NestJS backend and the native iOS client for NoteApp.
+This repository contains the Reforge FastAPI backend and the native iOS client for NoteApp.
 
 ## Repository layout
 
-- `backend-nest/`: NestJS API for transcript ingestion and clipping-oriented analysis
+- `backend-fastapi/`: FastAPI service for transcript ingestion and clipping-oriented analysis
+- `backend-nest/`: Legacy NestJS implementation retained during migration validation
 - `ios/`: Native iOS app project (`NoteApp.xcodeproj`)
 
 ## Backend
@@ -15,24 +16,23 @@ The backend runs as a full local stack:
 docker compose up
 ```
 
-This starts `backend-nest`, Postgres, and Redis. Docker Compose reads
-`backend-nest/.env`, so put your LLM API keys there before starting the stack.
+This starts `backend-fastapi`, Postgres, and Redis. Docker Compose reads
+`backend-fastapi/.env`, with `backend-nest/.env` retained as a temporary migration fallback.
 
 Requirements:
 
-- Node.js 18+
-- Python 3 available as `python3` or via `PYTHON_BIN`
-- `youtube-transcript-api` installed in that Python environment
+- Python 3.12+
 - At least one configured LLM API key, such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`
 
 Backend development:
 
 ```bash
-cd backend-nest
-npm install
+cd backend-fastapi
+python3 -m venv .venv
+.venv/bin/pip install -e '.[dev]'
 ```
 
-Create `backend-nest/.env` from `backend-nest/.env.example` and set the keys you need.
+Create `backend-fastapi/.env` from `backend-fastapi/.env.example` and set the keys you need.
 For the Docker stack, the default services use:
 
 ```env
@@ -46,8 +46,9 @@ OPENAI_API_KEY=your_api_key_here
 Run the API:
 
 ```bash
-cd backend-nest
-npm run dev
+cd backend-fastapi
+.venv/bin/alembic upgrade head
+.venv/bin/uvicorn app.main:app --reload --port 3000
 ```
 
 The backend exposes:
@@ -74,5 +75,5 @@ The iOS source currently lives under `ios/App`, `ios/Core`, and `ios/UI`.
 
 ## Notes
 
-- Project-specific ignore rules are kept in `backend-nest/.gitignore` and `ios/.gitignore`; the root `.gitignore` only covers repo-wide artifacts.
-- `backend-nest/node_modules/` and local `.env` files are intentionally ignored and should not be committed.
+- Project-specific ignore rules are kept in each service and client directory.
+- Virtual environments, dependency directories, and local `.env` files are intentionally ignored.

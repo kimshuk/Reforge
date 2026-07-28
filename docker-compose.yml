@@ -1,5 +1,27 @@
 services:
+  backend-fastapi:
+    build:
+      context: ./backend-fastapi
+    environment:
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:-postgres://reforge:reforge@postgres:5432/reforge}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+    env_file:
+      # Keep the Nest env as a migration fallback for existing provider keys.
+      - path: ./backend-nest/.env
+        required: false
+      - path: ./backend-fastapi/.env
+        required: false
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   backend-nest:
+    profiles: [rollback]
     build:
       context: ./backend-nest
     command: npm run dev

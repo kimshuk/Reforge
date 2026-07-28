@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Project Is
 
-Reforge is a YouTube video analysis app. Users paste a YouTube URL, the NestJS backend fetches the transcript via Python, analyzes it with the configured LLM provider, persists durable analysis artifacts, and returns a compatible categories/keywords response. The iOS client displays results in expandable chip layouts with real-time streaming progress.
+Reforge is a YouTube video analysis app. Users paste a YouTube URL, the FastAPI backend fetches the transcript, analyzes it with the configured LLM provider, persists durable analysis artifacts, and returns a compatible categories/keywords response. The iOS client displays results in expandable chip layouts with real-time streaming progress.
 
 ## Repository Layout
 
 ```
-ios/        — SwiftUI iOS app (Xcode project: NoteApp.xcodeproj)
-backend-nest/ — NestJS API server
-sample.json — Example /analyze response shape
+ios/             — SwiftUI iOS app (Xcode project: NoteApp.xcodeproj)
+backend-fastapi/ — Active FastAPI server
+backend-nest/    — Legacy NestJS server retained during migration validation
 ```
 
 ## Development Commands
@@ -23,10 +23,11 @@ open ios/NoteApp.xcodeproj   # Open in Xcode, then Cmd+R to run
 
 **Backend:**
 ```bash
-cd backend-nest
-npm install
-npm run dev    # Nest watch mode
-npm start      # production
+cd backend-fastapi
+python3 -m venv .venv
+.venv/bin/pip install -e '.[dev]'
+.venv/bin/alembic upgrade head
+.venv/bin/uvicorn app.main:app --reload --port 3000
 ```
 
 **Full backend stack:**
@@ -34,9 +35,9 @@ npm start      # production
 docker compose up
 ```
 
-This starts `backend-nest`, Postgres, and Redis. The backend image includes Python and `youtube-transcript-api`.
+This starts `backend-fastapi`, Postgres, and Redis.
 
-**Local backend without Docker requires Python** with `youtube-transcript-api` installed for transcript fetching.
+**Local backend without Docker requires Python 3.12+** and the dependencies from `backend-fastapi/pyproject.toml`.
 
 **Backend URL config** (iOS): set `NOTEAPP_BACKEND_BASE_URL` env var, or add to `ios/.env`. Falls back to `http://localhost:3000`.
 
@@ -59,13 +60,13 @@ Services are injected via initializers, making them swappable. `HomeViewModel` o
 
 ## Backend Architecture
 
-NestJS app with SSE streaming on the main endpoint:
+FastAPI app with SSE streaming on the main endpoint:
 
 - `POST /analyze` — accepts `{ type: "youtube", youtubeUrl, title }`, streams Server-Sent Events with progress events during processing, then a final `result` event containing the compatible JSON payload
 - `GET /transcript/:id` — retrieves a stored transcript
 - `GET /health` — health check
 
-Pipeline: request parsing → Python subprocess transcript fetch → transcript sanitizing and stable segment creation → TopicChunk boundary extraction → CandidateClipping extraction → coverage review → TypeORM persistence → compatible JSON response.
+Pipeline: request parsing → YouTube transcript fetch → transcript sanitizing and stable segment creation → TopicChunk boundary extraction → CandidateClipping extraction → coverage review → SQLAlchemy persistence → compatible JSON response.
 
 Postgres is the durable source of truth for sources, transcripts, transcript segments, analysis runs, topic chunks, candidate clippings, coverage warnings, and eval runs. Redis is scoped to cache/coordination uses.
 
