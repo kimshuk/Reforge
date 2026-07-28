@@ -1,27 +1,18 @@
-# Reforge Nest Backend
+# Reforge Nest Backend (Legacy)
 
-NestJS backend for transcript ingestion and category analysis.
+This is the previous NestJS implementation. The active service is `backend-fastapi/`, and Docker Compose now starts that service. Keep this directory until migration parity has been accepted; do not use these instructions for the active stack.
 
 ## Docker
 
-From the repository root:
+To run this legacy service independently:
 
 ```bash
-docker compose up
+cd backend-nest
+npm install
+npm run dev
 ```
 
-This starts:
-
-- `backend-nest` on `http://localhost:3000`
-- Postgres on `localhost:5432`
-- Redis on `localhost:6379`
-
-The backend image includes Node, Python, and `youtube-transcript-api` for
-transcript fetching.
-
-Docker Compose reads `backend-nest/.env` and starts the backend with those
-settings. Set `TYPEORM_MIGRATIONS_RUN=true` there so local database migrations
-run when the backend starts.
+Postgres and Redis must already be available at the URLs configured in `.env`.
 
 ## Environment
 
