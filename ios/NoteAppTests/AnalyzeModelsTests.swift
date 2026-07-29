@@ -97,4 +97,3 @@ final class AnalyzeModelsTests: XCTestCase {
         try JSONDecoder().decode(AnalyzeResponse.self, from: Data(json.utf8))
     }
 }
-

@@ -1,8 +1,9 @@
 """Add semantic keyword categories and occurrence memberships."""
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision = "0002_add_keyword_categories"
 down_revision = "0001_nest_schema_baseline"
