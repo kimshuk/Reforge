@@ -8,8 +8,10 @@ from app.config import Settings
 from app.errors import AppError
 from app.prompts import (
     CANDIDATE_CLIPPING_SCHEMA,
+    CATEGORY_GROUPING_SCHEMA,
     TOPIC_CHUNKING_SCHEMA,
     candidate_clipping_prompt,
+    category_grouping_prompt,
     topic_chunking_prompt,
 )
 
@@ -112,6 +114,22 @@ class LlmClient:
             if (match := re.match(r"^\s*([^|\s]+)\s*\|", line))
         ]
         return [validate_candidate(value, index, labels) for index, value in enumerate(candidates)]
+
+    async def generate_keyword_categories(
+        self,
+        occurrences: list[dict[str, Any]],
+        target_language: str,
+        options: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        occurrence_ids = [item["keywordId"] for item in occurrences]
+        system, user = category_grouping_prompt(
+            json.dumps(occurrences, ensure_ascii=False), target_language
+        )
+        raw = await self._generate(system, user, options, CATEGORY_GROUPING_SCHEMA)
+        return validate_category_grouping(
+            parse_json_object(raw, "LLM_CATEGORY_GROUPING_INVALID_JSON"),
+            occurrence_ids,
+        )
 
     async def _generate(
         self,
@@ -278,6 +296,44 @@ def validate_candidate(value: Any, index: int, chunk_labels: list[str]) -> dict[
         })
     cleaned["sourceRefs"] = validated_refs
     return cleaned
+
+
+def validate_category_grouping(
+    value: Any, occurrence_ids: list[str]
+) -> list[dict[str, Any]]:
+    if not isinstance(value, dict) or set(value) != {"categories"}:
+        raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Invalid category grouping object")
+    categories = value["categories"]
+    if not isinstance(categories, list) or not categories:
+        raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Categories must be non-empty")
+
+    known = set(occurrence_ids)
+    assigned: list[str] = []
+    normalized_titles: set[str] = set()
+    cleaned_categories: list[dict[str, Any]] = []
+    for index, category in enumerate(categories):
+        if not isinstance(category, dict) or set(category) != {"title", "keywordIds"}:
+            raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", f"Invalid category at index {index}")
+        title, keyword_ids = category["title"], category["keywordIds"]
+        if not isinstance(title, str) or not title.strip():
+            raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Category titles must be non-empty")
+        if not isinstance(keyword_ids, list) or not keyword_ids:
+            raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Category keyword IDs must be non-empty")
+        if not all(isinstance(item, str) and item for item in keyword_ids):
+            raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Category keyword IDs must be strings")
+        normalized_title = re.sub(r"\s+", " ", title).strip().casefold()
+        if normalized_title in normalized_titles:
+            raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Category titles must be unique")
+        normalized_titles.add(normalized_title)
+        unknown = next((item for item in keyword_ids if item not in known), None)
+        if unknown:
+            raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", f"Category contains unknown occurrence ID: {unknown}")
+        assigned.extend(keyword_ids)
+        cleaned_categories.append({"title": title.strip(), "keywordIds": keyword_ids})
+
+    if len(assigned) != len(occurrence_ids) or set(assigned) != known:
+        raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Every occurrence ID must be assigned exactly once")
+    return cleaned_categories
 
 
 def validate_explanation_ladder(term: str, brief: str, simple: str, contextual: str, detailed: str) -> None:

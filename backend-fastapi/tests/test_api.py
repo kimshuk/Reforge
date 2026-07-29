@@ -18,6 +18,21 @@ def test_analyze_openapi_documents_body_and_stream_parameters() -> None:
     assert ("header", "accept") in parameters
 
 
+def test_analyze_openapi_documents_semantic_category_response() -> None:
+    operation = client.get("/openapi.json").json()["paths"]["/analyze"]["post"]
+    success = operation["responses"]["200"]["content"]
+
+    result_schema = success["application/json"]["schema"]
+    definitions = result_schema["$defs"]
+    category_schema = definitions["AnalyzeCategory"]
+    assert category_schema["properties"]["categoryId"]
+    keyword_schema = definitions["AnalyzeKeyword"]
+    assert keyword_schema["properties"]["candidateClippingId"]
+    assert keyword_schema["properties"]["source"]
+    assert keyword_schema["properties"]["sources"]
+    assert success["text/event-stream"]["examples"]["result"]["summary"]
+
+
 def test_rejects_non_object_analyze_body_with_compatible_error() -> None:
     response = client.post("/analyze", json=[])
 

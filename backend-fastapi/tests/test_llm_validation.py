@@ -3,7 +3,12 @@ import pytest
 
 from app.config import Settings
 from app.errors import AppError
-from app.llm import LlmClient, validate_candidate, validate_explanation_ladder
+from app.llm import (
+    LlmClient,
+    validate_candidate,
+    validate_category_grouping,
+    validate_explanation_ladder,
+)
 
 GOOD = {
     "kind": "claim",
@@ -72,6 +77,54 @@ def test_accepts_glanceable_brief_without_whitespace() -> None:
     candidate = {**GOOD, "brief": "競合他社が製品価格を引き下げている"}
 
     assert validate_candidate(candidate, 0, ["S001", "S002"])["brief"] == candidate["brief"]
+
+
+def test_accepts_complete_occurrence_category_partition_with_duplicate_terms() -> None:
+    result = validate_category_grouping(
+        {
+            "categories": [
+                {"title": "OpenAI", "keywordIds": ["K001", "K002"]},
+                {"title": "Google", "keywordIds": ["K003"]},
+            ]
+        },
+        ["K001", "K002", "K003"],
+    )
+
+    assert result == [
+        {"title": "OpenAI", "keywordIds": ["K001", "K002"]},
+        {"title": "Google", "keywordIds": ["K003"]},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ({"categories": [{"title": "OpenAI", "keywordIds": ["K001"]}]}, "exactly once"),
+        ({"categories": [{"title": "OpenAI", "keywordIds": ["K001", "K999", "K002"]}]}, "unknown"),
+        (
+            {
+                "categories": [
+                    {"title": "OpenAI", "keywordIds": ["K001", "K002"]},
+                    {"title": "Tools", "keywordIds": ["K002"]},
+                ]
+            },
+            "exactly once",
+        ),
+        (
+            {
+                "categories": [
+                    {"title": "Open AI", "keywordIds": ["K001"]},
+                    {"title": " open   ai ", "keywordIds": ["K002"]},
+                ]
+            },
+            "titles",
+        ),
+        ({"categories": [{"title": "OpenAI", "keywordIds": []}]}, "non-empty"),
+    ],
+)
+def test_rejects_invalid_occurrence_category_partition(payload: dict, message: str) -> None:
+    with pytest.raises(AppError, match=message):
+        validate_category_grouping(payload, ["K001", "K002"])
 
 
 @pytest.mark.asyncio

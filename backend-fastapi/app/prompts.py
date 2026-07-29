@@ -98,6 +98,35 @@ CANDIDATE_CLIPPING_SCHEMA: dict[str, Any] = {
     },
 }
 
+CATEGORY_GROUPING_SCHEMA: dict[str, Any] = {
+    "name": "keyword_category_grouping",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["categories"],
+        "properties": {
+            "categories": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["title", "keywordIds"],
+                    "properties": {
+                        "title": {"type": "string", "minLength": 2, "maxLength": 80},
+                        "keywordIds": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {"type": "string"},
+                        },
+                    },
+                },
+            }
+        },
+    },
+}
+
 
 def topic_chunking_prompt(segments: str, target_language: str) -> tuple[str, str]:
     return (
@@ -153,4 +182,37 @@ Bad example:
 
 Return only JSON matching the schema.""",
         f"Chunk title: {chunk_title}\nChunk summary: {chunk_summary}\nChunk segments:\n{segments}",
+    )
+
+
+def category_grouping_prompt(occurrences: str, target_language: str) -> tuple[str, str]:
+    return (
+        f"""You assign contextual keyword occurrence IDs to semantic categories.
+
+Rules:
+- Return every provided keywordId exactly once.
+- Use only the provided keywordIds. Never invent, rewrite, omit, duplicate, or merge IDs.
+- Equal display terms may represent different contextual occurrences and must remain separate IDs.
+- Categories are semantic groups without timestamps and must contain at least one keywordId.
+- A category may contain repeated display terms from different transcript sections.
+- If an occurrence does not fit another group, create a meaningful singleton category rather than omitting it or using a generic fallback.
+- Write category titles in {target_language}.
+
+Good example:
+{{
+  "categories": [
+    {{"title": "OpenAI", "keywordIds": ["K001", "K007"]}}
+  ]
+}}
+
+Bad example:
+{{
+  "categories": [
+    {{"title": "OpenAI", "keywordIds": ["Codex"]}}
+  ]
+}}
+
+The bad example rewrites occurrence IDs as display terms and may merge separate occurrences.
+Return only JSON matching the schema.""",
+        f"Keyword occurrences:\n{occurrences}",
     )
