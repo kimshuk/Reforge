@@ -75,6 +75,7 @@ Both JSON files must expose the same result shape. IDs differ because these are 
 ```bash
 jq -e '
   . as $result |
+  ($result.categories | length > 0) and
   ([$result.categories[] | select((.keywords | length) == 0)] | length == 0) and
   ([$result.categories[].keywords[] | has("candidateClippingId") and
     (.source.ref | test("[?&]t=[0-9]+s")) and
@@ -96,6 +97,12 @@ jq '
   | group_by(.term | ascii_downcase)
   | map(select(length > 1)
       | map({term, candidateClippingId, level2, level3, source}))
+' /tmp/reforge-analysis.json
+
+jq -e '
+  [.categories[].keywords[] | .term |= ascii_downcase]
+  | group_by(.term)
+  | any(length > 1)
 ' /tmp/reforge-analysis.json
 ```
 

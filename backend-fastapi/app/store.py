@@ -24,6 +24,7 @@ from app.models import (
 from app.sanitizer import CleanedSegment
 
 TRANSCRIPT_TTL_SECONDS = 30 * 60
+MANUAL_SEGMENTATION_VERSION = "segments-v2"
 
 
 @dataclass(frozen=True)
@@ -65,7 +66,7 @@ class TranscriptStore:
         normalized = re.sub(r"\s+", " ", transcript_text).strip()
         transcript_hash = hashlib.sha256(normalized.encode()).hexdigest()
         provider = "youtube" if source_type == "youtube" else "manual"
-        external_id = video_id or transcript_hash
+        external_id = video_id or f"{MANUAL_SEGMENTATION_VERSION}:{transcript_hash}"
 
         await self.db.execute(
             insert(Source)

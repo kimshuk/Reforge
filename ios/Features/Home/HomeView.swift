@@ -18,8 +18,7 @@ struct HomeView: View {
     @StateObject private var viewModel: HomeViewModel
     @StateObject private var keyboardObserver = KeyboardObserver()
     @State private var expandedCategoryId: String?
-    @State private var selectedKeywordIdsByCategory: [String: Set<String>] = [:]
-    @State private var keywordDisplayLevelByCategory: [String: [String: Int]] = [:]
+    @State private var keywordSelection = KeywordSelectionState()
     @FocusState private var focusedField: Field?
 
     init(viewModel: HomeViewModel) {
@@ -253,7 +252,7 @@ struct HomeView: View {
     private func selectedKeywordsSection(for result: AnalyzeResponse) -> some View {
         let categoriesWithSelections = result.categories.compactMap { category -> (AnalyzeCategory, [AnalyzeKeyword])? in
             let selected = category.keywords.filter {
-                selectedKeywordIdsByCategory[category.id]?.contains($0.id) ?? false
+                keywordSelection.isSelected(keywordId: $0.id, in: category.id)
             }
             return selected.isEmpty ? nil : (category, selected)
         }
@@ -278,7 +277,7 @@ struct HomeView: View {
     }
 
     private func selectedKeywordRow(keyword: AnalyzeKeyword, categoryId: String) -> some View {
-        let level = keywordDisplayLevelByCategory[categoryId]?[keyword.id] ?? 1
+        let level = keywordSelection.level(keywordId: keyword.id, in: categoryId)
         let levelText = keywordLevelText(for: keyword, level: level)
         return HStack(alignment: .top, spacing: 8) {
             (Text("- ").foregroundStyle(.secondary) + Text(keyword.term).fontWeight(.semibold).foregroundStyle(.primary) + Text(": \(levelText)").foregroundStyle(.secondary))
@@ -294,7 +293,7 @@ struct HomeView: View {
             }
             if level < 3 {
                 Button {
-                    keywordDisplayLevelByCategory[categoryId, default: [:]][keyword.id] = level + 1
+                    keywordSelection.advanceLevel(keywordId: keyword.id, in: categoryId)
                 } label: {
                     Text("expand")
                         .font(.system(size: 11, weight: .medium))
@@ -303,8 +302,7 @@ struct HomeView: View {
                 .buttonStyle(.plain)
             }
             Button {
-                selectedKeywordIdsByCategory[categoryId]?.remove(keyword.id)
-                keywordDisplayLevelByCategory[categoryId]?.removeValue(forKey: keyword.id)
+                keywordSelection.remove(keywordId: keyword.id, from: categoryId)
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .semibold))
@@ -324,12 +322,11 @@ struct HomeView: View {
     }
 
     private func keywordPill(_ keyword: AnalyzeKeyword, in categoryId: String) -> some View {
-        let isSelected = selectedKeywordIdsByCategory[categoryId]?.contains(keyword.id) ?? false
+        let isSelected = keywordSelection.isSelected(keywordId: keyword.id, in: categoryId)
 
         return Button {
             if !isSelected {
-                selectedKeywordIdsByCategory[categoryId, default: []].insert(keyword.id)
-                keywordDisplayLevelByCategory[categoryId, default: [:]][keyword.id] = 1
+                keywordSelection.select(keywordId: keyword.id, in: categoryId)
             }
         } label: {
             HStack(spacing: 6) {
@@ -390,8 +387,7 @@ struct HomeView: View {
 
     private func configureCategorySelection(for result: AnalyzeResponse?) {
         expandedCategoryId = nil
-        selectedKeywordIdsByCategory.removeAll()
-        keywordDisplayLevelByCategory.removeAll()
+        keywordSelection.reset()
     }
 
     private var loadingStages: [String] {

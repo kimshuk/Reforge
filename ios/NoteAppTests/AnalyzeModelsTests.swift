@@ -93,7 +93,48 @@ final class AnalyzeModelsTests: XCTestCase {
         XCTAssertNotEqual(category.keywords[0].id, category.keywords[1].id)
     }
 
+    func testDuplicateTermsHaveIndependentSelectionAndExpansionState() throws {
+        let result = try decode(duplicateCodexPayload)
+        let category = try XCTUnwrap(result.categories.first)
+        let first = category.keywords[0]
+        let second = category.keywords[1]
+        var selection = KeywordSelectionState()
+
+        selection.select(keywordId: first.id, in: category.id)
+        selection.select(keywordId: second.id, in: category.id)
+        selection.advanceLevel(keywordId: second.id, in: category.id)
+
+        XCTAssertTrue(selection.isSelected(keywordId: first.id, in: category.id))
+        XCTAssertTrue(selection.isSelected(keywordId: second.id, in: category.id))
+        XCTAssertEqual(selection.level(keywordId: first.id, in: category.id), 1)
+        XCTAssertEqual(selection.level(keywordId: second.id, in: category.id), 2)
+        XCTAssertEqual(first.source.ref, "https://example.com?t=46s")
+        XCTAssertEqual(second.source.ref, "https://example.com?t=312s")
+
+        selection.remove(keywordId: first.id, from: category.id)
+        XCTAssertFalse(selection.isSelected(keywordId: first.id, in: category.id))
+        XCTAssertTrue(selection.isSelected(keywordId: second.id, in: category.id))
+    }
+
     private func decode(_ json: String) throws -> AnalyzeResponse {
         try JSONDecoder().decode(AnalyzeResponse.self, from: Data(json.utf8))
+    }
+
+    private var duplicateCodexPayload: String {
+        """
+        {
+          "transcriptId": "transcript-1",
+          "sourceType": "youtube",
+          "categories": [{
+            "categoryId": "category-openai",
+            "title": "OpenAI",
+            "keywords": [
+              {"candidateClippingId": "occurrence-tool", "term": "Codex", "brief": "Tool context", "level1": "One", "level2": "Tool context", "level3": "Tool detail", "source": {"type": "youtube", "ref": "https://example.com?t=46s"}},
+              {"candidateClippingId": "occurrence-risk", "term": "Codex", "brief": "Risk context", "level1": "One", "level2": "Risk context", "level3": "Risk detail", "source": {"type": "youtube", "ref": "https://example.com?t=312s"}}
+            ]
+          }],
+          "expiresInSeconds": 1800
+        }
+        """
     }
 }

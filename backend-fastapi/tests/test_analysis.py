@@ -20,6 +20,7 @@ from app.models import (
     TopicChunk,
     TranscriptSegment,
 )
+from app.sanitizer import segment_manual_transcript
 from app.schemas import AnalyzeSource
 from app.store import StoredTranscript
 
@@ -203,6 +204,19 @@ def test_grouping_occurrences_give_equal_terms_distinct_ids() -> None:
     assert by_id == {"K001": first, "K002": second}
 
 
+def test_manual_paragraphs_produce_distinct_source_segments() -> None:
+    text = (
+        "Codex is introduced as an autonomous coding tool in this section.\n\n"
+        "Codex is discussed as a competitive risk to software companies later."
+    )
+
+    segments = segment_manual_transcript(text)
+
+    assert [item.sequence for item in segments] == [0, 1]
+    assert segments[0].text.startswith("Codex is introduced")
+    assert segments[1].text.startswith("Codex is discussed")
+
+
 class ServiceStore:
     def __init__(self, segments: list[TranscriptSegment]) -> None:
         self.segments = segments
@@ -338,5 +352,13 @@ async def test_analyze_returns_semantic_categories_with_distinct_contextual_occu
     assert first["source"]["ref"].endswith("t=46s")
     assert second["source"]["ref"].endswith("t=312s")
     assert first["sources"] == [first["source"]]
-    assert any(payload["stage"] == "grouping_keywords" for _, payload in events)
+    grouping_events = [
+        payload for _, payload in events if payload["stage"] == "grouping_keywords"
+    ]
+    assert grouping_events[-1]["extractedOccurrenceCount"] == 4
+    assert grouping_events[-1]["filteredOccurrenceCount"] == 1
+    assert grouping_events[-1]["exactDuplicateCount"] == 1
+    assert grouping_events[-1]["retainedOccurrenceCount"] == 2
+    assert grouping_events[-1]["groupedOccurrenceCount"] == 2
+    assert grouping_events[-1]["discardedOccurrenceCount"] == 2
     assert store.completed is True

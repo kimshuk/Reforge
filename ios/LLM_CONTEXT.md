@@ -118,8 +118,7 @@ ios/
 `HomeView`의 로컬 상태:
 
 - `expandedCategoryId`: 현재 펼쳐진 카테고리의 stable ID.
-- `selectedKeywordIdsByCategory`: 카테고리별 선택된 `candidateClippingId` 기반 keyword occurrence ID set.
-- `keywordDisplayLevelByCategory`: 카테고리/키워드별 현재 설명 깊이(1, 2, 3).
+- `keywordSelection`: `KeywordSelectionState`로 카테고리별 선택된 `candidateClippingId`와 각 occurrence의 현재 설명 깊이(1, 2, 3)를 함께 관리한다.
 - `focusedField`: 제목 입력 field 또는 YouTube URL 입력 field 포커스.
 
 ## 백엔드 설정

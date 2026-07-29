@@ -362,7 +362,23 @@ def validate_explanation_ladder(term: str, brief: str, simple: str, contextual: 
 
 
 def sentence_count(value: str) -> int:
-    parts = [part for part in re.split(r"[.!?。！？]+(?:[\"')\]]*)\s*", value.strip()) if part.strip()]
+    protected = re.sub(r"(?<=\d)\.(?=\d)", "<DOT>", value.strip())
+    protected = re.sub(
+        r"\b(?:[A-Za-z]\.){2,}",
+        lambda match: match.group(0).replace(".", "<DOT>"),
+        protected,
+    )
+    protected = re.sub(
+        r"\b(?:e\.g|i\.e|mr|mrs|ms|dr|prof|sr|jr|vs|etc)\.",
+        lambda match: match.group(0).replace(".", "<DOT>"),
+        protected,
+        flags=re.IGNORECASE,
+    )
+    parts = [
+        part
+        for part in re.split(r"[.!?。！？]+(?:[\"')\]]*)\s*", protected)
+        if part.strip()
+    ]
     return max(1, len(parts))
 
 

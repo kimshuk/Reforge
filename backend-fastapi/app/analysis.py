@@ -15,7 +15,12 @@ from app.models import (
     TopicChunk,
     TranscriptSegment,
 )
-from app.sanitizer import CleanedSegment, format_timestamp, sanitize_transcript
+from app.sanitizer import (
+    CleanedSegment,
+    format_timestamp,
+    sanitize_transcript,
+    segment_manual_transcript,
+)
 from app.schemas import AnalyzeResult, AnalyzeSource, assert_transcript_text, parse_analyze_request
 from app.store import TRANSCRIPT_TTL_SECONDS, TranscriptStore
 from app.youtube import fetch_youtube_transcript
@@ -93,6 +98,8 @@ class AnalyzeService:
             failure_stage = "extracting_clippings"
             segments_by_id = {segment.id: segment for segment in segments}
             clippings: list[CandidateClipping] = []
+            extracted_occurrence_count = 0
+            filtered_occurrence_count = 0
             for chunk in eligible_topic_chunks(saved_chunks):
                 chunk_segments = segments_for_range(segments, chunk.start_segment_id, chunk.end_segment_id)
                 candidates = await self.llm.generate_candidate_clippings(
@@ -102,8 +109,11 @@ class AnalyzeService:
                     source.target_language,
                     llm_options,
                 )
-                for candidate in resolve_candidate_labels(candidates, segments):
+                resolved_candidates = resolve_candidate_labels(candidates, segments)
+                extracted_occurrence_count += len(resolved_candidates)
+                for candidate in resolved_candidates:
                     if candidate["signalLevel"] == "low":
+                        filtered_occurrence_count += 1
                         continue
                     clippings.append(
                         candidate_entity(
@@ -121,28 +131,47 @@ class AnalyzeService:
                 "progress",
                 stage="deduplicating_occurrences",
                 message="Removing exact duplicate keyword occurrences",
-                extractedOccurrenceCount=len(clippings),
+                extractedOccurrenceCount=extracted_occurrence_count,
+                filteredOccurrenceCount=filtered_occurrence_count,
             )
             failure_stage = "deduplicating_occurrences"
             retained_clippings = deduplicate_occurrences(clippings)
             grouping_input, occurrences_by_id = build_grouping_occurrences(retained_clippings)
 
             grouping: list[dict[str, Any]] = []
+            _emit(
+                emit,
+                "progress",
+                stage="grouping_keywords",
+                message="Assigning keyword occurrences to semantic categories",
+                retainedOccurrenceCount=len(retained_clippings),
+                exactDuplicateCount=len(clippings) - len(retained_clippings),
+            )
+            failure_stage = "grouping_keywords"
             if grouping_input:
-                _emit(
-                    emit,
-                    "progress",
-                    stage="grouping_keywords",
-                    message="Assigning keyword occurrences to semantic categories",
-                    retainedOccurrenceCount=len(retained_clippings),
-                    exactDuplicateCount=len(clippings) - len(retained_clippings),
-                )
-                failure_stage = "grouping_keywords"
                 grouping = await self.llm.generate_keyword_categories(
                     grouping_input,
                     source.target_language,
                     llm_options,
                 )
+            _emit(
+                emit,
+                "progress",
+                stage="grouping_keywords",
+                message="Keyword occurrence grouping complete",
+                extractedOccurrenceCount=extracted_occurrence_count,
+                filteredOccurrenceCount=filtered_occurrence_count,
+                exactDuplicateCount=len(clippings) - len(retained_clippings),
+                retainedOccurrenceCount=len(retained_clippings),
+                groupedOccurrenceCount=sum(
+                    len(category["keywordIds"]) for category in grouping
+                ),
+                discardedOccurrenceCount=(
+                    filtered_occurrence_count
+                    + len(clippings)
+                    - len(retained_clippings)
+                ),
+            )
             extraction_warnings = review_coverage(
                 saved_chunks,
                 retained_clippings,
@@ -206,7 +235,8 @@ class AnalyzeService:
         self, source: AnalyzeSource, emit: ProgressEmitter | None
     ) -> tuple[str, str | None, list[CleanedSegment]]:
         if source.type == "manual":
-            return source.text or "", None, []
+            text = source.text or ""
+            return text, None, segment_manual_transcript(text)
         _emit(emit, "progress", stage="fetching_transcript", message="Fetching YouTube transcript")
         result = await asyncio.to_thread(fetch_youtube_transcript, source.youtube_url or "")
         source.youtube_url = f"https://www.youtube.com/watch?v={result.video_id}"

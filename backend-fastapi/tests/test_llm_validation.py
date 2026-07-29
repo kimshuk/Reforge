@@ -79,6 +79,20 @@ def test_accepts_glanceable_brief_without_whitespace() -> None:
     assert validate_candidate(candidate, 0, ["S001", "S002"])["brief"] == candidate["brief"]
 
 
+@pytest.mark.parametrize(
+    "simple",
+    [
+        "The U.S. market changes quickly in this example.",
+        "The value increases from 1.5 to 2.0 in this example.",
+        "An e.g. marker can appear inside one valid sentence.",
+    ],
+)
+def test_accepts_single_sentences_with_internal_periods(simple: str) -> None:
+    candidate = {**GOOD, "simpleExplanation": simple}
+
+    assert validate_candidate(candidate, 0, ["S001", "S002"])["simpleExplanation"] == simple
+
+
 def test_accepts_complete_occurrence_category_partition_with_duplicate_terms() -> None:
     result = validate_category_grouping(
         {

@@ -84,6 +84,38 @@ struct AnalyzeSource: Codable, Hashable {
     let ref: String
 }
 
+struct KeywordSelectionState: Equatable {
+    private(set) var selectedKeywordIdsByCategory: [String: Set<String>] = [:]
+    private(set) var displayLevelsByCategory: [String: [String: Int]] = [:]
+
+    func isSelected(keywordId: String, in categoryId: String) -> Bool {
+        selectedKeywordIdsByCategory[categoryId]?.contains(keywordId) ?? false
+    }
+
+    func level(keywordId: String, in categoryId: String) -> Int {
+        displayLevelsByCategory[categoryId]?[keywordId] ?? 1
+    }
+
+    mutating func select(keywordId: String, in categoryId: String) {
+        selectedKeywordIdsByCategory[categoryId, default: []].insert(keywordId)
+        displayLevelsByCategory[categoryId, default: [:]][keywordId] = 1
+    }
+
+    mutating func advanceLevel(keywordId: String, in categoryId: String) {
+        displayLevelsByCategory[categoryId, default: [:]][keywordId] =
+            min(level(keywordId: keywordId, in: categoryId) + 1, 3)
+    }
+
+    mutating func remove(keywordId: String, from categoryId: String) {
+        selectedKeywordIdsByCategory[categoryId]?.remove(keywordId)
+        displayLevelsByCategory[categoryId]?.removeValue(forKey: keywordId)
+    }
+
+    mutating func reset() {
+        self = KeywordSelectionState()
+    }
+}
+
 private struct AnalyzeCategoryPayload: Decodable {
     let categoryId: String?
     let title: String
