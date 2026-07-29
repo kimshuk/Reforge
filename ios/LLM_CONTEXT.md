@@ -117,8 +117,8 @@ ios/
 
 `HomeView`의 로컬 상태:
 
-- `expandedCategoryTitle`: 현재 펼쳐진 카테고리 title.
-- `selectedKeywordTermByCategory`: 카테고리별 선택된 keyword term set.
+- `expandedCategoryId`: 현재 펼쳐진 카테고리의 stable ID.
+- `selectedKeywordIdsByCategory`: 카테고리별 선택된 `candidateClippingId` 기반 keyword occurrence ID set.
 - `keywordDisplayLevelByCategory`: 카테고리/키워드별 현재 설명 깊이(1, 2, 3).
 - `focusedField`: 제목 입력 field 또는 YouTube URL 입력 field 포커스.
 
@@ -131,6 +131,8 @@ ios/
 3. 기본값 `http://localhost:3000`
 
 iOS 앱은 현재 `POST {baseURL}/analyze?stream=progress`를 호출한다.
+
+응답의 카테고리는 `categoryId`, 키워드는 `candidateClippingId`를 identity로 사용한다. 동일한 `term`이 한 카테고리에 여러 번 존재할 수 있으므로 title이나 term을 SwiftUI identity 또는 선택 상태 key로 사용하지 않는다. 새 FastAPI 응답의 `sources`는 같은 contextual occurrence를 뒷받침하는 source만 포함하며, `source`는 primary source이다. NestJS rollback 응답처럼 ID와 `sources`가 없는 legacy payload는 transcript/category/keyword position으로 계산한 deterministic fallback ID를 사용한다.
 
 ## 분석 요청/응답 계약
 
