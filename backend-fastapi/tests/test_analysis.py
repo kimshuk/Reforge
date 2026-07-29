@@ -217,6 +217,23 @@ def test_manual_paragraphs_produce_distinct_source_segments() -> None:
     assert segments[1].text.startswith("Codex is discussed")
 
 
+def test_manual_single_paragraph_sentences_produce_distinct_segments() -> None:
+    segments = segment_manual_transcript(
+        "Codex is introduced as an autonomous tool. Codex later appears as a competitive risk."
+    )
+
+    assert len(segments) == 2
+    assert segments[0].text.endswith("tool.")
+    assert segments[1].text.startswith("Codex later")
+
+
+def test_manual_text_without_spaces_is_split_by_character_limit() -> None:
+    segments = segment_manual_transcript("코덱스" * 150)
+
+    assert len(segments) >= 2
+    assert all(len(item.text) <= 320 for item in segments)
+
+
 class ServiceStore:
     def __init__(self, segments: list[TranscriptSegment]) -> None:
         self.segments = segments

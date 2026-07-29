@@ -18,6 +18,13 @@ Run tests with:
 .venv/bin/pytest
 ```
 
+The PostgreSQL migration contract test is opt-in because it downgrades and re-upgrades its target database. Point it only at a disposable database:
+
+```bash
+TEST_DATABASE_URL=postgresql+psycopg://reforge:reforge@localhost:5432/reforge \
+  .venv/bin/pytest tests/test_postgres_category_contract.py
+```
+
 The service exposes:
 
 - `POST /analyze`, with JSON or SSE progress responses
@@ -73,13 +80,15 @@ sed -n '/^event: result$/{n;s/^data: //;p;}' /tmp/reforge-analysis.sse \
 Both JSON files must expose the same result shape. IDs differ because these are separate analysis runs:
 
 ```bash
-jq -e '
-  . as $result |
-  ($result.categories | length > 0) and
-  ([$result.categories[] | select((.keywords | length) == 0)] | length == 0) and
-  ([$result.categories[].keywords[] | has("candidateClippingId") and
-    (.source.ref | test("[?&]t=[0-9]+s")) and
-    (.source == .sources[0])] | all)
+jq -s -e '
+  all(.[];
+    . as $result |
+    ($result.categories | length > 0) and
+    ([$result.categories[] | select((.keywords | length) == 0)] | length == 0) and
+    ([$result.categories[].keywords[] | has("candidateClippingId") and
+      (.source.ref | test("[?&]t=[0-9]+s")) and
+      (.source == .sources[0])] | all)
+  )
 ' /tmp/reforge-analysis.json /tmp/reforge-analysis-sse-result.json
 
 jq '[paths(scalars) | map(if type == "number" then "[]" else . end)] | unique' \

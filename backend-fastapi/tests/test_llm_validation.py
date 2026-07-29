@@ -5,6 +5,7 @@ from app.config import Settings
 from app.errors import AppError
 from app.llm import (
     LlmClient,
+    sentence_count,
     validate_candidate,
     validate_category_grouping,
     validate_explanation_ladder,
@@ -91,6 +92,17 @@ def test_accepts_single_sentences_with_internal_periods(simple: str) -> None:
     candidate = {**GOOD, "simpleExplanation": simple}
 
     assert validate_candidate(candidate, 0, ["S001", "S002"])["simpleExplanation"] == simple
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "The speaker cites the U.S. The market falls.",
+        "The speaker lists several risks, etc. The market falls.",
+    ],
+)
+def test_counts_sentence_ending_abbreviations_as_boundaries(value: str) -> None:
+    assert sentence_count(value) == 2
 
 
 def test_accepts_complete_occurrence_category_partition_with_duplicate_terms() -> None:

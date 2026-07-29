@@ -364,13 +364,25 @@ def validate_explanation_ladder(term: str, brief: str, simple: str, contextual: 
 def sentence_count(value: str) -> int:
     protected = re.sub(r"(?<=\d)\.(?=\d)", "<DOT>", value.strip())
     protected = re.sub(
-        r"\b(?:[A-Za-z]\.){2,}",
+        r"\b(?:e\.g|i\.e)\.",
         lambda match: match.group(0).replace(".", "<DOT>"),
+        protected,
+        flags=re.IGNORECASE,
+    )
+    protected = re.sub(
+        r"\b(?:mr|mrs|ms|dr|prof|sr|jr)\.",
+        lambda match: match.group(0).replace(".", "<DOT>"),
+        protected,
+        flags=re.IGNORECASE,
+    )
+    protected = re.sub(
+        r"\b(?:[A-Za-z]\.){2,}",
+        lambda match: _protect_contextual_abbreviation(match, protected),
         protected,
     )
     protected = re.sub(
-        r"\b(?:e\.g|i\.e|mr|mrs|ms|dr|prof|sr|jr|vs|etc)\.",
-        lambda match: match.group(0).replace(".", "<DOT>"),
+        r"\b(?:vs|etc)\.",
+        lambda match: _protect_contextual_abbreviation(match, protected),
         protected,
         flags=re.IGNORECASE,
     )
@@ -380,6 +392,14 @@ def sentence_count(value: str) -> int:
         if part.strip()
     ]
     return max(1, len(parts))
+
+
+def _protect_contextual_abbreviation(match: re.Match[str], value: str) -> str:
+    token = match.group(0)
+    next_text = value[match.end() :].lstrip()
+    protect_final_period = bool(next_text and next_text[0].islower())
+    body = token[:-1].replace(".", "<DOT>")
+    return body + ("<DOT>" if protect_final_period else ".")
 
 
 def normalize_explanation(value: str) -> str:

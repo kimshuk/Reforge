@@ -116,24 +116,18 @@ def sanitize_transcript(raw_snippets: Any) -> SanitizedTranscript:
 
 
 def segment_manual_transcript(value: str) -> list[CleanedSegment]:
-    paragraphs = [
-        normalized
-        for paragraph in re.split(r"\n\s*\n+", value)
-        if (normalized := normalize_text(paragraph))
-    ]
     pieces: list[str] = []
-    for paragraph in paragraphs:
-        words = paragraph.split()
-        current: list[str] = []
-        for word in words:
-            candidate = " ".join([*current, word])
-            if current and len(candidate) > MAX_SEGMENT_CHARS:
-                pieces.append(" ".join(current))
-                current = [word]
-            else:
-                current.append(word)
-        if current:
-            pieces.append(" ".join(current))
+    units = re.split(r"\n+|(?<=[.!?])\s+|(?<=[。！？])", value)
+    for unit in units:
+        normalized = normalize_text(unit)
+        while normalized:
+            if len(normalized) <= MAX_SEGMENT_CHARS:
+                pieces.append(normalized)
+                break
+            split_at = normalized.rfind(" ", 0, MAX_SEGMENT_CHARS + 1)
+            split_at = split_at if split_at > 0 else MAX_SEGMENT_CHARS
+            pieces.append(normalized[:split_at].strip())
+            normalized = normalized[split_at:].strip()
 
     return [
         CleanedSegment(

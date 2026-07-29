@@ -1,7 +1,7 @@
 ---
 title: "refactor: Separate semantic categories from topic chunks"
 type: refactor
-status: active
+status: completed
 date: 2026-07-28
 updated: 2026-07-29
 ---
@@ -322,11 +322,14 @@ The grouping prompt should use model-echoable labels rather than database UUIDs.
 
 ## Remaining Unresolved Issues
 
-- **Legacy iOS identity:** The NestJS rollback payload lacks `categoryId` and may not reliably provide occurrence identity. Before U6, choose either optional wire IDs with deterministic client fallback identities or a coordinated deployment that drops legacy-payload support. Add a rollback fixture test for the selected policy.
-- **`topicChunkId` compatibility:** Inventory API consumers before removing the field. If consumers cannot be fully audited, decide whether to retain a deprecated nullable field for one compatibility window or version the response.
-- **Database verification and ownership:** Decide where real PostgreSQL migration and constraint tests run, and whether same-analysis-run ownership between categories, memberships, and clippings is enforced by database constraints or by the store layer.
-- **Invalid-output recovery:** Define bounded retry versus fail-analysis behavior for invalid source grounding and grouping responses with missing, unknown, or repeated occurrence IDs. Neither path may silently drop a retained occurrence.
 - **Multiple-reference occurrence boundary:** Define the validator for deciding when disjoint `sourceRefs` support one contextual occurrence rather than separate same-term occurrences. Until resolved, the primary resolved start/end range remains the deduplication key and plural references may not import context from another section.
+
+Resolved during implementation:
+
+- Legacy iOS payloads use deterministic transcript/category/keyword positional fallback identities; modern payloads use server IDs.
+- Repository consumers were migrated away from category `topicChunkId`; the field is absent from the FastAPI response.
+- Same-analysis-run ownership is enforced by a PostgreSQL constraint trigger and store validation. An opt-in disposable-database integration test covers upgrade, downgrade, trigger rejection, uniqueness, and cascade behavior.
+- Invalid grounding or grouping output fails the analysis without silently dropping retained occurrences.
 
 ---
 
