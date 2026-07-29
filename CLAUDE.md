@@ -68,6 +68,18 @@ FastAPI app with SSE streaming on the main endpoint:
 
 Pipeline: request parsing → YouTube transcript fetch → transcript sanitizing and stable segment creation → TopicChunk boundary extraction → CandidateClipping extraction → coverage review → SQLAlchemy persistence → compatible JSON response.
 
+### Category and Keyword Contract
+
+- A keyword is a concrete concept, product, person, entity, claim, or other reusable item mentioned in the transcript. Every keyword must include its own source reference and YouTube timestamp.
+- A category is a semantic group of related keywords, such as `OpenAI` grouping `ChatGPT`, `Codex`, and `Sam Altman`. Categories do not have source timestamps.
+- Internal `TopicChunk` records are time-bounded transcript sections used for extraction and grounding. They are not output categories and their titles must not be promoted to fallback keywords.
+- Output categories may group keywords extracted from different topic chunks and timestamps. Do not return categories with empty `keywords` arrays.
+- Preserve keyword-level source grounding when grouping. A category title describes the group; it does not identify a specific moment in the video.
+- Keyword identity is contextual-occurrence based. Equal display terms from different source ranges remain separate records when their claims, explanations, mechanisms, implications, risks, or examples differ.
+- Collapse only accidental duplicate extraction records with both the same normalized term and the same resolved source segment range. Never merge equal or semantically similar terms across timestamps.
+- Every retained occurrence keeps its own `candidateClippingId`, explanation ladder, and occurrence-local source references, and belongs to exactly one category. Grouping assigns existing occurrence IDs only; it may not invent, omit, rewrite, merge, or duplicate them.
+- Clients must use `candidateClippingId`, not `term`, as keyword identity. Duplicate display terms are valid within one category.
+
 Postgres is the durable source of truth for sources, transcripts, transcript segments, analysis runs, topic chunks, candidate clippings, coverage warnings, and eval runs. Redis is scoped to cache/coordination uses.
 
 Error envelope shape: `{ error: { code, message } }` — the iOS client maps specific `code` strings (e.g. `TRANSCRIPT_UNAVAILABLE`, `OPENAI_CONTEXT_LENGTH_EXCEEDED`) to user-facing messages in `AnalyzeServiceError`.
