@@ -58,6 +58,8 @@ The backend exposes:
 - `POST /analyze?stream=progress`
 - `GET /transcript/:transcriptId`
 
+`POST /analyze` returns semantic categories containing contextual keyword occurrences. Categories group related occurrences and do not have timestamps. Every keyword occurrence has a stable `candidateClippingId`, its own explanation ladder, and its own timestamped source; repeated display terms are valid when they come from different transcript sections.
+
 ## iOS app
 
 Requirements:
@@ -72,6 +74,12 @@ open ios/NoteApp.xcodeproj
 ```
 
 The iOS source currently lives under `ios/App`, `ios/Core`, and `ios/UI`.
+
+The `NoteAppTests` Xcode target covers modern occurrence IDs, duplicate display terms, occurrence-specific explanations and timestamps, and deterministic legacy fallback IDs. Run it with Product > Test in Xcode or:
+
+```bash
+xcodebuild test -project ios/NoteApp.xcodeproj -scheme NoteApp -destination 'platform=iOS Simulator,name=iPhone 16'
+```
 
 ## Notes
 
