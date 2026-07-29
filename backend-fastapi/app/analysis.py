@@ -1,4 +1,5 @@
 import asyncio
+import re
 from collections.abc import Callable
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
@@ -7,9 +8,15 @@ from uuid import UUID
 from app.config import Settings
 from app.errors import AppError
 from app.llm import LlmClient, normalize_segment_ref, resolve_llm_options
-from app.models import CandidateClipping, CoverageWarning, TopicChunk, TranscriptSegment
+from app.models import (
+    CandidateClipping,
+    CoverageWarning,
+    KeywordCategory,
+    TopicChunk,
+    TranscriptSegment,
+)
 from app.sanitizer import CleanedSegment, format_timestamp, sanitize_transcript
-from app.schemas import AnalyzeSource, assert_transcript_text, parse_analyze_request
+from app.schemas import AnalyzeResult, AnalyzeSource, assert_transcript_text, parse_analyze_request
 from app.store import TRANSCRIPT_TTL_SECONDS, TranscriptStore
 from app.youtube import fetch_youtube_transcript
 
@@ -86,7 +93,7 @@ class AnalyzeService:
             failure_stage = "extracting_clippings"
             segments_by_id = {segment.id: segment for segment in segments}
             clippings: list[CandidateClipping] = []
-            for chunk in (item for item in saved_chunks if item.signal_level == "high"):
+            for chunk in eligible_topic_chunks(saved_chunks):
                 chunk_segments = segments_for_range(segments, chunk.start_segment_id, chunk.end_segment_id)
                 candidates = await self.llm.generate_candidate_clippings(
                     chunk.title,
@@ -96,6 +103,8 @@ class AnalyzeService:
                     llm_options,
                 )
                 for candidate in resolve_candidate_labels(candidates, segments):
+                    if candidate["signalLevel"] == "low":
+                        continue
                     clippings.append(
                         candidate_entity(
                             candidate,
@@ -107,10 +116,36 @@ class AnalyzeService:
                             run.id,
                         )
                     )
-            saved_clippings = await self.store.save_clippings(clippings)
+            _emit(
+                emit,
+                "progress",
+                stage="deduplicating_occurrences",
+                message="Removing exact duplicate keyword occurrences",
+                extractedOccurrenceCount=len(clippings),
+            )
+            failure_stage = "deduplicating_occurrences"
+            retained_clippings = deduplicate_occurrences(clippings)
+            grouping_input, occurrences_by_id = build_grouping_occurrences(retained_clippings)
+
+            grouping: list[dict[str, Any]] = []
+            if grouping_input:
+                _emit(
+                    emit,
+                    "progress",
+                    stage="grouping_keywords",
+                    message="Assigning keyword occurrences to semantic categories",
+                    retainedOccurrenceCount=len(retained_clippings),
+                    exactDuplicateCount=len(clippings) - len(retained_clippings),
+                )
+                failure_stage = "grouping_keywords"
+                grouping = await self.llm.generate_keyword_categories(
+                    grouping_input,
+                    source.target_language,
+                    llm_options,
+                )
             extraction_warnings = review_coverage(
                 saved_chunks,
-                saved_clippings,
+                retained_clippings,
                 segments,
                 stored.source_id,
                 stored.transcript_id,
@@ -118,7 +153,6 @@ class AnalyzeService:
             )
             await self.store.save_warnings(extraction_warnings)
             set_coverage_statuses(saved_chunks, extraction_warnings)
-            await self.store.db.commit()
 
             _emit(
                 emit,
@@ -128,36 +162,22 @@ class AnalyzeService:
                 warningCount=len(warnings) + len(extraction_warnings),
             )
             _emit(emit, "progress", stage="storing_analysis", message="Storing analysis artifacts")
-            response = {
-                "transcriptId": str(stored.transcript_id),
-                "sourceType": source.type,
-                "categories": [
-                    {
-                        "title": chunk.title,
-                        "topicChunkId": str(chunk.id),
-                        "keywords": [
-                            {
-                                "term": clipping.title,
-                                "candidateClippingId": str(clipping.id),
-                                "brief": clipping.brief,
-                                "level1": clipping.level1,
-                                "level2": clipping.level2,
-                                "level3": clipping.level3,
-                                "source": {
-                                    "type": source.type,
-                                    "ref": clipping.source_refs[0].get("ref", "") if clipping.source_refs else "",
-                                },
-                            }
-                            for clipping in saved_clippings
-                            if clipping.topic_chunk_id == chunk.id
-                        ],
-                    }
-                    for chunk in saved_chunks
-                ],
-                "expiresInSeconds": TRANSCRIPT_TTL_SECONDS,
-                "llm": llm_options,
-                **({"videoId": video_id} if video_id else {}),
-            }
+            failure_stage = "storing_analysis"
+            saved_clippings, saved_categories, _memberships = await self.store.save_category_graph(
+                run.id,
+                retained_clippings,
+                grouping,
+                occurrences_by_id,
+            )
+            response = build_analysis_result(
+                stored.transcript_id,
+                source,
+                video_id,
+                llm_options,
+                grouping,
+                saved_categories,
+                occurrences_by_id,
+            )
             await self.store.mark_completed(run)
             _emit(
                 emit,
@@ -165,7 +185,8 @@ class AnalyzeService:
                 stage="completed",
                 message="Analysis complete",
                 transcriptId=str(stored.transcript_id),
-                categoryCount=len(saved_chunks),
+                categoryCount=len(saved_categories),
+                keywordOccurrenceCount=len(saved_clippings),
             )
             return response
         except asyncio.CancelledError:
@@ -252,6 +273,103 @@ def resolve_candidate_labels(candidates: list[dict[str, Any]], segments: list[Tr
     ]
 
 
+def eligible_topic_chunks(chunks: list[TopicChunk]) -> list[TopicChunk]:
+    return [item for item in chunks if item.signal_level in {"high", "medium"}]
+
+
+def deduplicate_occurrences(clippings: list[CandidateClipping]) -> list[CandidateClipping]:
+    retained: list[CandidateClipping] = []
+    seen: set[tuple[str, str, str]] = set()
+    for clipping in clippings:
+        if not clipping.source_refs:
+            raise AppError(502, "LLM_CLIPPINGS_INVALID_SOURCE_REF", "Keyword occurrence has no source reference")
+        primary = clipping.source_refs[0]
+        start_id, end_id = primary.get("startSegmentId"), primary.get("endSegmentId")
+        if not isinstance(start_id, str) or not isinstance(end_id, str):
+            raise AppError(502, "LLM_CLIPPINGS_INVALID_SOURCE_REF", "Keyword occurrence has an invalid source range")
+        normalized_term = re.sub(r"\s+", " ", clipping.title).strip().casefold()
+        key = (normalized_term, start_id, end_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        retained.append(clipping)
+    return retained
+
+
+def build_grouping_occurrences(
+    clippings: list[CandidateClipping],
+) -> tuple[list[dict[str, str]], dict[str, CandidateClipping]]:
+    metadata: list[dict[str, str]] = []
+    by_id: dict[str, CandidateClipping] = {}
+    for index, clipping in enumerate(clippings, start=1):
+        keyword_id = f"K{index:03d}"
+        primary = clipping.source_refs[0]
+        metadata.append(
+            {
+                "keywordId": keyword_id,
+                "term": clipping.title,
+                "kind": clipping.kind,
+                "brief": clipping.brief,
+                "contextualExplanation": clipping.level2,
+                "timestamp": str(primary.get("timestamp", "")),
+            }
+        )
+        by_id[keyword_id] = clipping
+    return metadata, by_id
+
+
+def build_analysis_result(
+    transcript_id: UUID,
+    source: AnalyzeSource,
+    video_id: str | None,
+    llm_options: dict[str, Any],
+    grouping: list[dict[str, Any]],
+    categories: list[KeywordCategory],
+    occurrences_by_id: dict[str, CandidateClipping],
+) -> dict[str, Any]:
+    if len(grouping) != len(categories):
+        raise AppError(500, "INVALID_CATEGORY_GRAPH", "Persisted categories do not match grouping output")
+    category_results = []
+    for grouped, category in zip(grouping, categories, strict=True):
+        keyword_results = []
+        for keyword_id in grouped["keywordIds"]:
+            clipping = occurrences_by_id[keyword_id]
+            sources = [
+                {"type": source.type, "ref": str(item.get("ref", ""))}
+                for item in clipping.source_refs
+                if item.get("ref")
+            ]
+            keyword_results.append(
+                {
+                    "term": clipping.title,
+                    "candidateClippingId": str(clipping.id),
+                    "brief": clipping.brief,
+                    "level1": clipping.level1,
+                    "level2": clipping.level2,
+                    "level3": clipping.level3,
+                    "source": sources[0] if sources else {"type": source.type, "ref": ""},
+                    "sources": sources,
+                }
+            )
+        category_results.append(
+            {
+                "categoryId": str(category.id),
+                "title": category.title,
+                "keywords": keyword_results,
+            }
+        )
+    return AnalyzeResult.model_validate(
+        {
+            "transcriptId": str(transcript_id),
+            "sourceType": source.type,
+            "categories": category_results,
+            "expiresInSeconds": TRANSCRIPT_TTL_SECONDS,
+            "llm": llm_options,
+            "videoId": video_id,
+        }
+    ).model_dump(mode="json", exclude_none=True)
+
+
 def build_topic_chunks(
     boundaries: list[dict[str, Any]],
     segments: list[TranscriptSegment],
@@ -332,23 +450,25 @@ def candidate_entity(candidate: dict[str, Any], chunk: TopicChunk, segments_by_i
     for ref in candidate["sourceRefs"]:
         start, end = segments_by_id.get(ref["startSegmentId"]), segments_by_id.get(ref["endSegmentId"])
         if not start or not end or not chunk_start or not chunk_end or start.sequence > end.sequence or start.sequence < chunk_start.sequence or end.sequence > chunk_end.sequence:
-            continue
+            raise AppError(502, "LLM_CLIPPINGS_INVALID_SOURCE_REF", "Keyword source reference is outside its topic chunk")
+        grounded_segments = sorted(
+            (
+                item
+                for item in segments_by_id.values()
+                if start.sequence <= item.sequence <= end.sequence
+            ),
+            key=lambda item: item.sequence,
+        )
+        grounded_text = " ".join(item.text for item in grounded_segments).strip()
         source_refs.append({
             "startSegmentId": start.id,
             "endSegmentId": end.id,
             "timestamp": format_timestamp(start.start_time),
-            "ref": source_ref(source, start.start_time, ref["text"]),
-            "text": ref["text"],
+            "ref": source_ref(source, start.start_time, grounded_text),
+            "text": grounded_text[:300],
         })
-    has_precise_source_refs = bool(source_refs)
     if not source_refs:
-        source_refs = [{
-            "startSegmentId": chunk.start_segment_id,
-            "endSegmentId": chunk.end_segment_id,
-            "timestamp": format_timestamp(chunk.start_time),
-            "ref": source_ref(source, chunk.start_time, chunk.text),
-            "text": chunk.text[:300],
-        }]
+        raise AppError(502, "LLM_CLIPPINGS_INVALID_SOURCE_REF", "Keyword occurrence has no valid source reference")
     return CandidateClipping(
         source_id=source_id,
         transcript_id=transcript_id,
@@ -362,7 +482,7 @@ def candidate_entity(candidate: dict[str, Any], chunk: TopicChunk, segments_by_i
         level2=candidate["contextualExplanation"],
         level3=candidate["detailedExplanation"],
         signal_level=candidate["signalLevel"],
-        source_ref_status="precise" if has_precise_source_refs else "chunk_level",
+        source_ref_status="precise",
         source_refs=source_refs,
     )
 
@@ -384,11 +504,11 @@ def segments_for_range(segments: list[TranscriptSegment], start_id: str, end_id:
 
 def review_coverage(chunks: list[TopicChunk], clippings: list[CandidateClipping], segments: list[TranscriptSegment], source_id: UUID, transcript_id: UUID, run_id: UUID) -> list[CoverageWarning]:
     warnings = []
-    for chunk in (item for item in chunks if item.signal_level == "high"):
+    for chunk in eligible_topic_chunks(chunks):
         count = sum(1 for item in clippings if item.topic_chunk_id == chunk.id)
         broad = chunk.end_time - chunk.start_time > 180 or len(segments_for_range(segments, chunk.start_segment_id, chunk.end_segment_id)) > 20
         if count == 0 or broad and count < 2:
-            warnings.append(CoverageWarning(source_id=source_id, transcript_id=transcript_id, analysis_run_id=run_id, reason="weak_candidate_extraction", start_segment_id=chunk.start_segment_id, end_segment_id=chunk.end_segment_id, start_time=chunk.start_time, end_time=chunk.end_time, message="High-signal topic chunk produced no candidate clippings" if count == 0 else "Broad high-signal topic chunk produced few candidate clippings"))
+            warnings.append(CoverageWarning(source_id=source_id, transcript_id=transcript_id, analysis_run_id=run_id, reason="weak_candidate_extraction", start_segment_id=chunk.start_segment_id, end_segment_id=chunk.end_segment_id, start_time=chunk.start_time, end_time=chunk.end_time, message="Eligible topic chunk produced no keyword occurrences" if count == 0 else "Broad eligible topic chunk produced few keyword occurrences"))
     return warnings
 
 

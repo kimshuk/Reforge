@@ -154,6 +154,12 @@ def candidate_clipping_prompt(
 
 Keep candidates neutral. Extract only useful ideas grounded in the chunk. Every candidate must include at least one sourceRef using segment IDs from this chunk. Use no external facts. Write all explanatory fields in {target_language}.
 
+Occurrence identity contract:
+- A candidate represents one contextual occurrence, not every appearance of its title.
+- Emit separate candidates when the same title appears at different source ranges with meaningfully different claims, explanations, mechanisms, implications, risks, or examples.
+- Keep contextualExplanation and detailedExplanation specific to that candidate's source section. Never combine context from separate occurrences.
+- Multiple sourceRefs may support one candidate only when they support the same contextual occurrence.
+
 Explanation ladder contract:
 - title is the compatibility term: a short reusable concept label, preferably a noun phrase, never a sentence, at most 60 characters.
 - brief is a 5-10 word glanceable explanation and must be shorter than simpleExplanation.

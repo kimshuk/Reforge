@@ -9,10 +9,13 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.errors import AppError
 from app.models import (
     AnalysisRun,
     CandidateClipping,
     CoverageWarning,
+    KeywordCategory,
+    KeywordCategoryMembership,
     Source,
     TopicChunk,
     Transcript,
@@ -40,8 +43,8 @@ class TranscriptStore:
             status="running",
             provider=llm["provider"],
             model=llm["model"],
-            prompt_version="segment-grounded-clipping-v1",
-            schema_version="segment-grounded-clipping-v1",
+            prompt_version="contextual-occurrence-categories-v2",
+            schema_version="contextual-occurrence-categories-v2",
             temperature=llm["temperature"],
             max_output_tokens=llm.get("maxOutputTokens"),
         )
@@ -156,6 +159,57 @@ class TranscriptStore:
         self.db.add_all(clippings)
         await self.db.commit()
         return clippings
+
+    async def save_category_graph(
+        self,
+        run_id: UUID,
+        clippings: list[CandidateClipping],
+        grouping: list[dict[str, Any]],
+        occurrences_by_id: dict[str, CandidateClipping],
+    ) -> tuple[
+        list[CandidateClipping],
+        list[KeywordCategory],
+        list[KeywordCategoryMembership],
+    ]:
+        if any(item.analysis_run_id != run_id for item in clippings):
+            raise AppError(500, "INVALID_CATEGORY_GRAPH", "Keyword occurrence belongs to a different analysis run")
+        if {id(item) for item in occurrences_by_id.values()} != {id(item) for item in clippings}:
+            raise AppError(500, "INVALID_CATEGORY_GRAPH", "Category grouping does not match retained occurrences")
+        assigned = [keyword_id for category in grouping for keyword_id in category["keywordIds"]]
+        if len(assigned) != len(occurrences_by_id) or set(assigned) != set(occurrences_by_id):
+            raise AppError(500, "INVALID_CATEGORY_GRAPH", "Category grouping must assign every occurrence exactly once")
+
+        try:
+            self.db.add_all(clippings)
+            await self.db.flush()
+            categories: list[KeywordCategory] = []
+            memberships: list[KeywordCategoryMembership] = []
+            for category_sequence, grouped in enumerate(grouping):
+                title = grouped["title"].strip()
+                category = KeywordCategory(
+                    analysis_run_id=run_id,
+                    sequence=category_sequence,
+                    title=title,
+                    normalized_title=re.sub(r"\s+", " ", title).casefold(),
+                )
+                self.db.add(category)
+                await self.db.flush()
+                categories.append(category)
+                for keyword_sequence, keyword_id in enumerate(grouped["keywordIds"]):
+                    memberships.append(
+                        KeywordCategoryMembership(
+                            analysis_run_id=run_id,
+                            category_id=category.id,
+                            candidate_clipping_id=occurrences_by_id[keyword_id].id,
+                            sequence=keyword_sequence,
+                        )
+                    )
+            self.db.add_all(memberships)
+            await self.db.commit()
+            return clippings, categories, memberships
+        except Exception:
+            await self.db.rollback()
+            raise
 
     async def save_warnings(self, warnings: list[CoverageWarning]) -> None:
         if warnings:

@@ -120,6 +120,7 @@ def test_accepts_complete_occurrence_category_partition_with_duplicate_terms() -
             "titles",
         ),
         ({"categories": [{"title": "OpenAI", "keywordIds": []}]}, "non-empty"),
+        ({"categories": [{"title": "x" * 81, "keywordIds": ["K001", "K002"]}]}, "titles"),
     ],
 )
 def test_rejects_invalid_occurrence_category_partition(payload: dict, message: str) -> None:

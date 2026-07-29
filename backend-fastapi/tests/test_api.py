@@ -1,5 +1,8 @@
+import json
+
 from fastapi.testclient import TestClient
 
+import app.main as main_module
 from app.main import app
 
 client = TestClient(app)
@@ -95,3 +98,43 @@ def test_sse_negotiation_is_case_insensitive() -> None:
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
+
+
+def test_json_and_sse_result_payloads_are_identical(monkeypatch) -> None:
+    expected = {
+        "transcriptId": "transcript-id",
+        "sourceType": "youtube",
+        "categories": [],
+        "expiresInSeconds": 1800,
+        "llm": {"provider": "openai", "model": "test", "temperature": 0.2},
+        "videoId": "video-id",
+    }
+
+    class StubAnalyzeService:
+        def __init__(self, *_args) -> None:
+            pass
+
+        async def analyze(self, _body, emit=None):
+            if emit:
+                emit("progress", {"stage": "grouping_keywords"})
+            return expected
+
+    monkeypatch.setattr(main_module, "AnalyzeService", StubAnalyzeService)
+
+    json_response = client.post(
+        "/analyze",
+        json={"type": "youtube", "youtubeUrl": "https://youtube.com/watch?v=test"},
+    )
+    stream_response = client.post(
+        "/analyze?stream=progress",
+        headers={"Accept": "text/event-stream"},
+        json={"type": "youtube", "youtubeUrl": "https://youtube.com/watch?v=test"},
+    )
+
+    result_data = next(
+        json.loads(line.removeprefix("data: "))
+        for event, line in zip(stream_response.text.splitlines(), stream_response.text.splitlines()[1:])
+        if event == "event: result" and line.startswith("data: ")
+    )
+    assert json_response.json() == expected
+    assert result_data == expected

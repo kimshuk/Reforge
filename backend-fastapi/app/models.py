@@ -157,6 +157,42 @@ class CandidateClipping(Base, TimestampMixin):
     )
 
 
+class KeywordCategory(Base, TimestampMixin):
+    __tablename__ = "keyword_categories"
+    __table_args__ = (
+        UniqueConstraint("analysisRunId", "sequence"),
+        UniqueConstraint("analysisRunId", "normalizedTitle"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, server_default=text("gen_random_uuid()"))
+    analysis_run_id: Mapped[UUID] = mapped_column(
+        "analysisRunId", ForeignKey("analysis_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    normalized_title: Mapped[str] = mapped_column("normalizedTitle", String, nullable=False)
+
+
+class KeywordCategoryMembership(Base, TimestampMixin):
+    __tablename__ = "keyword_category_memberships"
+    __table_args__ = (
+        UniqueConstraint("candidateClippingId"),
+        UniqueConstraint("categoryId", "sequence"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, server_default=text("gen_random_uuid()"))
+    analysis_run_id: Mapped[UUID] = mapped_column(
+        "analysisRunId", ForeignKey("analysis_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    category_id: Mapped[UUID] = mapped_column(
+        "categoryId", ForeignKey("keyword_categories.id", ondelete="CASCADE"), nullable=False
+    )
+    candidate_clipping_id: Mapped[UUID] = mapped_column(
+        "candidateClippingId", ForeignKey("candidate_clippings.id", ondelete="CASCADE"), nullable=False
+    )
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
 class CoverageWarning(Base, TimestampMixin):
     __tablename__ = "coverage_warnings"
 

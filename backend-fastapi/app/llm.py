@@ -315,8 +315,8 @@ def validate_category_grouping(
         if not isinstance(category, dict) or set(category) != {"title", "keywordIds"}:
             raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", f"Invalid category at index {index}")
         title, keyword_ids = category["title"], category["keywordIds"]
-        if not isinstance(title, str) or not title.strip():
-            raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Category titles must be non-empty")
+        if not isinstance(title, str) or not 2 <= len(title.strip()) <= 80:
+            raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Category titles must contain 2-80 characters")
         if not isinstance(keyword_ids, list) or not keyword_ids:
             raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Category keyword IDs must be non-empty")
         if not all(isinstance(item, str) and item for item in keyword_ids):
