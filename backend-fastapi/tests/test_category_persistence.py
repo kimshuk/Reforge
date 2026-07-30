@@ -3,8 +3,9 @@ from uuid import uuid4
 import pytest
 
 from app.database import Base
+from app.enrichment import OccurrenceEnrichment, ResearchSource
 from app.errors import AppError
-from app.models import CandidateClipping
+from app.models import CandidateClipping, CandidateExternalCitation, CandidateExternalSource
 from app.store import TranscriptStore
 
 
@@ -79,6 +80,13 @@ def test_category_tables_preserve_occurrence_membership_constraints() -> None:
     assert ("categoryId", "sequence") in unique_columns
 
 
+def test_external_source_tables_enforce_occurrence_local_citations() -> None:
+    source = Base.metadata.tables["candidate_external_sources"]
+    citation = Base.metadata.tables["candidate_external_citations"]
+    assert {"candidateClippingId", "citationId", "title", "url", "sequence"} <= set(source.c.keys())
+    assert {"candidateClippingId", "externalSourceId", "level", "sequence"} <= set(citation.c.keys())
+
+
 @pytest.mark.asyncio
 async def test_saves_occurrences_categories_and_memberships_in_one_commit() -> None:
     run_id = uuid4()
@@ -98,6 +106,32 @@ async def test_saves_occurrences_categories_and_memberships_in_one_commit() -> N
     assert [item.candidate_clipping_id for item in memberships] == [first.id, second.id]
     assert all(item.analysis_run_id == run_id for item in categories + memberships)
     assert session.commit_count == 1
+
+
+@pytest.mark.asyncio
+async def test_category_graph_persists_external_evidence_in_one_commit() -> None:
+    run_id = uuid4()
+    occurrence = clipping(run_id, "Codex")
+    session = RecordingSession()
+    enrichment = OccurrenceEnrichment(
+        keyword_id="K001",
+        level2=occurrence.level2,
+        level3=occurrence.level3,
+        level3_citation_ids=("C1",),
+        external_sources=(ResearchSource("C1", "Source", "https://example.com/source", "Support"),),
+    )
+
+    await TranscriptStore(session).save_category_graph(
+        run_id,
+        [occurrence],
+        [{"title": "OpenAI", "keywordIds": ["K001"]}],
+        {"K001": occurrence},
+        {"K001": enrichment},
+    )
+
+    assert session.commit_count == 1
+    assert any(isinstance(item, CandidateExternalSource) for item in session.added)
+    assert any(isinstance(item, CandidateExternalCitation) for item in session.added)
 
 
 @pytest.mark.asyncio

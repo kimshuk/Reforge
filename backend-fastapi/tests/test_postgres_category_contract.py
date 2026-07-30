@@ -142,6 +142,21 @@ def test_migration_and_category_membership_contract() -> None:
                     (uuid4(), run_ids[0], category_ids[0], clipping_ids[0]),
                 )
 
+            external_source_id = uuid4()
+            connection.execute(
+                'INSERT INTO candidate_external_sources '
+                '(id, "candidateClippingId", "citationId", title, url, sequence) '
+                "VALUES (%s, %s, 'C1', 'Source', 'https://example.com', 0)",
+                (external_source_id, clipping_ids[0]),
+            )
+            with pytest.raises(errors.ForeignKeyViolation):
+                connection.execute(
+                    'INSERT INTO candidate_external_citations '
+                    '(id, "candidateClippingId", "externalSourceId", level, sequence) '
+                    "VALUES (%s, %s, %s, 3, 0)",
+                    (uuid4(), clipping_ids[1], external_source_id),
+                )
+
             connection.execute("DELETE FROM analysis_runs WHERE id = %s", (run_ids[0],))
             assert connection.execute(
                 'SELECT count(*) FROM keyword_categories WHERE "analysisRunId" = %s',

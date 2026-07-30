@@ -9,10 +9,13 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.enrichment import OccurrenceEnrichment
 from app.errors import AppError
 from app.models import (
     AnalysisRun,
     CandidateClipping,
+    CandidateExternalCitation,
+    CandidateExternalSource,
     CoverageWarning,
     KeywordCategory,
     KeywordCategoryMembership,
@@ -167,6 +170,7 @@ class TranscriptStore:
         clippings: list[CandidateClipping],
         grouping: list[dict[str, Any]],
         occurrences_by_id: dict[str, CandidateClipping],
+        enrichments_by_id: dict[str, OccurrenceEnrichment] | None = None,
     ) -> tuple[
         list[CandidateClipping],
         list[KeywordCategory],
@@ -179,10 +183,50 @@ class TranscriptStore:
         assigned = [keyword_id for category in grouping for keyword_id in category["keywordIds"]]
         if len(assigned) != len(occurrences_by_id) or set(assigned) != set(occurrences_by_id):
             raise AppError(500, "INVALID_CATEGORY_GRAPH", "Category grouping must assign every occurrence exactly once")
+        enrichments = enrichments_by_id or {}
+        if not set(enrichments) <= set(occurrences_by_id):
+            raise AppError(500, "INVALID_CATEGORY_GRAPH", "Enrichment contains an unknown occurrence")
+        if any(item.keyword_id != keyword_id for keyword_id, item in enrichments.items()):
+            raise AppError(500, "INVALID_CATEGORY_GRAPH", "Enrichment occurrence identity does not match")
 
         try:
             self.db.add_all(clippings)
             await self.db.flush()
+            for keyword_id, enrichment in enrichments.items():
+                clipping = occurrences_by_id[keyword_id]
+                source_rows = [
+                    CandidateExternalSource(
+                        candidate_clipping_id=clipping.id,
+                        citation_id=source.citation_id,
+                        title=source.title,
+                        url=source.url,
+                        sequence=sequence,
+                    )
+                    for sequence, source in enumerate(enrichment.external_sources)
+                ]
+                self.db.add_all(source_rows)
+                await self.db.flush()
+                sources_by_citation = {
+                    row.citation_id: row for row in source_rows
+                }
+                citation_rows: list[CandidateExternalCitation] = []
+                for level, citation_ids in (
+                    (2, enrichment.level2_citation_ids),
+                    (3, enrichment.level3_citation_ids),
+                ):
+                    for sequence, citation_id in enumerate(citation_ids):
+                        source_row = sources_by_citation.get(citation_id)
+                        if source_row is None:
+                            raise AppError(500, "INVALID_CATEGORY_GRAPH", "Citation references an unknown external source")
+                        citation_rows.append(
+                            CandidateExternalCitation(
+                                candidate_clipping_id=clipping.id,
+                                external_source_id=source_row.id,
+                                level=level,
+                                sequence=sequence,
+                            )
+                        )
+                self.db.add_all(citation_rows)
             categories: list[KeywordCategory] = []
             memberships: list[KeywordCategoryMembership] = []
             for category_sequence, grouped in enumerate(grouping):
