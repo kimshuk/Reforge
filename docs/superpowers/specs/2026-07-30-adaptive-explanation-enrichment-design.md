@@ -116,7 +116,7 @@ The planner must not request retrieval merely to restate information already pre
 
 ### Stage 3: Retrieval Routing
 
-Only OpenAI analyses with at least one planner-approved research gap enter retrieval. The retrieval adapter batches flagged occurrences by topic chunk while retaining their occurrence IDs.
+Only OpenAI analyses with at least one planner-approved research gap enter retrieval. Planning remains batched by topic chunk, while retrieval runs as bounded per-occurrence calls. This preserves unambiguous URL-citation attribution for repeated terms and still limits concurrency and latency at the chunk boundary.
 
 Preferred evidence order is:
 
