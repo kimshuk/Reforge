@@ -4,6 +4,8 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+import httpx
+
 from app.config import Settings
 from app.enrichment import (
     EnrichmentContext,
@@ -17,7 +19,14 @@ from app.openai_search import OpenAIWebSearchClient
 
 LOGGER = logging.getLogger("reforge.enrichment")
 EMPTY_EVIDENCE = ResearchEvidence(summary="", sources=())
-_RECOVERABLE_ERRORS = (AppError, TimeoutError, TypeError, ValueError, AttributeError)
+_RECOVERABLE_ERRORS = (
+    AppError,
+    httpx.HTTPError,
+    TimeoutError,
+    TypeError,
+    ValueError,
+    AttributeError,
+)
 
 
 @dataclass
@@ -126,6 +135,7 @@ class ExplanationEnricher:
                     context,
                     plan,
                     fallbacks[context.keyword_id],
+                    results[context.keyword_id],
                     target_language,
                     options,
                     metrics,
@@ -148,6 +158,7 @@ class ExplanationEnricher:
         context: EnrichmentContext,
         plan: EnrichmentPlan,
         fallback: OccurrenceEnrichment,
+        transcript_result: OccurrenceEnrichment,
         target_language: str,
         options: dict[str, Any],
         metrics: _Metrics,
@@ -166,11 +177,7 @@ class ExplanationEnricher:
             metrics.retrieval_seconds += time.monotonic() - retrieval_started
 
         if not evidence.sources:
-            return OccurrenceEnrichment(
-                keyword_id=context.keyword_id,
-                level2=plan.level2,
-                level3=plan.level3,
-            )
+            return transcript_result
 
         synthesis_started = time.monotonic()
         try:
@@ -206,7 +213,7 @@ class ExplanationEnricher:
             if error.code == "LLM_ENRICHMENT_SYNTHESIS_INVALID_JSON":
                 metrics.citation_validation_failures += 1
             return fallback
-        except (TimeoutError, TypeError, ValueError, AttributeError):
+        except (httpx.HTTPError, TimeoutError, TypeError, ValueError, AttributeError):
             return fallback
         finally:
             metrics.synthesis_review_seconds += time.monotonic() - synthesis_started

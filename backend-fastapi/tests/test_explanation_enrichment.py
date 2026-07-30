@@ -3,6 +3,7 @@ import logging
 from collections.abc import Iterable
 from typing import Any
 
+import httpx
 import pytest
 
 from app.config import Settings
@@ -114,11 +115,13 @@ class FakeLlm:
         plans: list[EnrichmentPlan] | None = None,
         planner_error: BaseException | None = None,
         synthesis_errors: dict[str, BaseException] | None = None,
+        review_errors: dict[tuple[str, bool], BaseException] | None = None,
         review_results: Iterable[bool] = (True,),
     ) -> None:
         self.plans = plans
         self.planner_error = planner_error
         self.synthesis_errors = synthesis_errors or {}
+        self.review_errors = review_errors or {}
         self.review_results = iter(review_results)
         self.planner_calls: list[tuple[tuple[str, ...], str]] = []
         self.synthesis_calls: list[tuple[str, ResearchEvidence]] = []
@@ -162,6 +165,11 @@ class FakeLlm:
         _options: dict[str, Any],
     ) -> bool:
         self.review_calls.append((item.keyword_id, research_evidence))
+        error = self.review_errors.get(
+            (item.keyword_id, bool(research_evidence.sources))
+        )
+        if error is not None:
+            raise error
         return next(self.review_results, True)
 
 
@@ -207,6 +215,7 @@ def enricher_with(
     planner_error: BaseException | None = None,
     search_error: BaseException | None = None,
     synthesis_errors: dict[str, BaseException] | None = None,
+    review_errors: dict[tuple[str, bool], BaseException] | None = None,
     review_results: Iterable[bool] = (True,),
     empty_ids: set[str] | None = None,
     delay: float = 0,
@@ -216,6 +225,7 @@ def enricher_with(
         plans=plans,
         planner_error=planner_error,
         synthesis_errors=synthesis_errors,
+        review_errors=review_errors,
         review_results=review_results,
     )
     search = FakeSearch(
@@ -441,6 +451,50 @@ async def test_planner_failure_returns_fallback() -> None:
 
     assert result["K001"].level2 == LEVEL2
     assert enricher.search.calls == []
+
+
+@pytest.mark.asyncio
+async def test_planner_http_transport_failure_returns_fallback() -> None:
+    enricher = enricher_with(planner_error=httpx.ConnectError("connection failed"))
+
+    result = await enricher.enrich([context()], "en", OPENAI_OPTIONS)
+
+    assert result["K001"].level2 == LEVEL2
+    assert enricher.search.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stage", ["synthesis", "review"])
+async def test_occurrence_http_transport_failure_falls_back_without_affecting_sibling(
+    stage: str,
+) -> None:
+    transport_error = httpx.ReadTimeout("provider timed out")
+    enricher = enricher_with(
+        synthesis_errors={"K001": transport_error} if stage == "synthesis" else None,
+        review_errors={
+            ("K001", True): transport_error
+        }
+        if stage == "review"
+        else None,
+    )
+
+    result = await enricher.enrich(
+        [context("K001"), context("K007")], "en", OPENAI_OPTIONS
+    )
+
+    assert result["K001"].level2 == LEVEL2
+    assert result["K007"].external_sources == evidence("K007").sources
+
+
+@pytest.mark.asyncio
+async def test_rejected_planner_rewrite_with_empty_evidence_keeps_fallback() -> None:
+    enricher = enricher_with(empty_ids={"K001"}, review_results=[False])
+
+    result = await enricher.enrich([context()], "en", OPENAI_OPTIONS)
+
+    assert result["K001"].level2 == LEVEL2
+    assert result["K001"].level3 == LEVEL3
+    assert result["K001"].external_sources == ()
 
 
 @pytest.mark.asyncio
