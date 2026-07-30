@@ -232,7 +232,7 @@ def _normalize_url(value: Any) -> str:
     hostname = parsed.hostname.lower()
     netloc = f"[{hostname}]" if ":" in hostname else hostname
     if port is not None and (scheme, port) not in {("http", 80), ("https", 443)}:
-        netloc = f"{hostname}:{port}"
+        netloc = f"{netloc}:{port}"
     path = parsed.path or "/"
     return urlunsplit((scheme, netloc, path, parsed.query, ""))
 

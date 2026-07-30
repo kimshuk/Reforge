@@ -195,6 +195,20 @@ async def test_research_normalizes_urls_deduplicates_and_limits_to_three() -> No
 
 
 @pytest.mark.asyncio
+async def test_research_normalizes_ipv6_urls_with_non_default_ports() -> None:
+    payload = copy.deepcopy(RESPONSE)
+    payload["output"][-1]["content"][0]["annotations"][0]["url"] = (
+        "https://[2001:db8::1]:8443/codex#citation"
+    )
+
+    async with client_for(payload) as client:
+        search = OpenAIWebSearchClient(Settings(openai_api_key="test-key"), client)
+        evidence = await search.research_occurrence(context(), plan(), OPTIONS)
+
+    assert evidence.sources[0].url == "https://[2001:db8::1]:8443/codex"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "annotation",
     [
@@ -262,3 +276,17 @@ async def test_research_maps_provider_errors_to_app_errors(
             await search.research_occurrence(context(), plan(), OPTIONS)
 
     assert raised.value.code == code
+
+
+@pytest.mark.asyncio
+async def test_research_maps_transport_errors_to_app_errors() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("Connection refused", request=request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        search = OpenAIWebSearchClient(Settings(openai_api_key="test-key"), client)
+        with pytest.raises(AppError) as raised:
+            await search.research_occurrence(context(), plan(), OPTIONS)
+
+    assert raised.value.status_code == 502
+    assert raised.value.code == "LLM_REQUEST_FAILED"
