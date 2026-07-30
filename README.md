@@ -60,6 +60,8 @@ The backend exposes:
 
 `POST /analyze` returns semantic categories containing contextual keyword occurrences. Categories group related occurrences and do not have timestamps. Every keyword occurrence has a stable `candidateClippingId`, its own explanation ladder, and its own timestamped source; repeated display terms are valid when they come from different transcript sections.
 
+Optional adaptive explanation enrichment is default-disabled. Set `EXPLANATION_ENRICHMENT_ENABLED=true` with the OpenAI provider to add occurrence-local, level-specific external citations. `EXPLANATION_ENRICHMENT_MAX_SOURCES` defaults to 3 and `EXPLANATION_ENRICHMENT_MAX_CONCURRENCY` defaults to 3. Other providers continue returning transcript-only explanations with empty citation arrays.
+
 ## iOS app
 
 Requirements:

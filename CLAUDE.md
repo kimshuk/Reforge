@@ -79,6 +79,7 @@ Pipeline: request parsing → YouTube transcript fetch → transcript sanitizing
 - Collapse only accidental duplicate extraction records with both the same normalized term and the same resolved source segment range. Never merge equal or semantically similar terms across timestamps.
 - Every retained occurrence keeps its own `candidateClippingId`, explanation ladder, and occurrence-local source references, and belongs to exactly one category. Grouping assigns existing occurrence IDs only; it may not invent, omit, rewrite, merge, or duplicate them.
 - Clients must use `candidateClippingId`, not `term`, as keyword identity. Duplicate display terms are valid within one category.
+- External explanation evidence is occurrence-local and additive. `level2CitationIds` and `level3CitationIds` resolve only against that keyword's `externalSources`; transcript `source`/`sources` remain unchanged. Adaptive retrieval is OpenAI-only and disabled by default.
 
 Postgres is the durable source of truth for sources, transcripts, transcript segments, analysis runs, topic chunks, candidate clippings, coverage warnings, and eval runs. Redis is scoped to cache/coordination uses.
 
