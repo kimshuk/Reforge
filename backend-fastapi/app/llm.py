@@ -16,6 +16,10 @@ from app.prompts import (
 )
 
 PROVIDERS = {"openai", "gemini", "claude"}
+CJK_SCRIPT_RE = re.compile(
+    r"[\u1100-\u11ff\u3040-\u30ff\u3130-\u318f\u3400-\u4dbf"
+    r"\u4e00-\u9fff\uac00-\ud7af]"
+)
 DEFAULT_MODELS = {
     "openai": "gpt-4o-mini",
     "gemini": "gemini-1.5-flash",
@@ -346,11 +350,16 @@ def validate_explanation_ladder(term: str, brief: str, simple: str, contextual: 
         raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Term must be at most 60 characters")
     if re.search(r"[.!?。！？]\s*$", term):
         raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Term must be a reusable label, not a sentence")
-    brief_words = len(brief.split())
-    if " " in brief and (brief_words < 5 or brief_words > 10):
+    if " " not in brief or CJK_SCRIPT_RE.search(brief):
+        brief_characters = len(re.sub(r"\s+", "", brief))
+        if not 5 <= brief_characters <= 40:
+            raise AppError(
+                502,
+                "LLM_CLIPPINGS_INVALID_JSON",
+                "Brief must contain 5-40 non-whitespace characters",
+            )
+    elif not 5 <= len(brief.split()) <= 10:
         raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Brief must contain 5-10 words")
-    if " " not in brief and not 5 <= len(brief) <= 40:
-        raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Brief must contain 5-40 characters")
     if len(brief) >= len(simple):
         raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Brief must be shorter than simple explanation")
     if sentence_count(simple) != 1:
