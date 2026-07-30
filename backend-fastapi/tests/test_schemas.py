@@ -25,6 +25,46 @@ def test_keyword_citation_fields_default_to_empty_arrays() -> None:
     assert keyword.externalSources == []
 
 
+def test_rejects_more_than_three_external_sources() -> None:
+    with pytest.raises(ValueError):
+        AnalyzeKeyword.model_validate(
+            {
+                "term": "Codex",
+                "candidateClippingId": "occurrence-1",
+                "brief": "An autonomous coding system from OpenAI",
+                "level1": "Codex is an AI system that performs coding tasks.",
+                "level2": "The speaker introduces Codex as an autonomous tool. They explain the work it performs.",
+                "level3": "The speaker introduces Codex as an autonomous tool. They describe concrete coding work it can perform. This explains why it matters in the section.",
+                "source": {"type": "youtube", "ref": "https://example.com?t=46s"},
+                "sources": [{"type": "youtube", "ref": "https://example.com?t=46s"}],
+                "externalSources": [
+                    {"citationId": f"source-{index}", "title": "Source", "url": "https://example.com"}
+                    for index in range(4)
+                ],
+            }
+        )
+
+
+def test_rejects_duplicate_external_source_citation_ids() -> None:
+    with pytest.raises(ValueError):
+        AnalyzeKeyword.model_validate(
+            {
+                "term": "Codex",
+                "candidateClippingId": "occurrence-1",
+                "brief": "An autonomous coding system from OpenAI",
+                "level1": "Codex is an AI system that performs coding tasks.",
+                "level2": "The speaker introduces Codex as an autonomous tool. They explain the work it performs.",
+                "level3": "The speaker introduces Codex as an autonomous tool. They describe concrete coding work it can perform. This explains why it matters in the section.",
+                "source": {"type": "youtube", "ref": "https://example.com?t=46s"},
+                "sources": [{"type": "youtube", "ref": "https://example.com?t=46s"}],
+                "externalSources": [
+                    {"citationId": "source-1", "title": "First", "url": "https://one.example.com"},
+                    {"citationId": "source-1", "title": "Second", "url": "https://two.example.com"},
+                ],
+            }
+        )
+
+
 def test_enrichment_is_disabled_and_bounded_by_default() -> None:
     settings = Settings()
 
