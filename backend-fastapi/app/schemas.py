@@ -1,7 +1,7 @@
 import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.config import Settings
 from app.errors import AppError
@@ -42,6 +42,37 @@ class AnalyzeSource(BaseModel):
     model: Any = None
     temperature: Any = None
     max_output_tokens: Any = None
+
+
+class KeywordSource(BaseModel):
+    type: Literal["youtube", "manual"]
+    ref: str
+
+
+class AnalyzeKeyword(BaseModel):
+    term: str
+    candidateClippingId: str
+    brief: str
+    level1: str
+    level2: str
+    level3: str
+    source: KeywordSource
+    sources: list[KeywordSource] = Field(min_length=1)
+
+
+class AnalyzeCategory(BaseModel):
+    categoryId: str
+    title: str
+    keywords: list[AnalyzeKeyword] = Field(min_length=1)
+
+
+class AnalyzeResult(BaseModel):
+    transcriptId: str
+    sourceType: Literal["youtube", "manual"]
+    categories: list[AnalyzeCategory]
+    expiresInSeconds: int
+    llm: dict[str, Any]
+    videoId: str | None = None
 
 
 def parse_analyze_request(payload: Any, settings: Settings) -> AnalyzeSource:

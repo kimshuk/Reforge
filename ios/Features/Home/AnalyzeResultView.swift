@@ -11,9 +11,9 @@ struct AnalyzeResultView: View {
                 KeyValueRow(title: "Source Type", value: result.sourceType)
             }
 
-            ForEach(result.categories, id: \.title) { category in
+            ForEach(result.categories) { category in
                 Section(category.title) {
-                    ForEach(category.keywords, id: \.term) { keyword in
+                    ForEach(category.keywords) { keyword in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(keyword.term)
                                 .font(.headline)

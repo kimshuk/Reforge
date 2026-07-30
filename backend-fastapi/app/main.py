@@ -17,7 +17,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.errors import AppError, register_error_handlers
 from app.llm import LlmClient
-from app.schemas import AnalyzeRequest
+from app.schemas import AnalyzeRequest, AnalyzeResult
 from app.store import TranscriptStore, transcript_expiry
 
 settings = get_settings()
@@ -53,6 +53,31 @@ ANALYZE_REQUEST_BODY = {
             },
         }
     },
+}
+
+ANALYZE_RESPONSES = {
+    200: {
+        "description": "Completed analysis JSON or Server-Sent Event stream.",
+        "content": {
+            "application/json": {"schema": AnalyzeResult.model_json_schema()},
+            "text/event-stream": {
+                "examples": {
+                    "progress": {
+                        "summary": "Progress event",
+                        "value": "event: progress\ndata: {\"stage\":\"chunking_topics\"}\n\n",
+                    },
+                    "result": {
+                        "summary": "Result event containing the AnalyzeResult payload",
+                        "value": "event: result\ndata: {\"transcriptId\":\"...\",\"categories\":[]}\n\n",
+                    },
+                    "error": {
+                        "summary": "Safe error event",
+                        "value": "event: error\ndata: {\"code\":\"INVALID_REQUEST\"}\n\n",
+                    },
+                }
+            },
+        },
+    }
 }
 
 
@@ -117,7 +142,11 @@ async def get_transcript(transcript_id: str, db: AsyncSession = Depends(get_db))
     }
 
 
-@app.post("/analyze", openapi_extra={"requestBody": ANALYZE_REQUEST_BODY})
+@app.post(
+    "/analyze",
+    openapi_extra={"requestBody": ANALYZE_REQUEST_BODY},
+    responses=ANALYZE_RESPONSES,
+)
 async def analyze(
     request: Request,
     stream: str | None = Query(
