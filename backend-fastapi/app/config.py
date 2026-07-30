@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.2
     llm_max_output_tokens: int | None = 3000
     allow_analyze_llm_overrides: bool = False
+    explanation_enrichment_enabled: bool = False
+    explanation_enrichment_max_sources: int = Field(default=3, ge=1, le=3)
+    explanation_enrichment_max_concurrency: int = Field(default=3, ge=1, le=8)
     openai_api_key: str = ""
     gemini_api_key: str = ""
     anthropic_api_key: str = ""

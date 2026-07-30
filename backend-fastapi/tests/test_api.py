@@ -42,6 +42,12 @@ def test_analyze_openapi_documents_semantic_category_response() -> None:
     assert keyword_schema["properties"]["sources"]["items"] == {
         "$ref": "#/components/schemas/KeywordSource"
     }
+    assert definitions["ExternalKeywordSource"]["properties"]["citationId"]
+    assert keyword_schema["properties"]["level2CitationIds"]
+    assert keyword_schema["properties"]["level3CitationIds"]
+    assert keyword_schema["properties"]["externalSources"]["items"] == {
+        "$ref": "#/components/schemas/ExternalKeywordSource"
+    }
     assert success["text/event-stream"]["examples"]["result"]["summary"]
 
 

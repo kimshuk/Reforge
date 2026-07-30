@@ -49,6 +49,12 @@ class KeywordSource(BaseModel):
     ref: str
 
 
+class ExternalKeywordSource(BaseModel):
+    citationId: str = Field(min_length=1, max_length=32)
+    title: str = Field(min_length=1, max_length=300)
+    url: str = Field(min_length=1, max_length=2048)
+
+
 class AnalyzeKeyword(BaseModel):
     term: str
     candidateClippingId: str
@@ -58,6 +64,9 @@ class AnalyzeKeyword(BaseModel):
     level3: str
     source: KeywordSource
     sources: list[KeywordSource] = Field(min_length=1)
+    level2CitationIds: list[str] = Field(default_factory=list)
+    level3CitationIds: list[str] = Field(default_factory=list)
+    externalSources: list[ExternalKeywordSource] = Field(default_factory=list)
 
 
 class AnalyzeCategory(BaseModel):
