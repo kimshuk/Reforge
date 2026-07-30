@@ -6,7 +6,9 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from uuid import UUID
 
 from app.config import Settings
+from app.enrichment import EnrichmentContext, OccurrenceEnrichment
 from app.errors import AppError
+from app.explanation_enrichment import ExplanationEnricher
 from app.llm import LlmClient, normalize_segment_ref, resolve_llm_options
 from app.models import (
     CandidateClipping,
@@ -15,6 +17,7 @@ from app.models import (
     TopicChunk,
     TranscriptSegment,
 )
+from app.openai_search import OpenAIWebSearchClient
 from app.sanitizer import (
     CleanedSegment,
     format_timestamp,
@@ -29,10 +32,19 @@ ProgressEmitter = Callable[[str, dict[str, Any]], None]
 
 
 class AnalyzeService:
-    def __init__(self, store: TranscriptStore, llm: LlmClient, settings: Settings) -> None:
+    def __init__(
+        self,
+        store: TranscriptStore,
+        llm: LlmClient,
+        settings: Settings,
+        enricher: ExplanationEnricher | None = None,
+    ) -> None:
         self.store = store
         self.llm = llm
         self.settings = settings
+        self.enricher = enricher or ExplanationEnricher(
+            llm, OpenAIWebSearchClient(settings), settings
+        )
 
     async def analyze(
         self, body: Any, emit: ProgressEmitter | None = None
@@ -186,6 +198,29 @@ class AnalyzeService:
             _emit(
                 emit,
                 "progress",
+                stage="enriching_explanations",
+                message="Enriching keyword explanations",
+                retainedOccurrenceCount=len(retained_clippings),
+            )
+            failure_stage = "enriching_explanations"
+            contexts_by_chunk = build_enrichment_contexts(
+                occurrences_by_id, saved_chunks
+            )
+            enrichments_by_id: dict[str, OccurrenceEnrichment] = {}
+            for contexts in contexts_by_chunk.values():
+                enrichments_by_id.update(
+                    await self.enricher.enrich(
+                        contexts, source.target_language, llm_options
+                    )
+                )
+            for keyword_id, enrichment in enrichments_by_id.items():
+                occurrence = occurrences_by_id[keyword_id]
+                occurrence.level2 = enrichment.level2
+                occurrence.level3 = enrichment.level3
+
+            _emit(
+                emit,
+                "progress",
                 stage="reviewing_coverage",
                 message="Reviewing topic coverage",
                 warningCount=len(warnings) + len(extraction_warnings),
@@ -197,6 +232,7 @@ class AnalyzeService:
                 retained_clippings,
                 grouping,
                 occurrences_by_id,
+                enrichments_by_id,
             )
             response = build_analysis_result(
                 stored.transcript_id,
@@ -206,6 +242,7 @@ class AnalyzeService:
                 grouping,
                 saved_categories,
                 occurrences_by_id,
+                enrichments_by_id,
             )
             await self.store.mark_completed(run)
             _emit(
@@ -348,6 +385,38 @@ def build_grouping_occurrences(
     return metadata, by_id
 
 
+def build_enrichment_contexts(
+    occurrences_by_id: dict[str, CandidateClipping],
+    chunks: list[TopicChunk],
+) -> dict[UUID, list[EnrichmentContext]]:
+    chunks_by_id = {chunk.id: chunk for chunk in chunks}
+    outline = tuple(f"{chunk.title}: {chunk.summary}" for chunk in chunks)
+    contexts: dict[UUID, list[EnrichmentContext]] = {}
+    for keyword_id, clipping in occurrences_by_id.items():
+        chunk = chunks_by_id.get(clipping.topic_chunk_id)
+        if chunk is None:
+            raise AppError(500, "INVALID_CATEGORY_GRAPH", "Keyword occurrence has no topic chunk")
+        context = EnrichmentContext(
+            keyword_id=keyword_id,
+            term=clipping.title,
+            kind=clipping.kind,
+            brief=clipping.brief,
+            simple_explanation=clipping.level1,
+            chunk_title=chunk.title,
+            chunk_summary=chunk.summary,
+            source_excerpts=tuple(
+                str(ref.get("text", "")).strip()
+                for ref in clipping.source_refs
+                if str(ref.get("text", "")).strip()
+            ),
+            transcript_level2=clipping.level2,
+            transcript_level3=clipping.level3,
+            video_topic_outline=outline,
+        )
+        contexts.setdefault(clipping.topic_chunk_id, []).append(context)
+    return contexts
+
+
 def build_analysis_result(
     transcript_id: UUID,
     source: AnalyzeSource,
@@ -356,7 +425,9 @@ def build_analysis_result(
     grouping: list[dict[str, Any]],
     categories: list[KeywordCategory],
     occurrences_by_id: dict[str, CandidateClipping],
+    enrichments_by_id: dict[str, OccurrenceEnrichment] | None = None,
 ) -> dict[str, Any]:
+    enrichments = enrichments_by_id or {}
     if len(grouping) != len(categories):
         raise AppError(500, "INVALID_CATEGORY_GRAPH", "Persisted categories do not match grouping output")
     category_results = []
@@ -364,6 +435,7 @@ def build_analysis_result(
         keyword_results = []
         for keyword_id in grouped["keywordIds"]:
             clipping = occurrences_by_id[keyword_id]
+            enrichment = enrichments.get(keyword_id)
             sources = [
                 {"type": source.type, "ref": str(item.get("ref", ""))}
                 for item in clipping.source_refs
@@ -379,6 +451,16 @@ def build_analysis_result(
                     "level3": clipping.level3,
                     "source": sources[0] if sources else {"type": source.type, "ref": ""},
                     "sources": sources,
+                    "level2CitationIds": list(enrichment.level2_citation_ids) if enrichment else [],
+                    "level3CitationIds": list(enrichment.level3_citation_ids) if enrichment else [],
+                    "externalSources": [
+                        {
+                            "citationId": item.citation_id,
+                            "title": item.title,
+                            "url": item.url,
+                        }
+                        for item in enrichment.external_sources
+                    ] if enrichment else [],
                 }
             )
         category_results.append(
