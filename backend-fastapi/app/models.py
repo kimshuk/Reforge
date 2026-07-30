@@ -3,9 +3,11 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
     String,
     Text,
@@ -190,6 +192,43 @@ class KeywordCategoryMembership(Base, TimestampMixin):
     candidate_clipping_id: Mapped[UUID] = mapped_column(
         "candidateClippingId", ForeignKey("candidate_clippings.id", ondelete="CASCADE"), nullable=False
     )
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class CandidateExternalSource(Base, TimestampMixin):
+    __tablename__ = "candidate_external_sources"
+    __table_args__ = (
+        UniqueConstraint("candidateClippingId", "citationId"),
+        UniqueConstraint("candidateClippingId", "sequence"),
+        UniqueConstraint("candidateClippingId", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, server_default=text("gen_random_uuid()"))
+    candidate_clipping_id: Mapped[UUID] = mapped_column(
+        "candidateClippingId", ForeignKey("candidate_clippings.id", ondelete="CASCADE"), nullable=False
+    )
+    citation_id: Mapped[str] = mapped_column("citationId", String, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    url: Mapped[str] = mapped_column(String, nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class CandidateExternalCitation(Base, TimestampMixin):
+    __tablename__ = "candidate_external_citations"
+    __table_args__ = (
+        CheckConstraint("level IN (2, 3)"),
+        UniqueConstraint("candidateClippingId", "level", "externalSourceId"),
+        ForeignKeyConstraint(
+            ["candidateClippingId", "externalSourceId"],
+            ["candidate_external_sources.candidateClippingId", "candidate_external_sources.id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4, server_default=text("gen_random_uuid()"))
+    candidate_clipping_id: Mapped[UUID] = mapped_column("candidateClippingId", nullable=False)
+    external_source_id: Mapped[UUID] = mapped_column("externalSourceId", nullable=False)
+    level: Mapped[int] = mapped_column(Integer, nullable=False)
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
 
 

@@ -16,7 +16,9 @@ from app.body_limit import AnalyzeBodyLimitMiddleware
 from app.config import get_settings
 from app.database import get_db
 from app.errors import AppError, register_error_handlers
+from app.explanation_enrichment import ExplanationEnricher
 from app.llm import LlmClient
+from app.openai_search import OpenAIWebSearchClient
 from app.schemas import AnalyzeRequest, AnalyzeResult
 from app.store import TranscriptStore, transcript_expiry
 
@@ -59,7 +61,6 @@ ANALYZE_RESPONSES = {
     200: {
         "description": "Completed analysis JSON or Server-Sent Event stream.",
         "content": {
-            "application/json": {"schema": AnalyzeResult.model_json_schema()},
             "text/event-stream": {
                 "examples": {
                     "progress": {
@@ -144,6 +145,7 @@ async def get_transcript(transcript_id: str, db: AsyncSession = Depends(get_db))
 
 @app.post(
     "/analyze",
+    response_model=AnalyzeResult,
     openapi_extra={"requestBody": ANALYZE_REQUEST_BODY},
     responses=ANALYZE_RESPONSES,
 )
@@ -164,10 +166,17 @@ async def analyze(
         body = await request.json()
     except json.JSONDecodeError as error:
         raise AppError(400, "INVALID_REQUEST", "Request body must be valid JSON") from error
+    http_client = getattr(request.app.state, "http_client", None)
+    llm = LlmClient(settings, http_client)
     service = AnalyzeService(
         TranscriptStore(db),
-        LlmClient(settings, getattr(request.app.state, "http_client", None)),
+        llm,
         settings,
+        ExplanationEnricher(
+            llm,
+            OpenAIWebSearchClient(settings, http_client),
+            settings,
+        ),
     )
     wants_stream = "text/event-stream" in (accept or "").lower() or (stream or "").lower() == "progress"
     if not wants_stream:

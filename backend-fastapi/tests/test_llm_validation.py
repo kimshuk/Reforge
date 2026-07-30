@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 
@@ -67,6 +69,22 @@ def test_rejects_duplicate_levels() -> None:
         )
 
 
+def test_reports_all_explanation_ladder_violations() -> None:
+    with pytest.raises(AppError) as raised:
+        validate_explanation_ladder(
+            GOOD["title"],
+            "This brief contains far too many words for a glanceable explanation today",
+            "Pricing pressure affects prices. It can affect decisions.",
+            "The speaker discusses pricing pressure.",
+            "The speaker discusses pricing. The team responds.",
+        )
+
+    assert "Brief must contain 5-10 words" in raised.value.message
+    assert "Simple explanation has 2 sentences; expected exactly 1" in raised.value.message
+    assert "Contextual explanation has 1 sentence; expected 2-3" in raised.value.message
+    assert "Detailed explanation has 2 sentences; expected 3-5" in raised.value.message
+
+
 def test_rejects_source_ref_outside_parent_chunk() -> None:
     with pytest.raises(AppError) as raised:
         validate_candidate(GOOD, 0, ["S002", "S003"])
@@ -78,6 +96,19 @@ def test_accepts_glanceable_brief_without_whitespace() -> None:
     candidate = {**GOOD, "brief": "競合他社が製品価格を引き下げている"}
 
     assert validate_candidate(candidate, 0, ["S001", "S002"])["brief"] == candidate["brief"]
+
+
+def test_accepts_glanceable_korean_brief_with_fewer_than_five_space_delimited_words() -> None:
+    candidate = {**GOOD, "brief": "AI가 시장 변동성을 유발한다"}
+
+    assert validate_candidate(candidate, 0, ["S001", "S002"])["brief"] == candidate["brief"]
+
+
+def test_still_rejects_english_brief_with_fewer_than_five_words() -> None:
+    candidate = {**GOOD, "brief": "Market volatility increases quickly"}
+
+    with pytest.raises(AppError, match="5-10 words"):
+        validate_candidate(candidate, 0, ["S001", "S002"])
 
 
 @pytest.mark.parametrize(
@@ -103,6 +134,182 @@ def test_accepts_single_sentences_with_internal_periods(simple: str) -> None:
 )
 def test_counts_sentence_ending_abbreviations_as_boundaries(value: str) -> None:
     assert sentence_count(value) == 2
+
+
+@pytest.mark.asyncio
+async def test_retries_candidate_generation_once_with_validation_feedback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invalid = {
+        **GOOD,
+        "contextualExplanation": "The speaker says competitors are pushing prices down.",
+    }
+    responses = [
+        json.dumps({"candidateClippings": [invalid]}),
+        json.dumps({"candidateClippings": [GOOD]}),
+    ]
+    calls: list[tuple[str, str]] = []
+    llm = LlmClient(Settings())
+
+    async def generate(system: str, user: str, _options: dict, _schema: dict) -> str:
+        calls.append((system, user))
+        return responses.pop(0)
+
+    monkeypatch.setattr(llm, "_generate", generate)
+
+    candidates = await llm.generate_candidate_clippings(
+        "Pricing",
+        "The speaker discusses competitive pricing pressure.",
+        "S001 | 00:00 | Competitors are pushing prices down.\n"
+        "S002 | 00:05 | The team needs a clearer response.",
+        "en",
+        {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.2},
+    )
+
+    assert candidates == [GOOD]
+    assert len(calls) == 2
+    assert "Contextual explanation has 1 sentence; expected 2-3" in calls[1][1]
+    assert calls[0][1] in calls[1][1]
+
+
+@pytest.mark.asyncio
+async def test_candidate_retry_feedback_includes_violations_from_every_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invalid_context = {
+        **GOOD,
+        "title": "Context Failure",
+        "contextualExplanation": "The speaker only provides one sentence.",
+    }
+    invalid_detail = {
+        **GOOD,
+        "title": "Detail Failure",
+        "detailedExplanation": "The speaker provides one point. The team responds.",
+    }
+    responses = [
+        json.dumps({"candidateClippings": [invalid_context, invalid_detail]}),
+        json.dumps({"candidateClippings": [GOOD]}),
+    ]
+    calls: list[str] = []
+    llm = LlmClient(Settings())
+
+    async def generate(_system: str, user: str, _options: dict, _schema: dict) -> str:
+        calls.append(user)
+        return responses.pop(0)
+
+    monkeypatch.setattr(llm, "_generate", generate)
+
+    await llm.generate_candidate_clippings(
+        "Pricing",
+        "The speaker discusses competitive pricing pressure.",
+        "S001 | 00:00 | Competitors are pushing prices down.\n"
+        "S002 | 00:05 | The team needs a clearer response.",
+        "en",
+        {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.2},
+    )
+
+    assert 'Candidate 0 "Context Failure"' in calls[1]
+    assert "Contextual explanation has 1 sentence; expected 2-3" in calls[1]
+    assert 'Candidate 1 "Detail Failure"' in calls[1]
+    assert "Detailed explanation has 2 sentences; expected 3-5" in calls[1]
+
+
+@pytest.mark.asyncio
+async def test_retries_when_first_candidate_correction_has_a_new_validation_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invalid_context = {
+        **GOOD,
+        "contextualExplanation": "The speaker says competitors are pushing prices down.",
+    }
+    invalid_progression = {
+        **GOOD,
+        "brief": (
+            "Competitors consistently force every existing product price sharply "
+            "downward today"
+        ),
+        "simpleExplanation": "Pricing pressure makes prices difficult to maintain.",
+    }
+    responses = [
+        json.dumps({"candidateClippings": [invalid_context]}),
+        json.dumps({"candidateClippings": [invalid_progression]}),
+        json.dumps({"candidateClippings": [GOOD]}),
+    ]
+    llm = LlmClient(Settings())
+
+    async def generate(_system: str, _user: str, _options: dict, _schema: dict) -> str:
+        return responses.pop(0)
+
+    monkeypatch.setattr(llm, "_generate", generate)
+
+    candidates = await llm.generate_candidate_clippings(
+        "Pricing",
+        "The speaker discusses competitive pricing pressure.",
+        "S001 | 00:00 | Competitors are pushing prices down.\n"
+        "S002 | 00:05 | The team needs a clearer response.",
+        "en",
+        {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.2},
+    )
+
+    assert candidates == [GOOD]
+    assert responses == []
+
+
+@pytest.mark.asyncio
+async def test_stops_after_two_invalid_candidate_corrections(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invalid = {
+        **GOOD,
+        "contextualExplanation": "The speaker says competitors are pushing prices down.",
+    }
+    calls = 0
+    llm = LlmClient(Settings())
+
+    async def generate(_system: str, _user: str, _options: dict, _schema: dict) -> str:
+        nonlocal calls
+        calls += 1
+        return json.dumps({"candidateClippings": [invalid]})
+
+    monkeypatch.setattr(llm, "_generate", generate)
+
+    with pytest.raises(AppError, match="Contextual explanation has 1 sentence; expected 2-3"):
+        await llm.generate_candidate_clippings(
+            "Pricing",
+            "The speaker discusses competitive pricing pressure.",
+            "S001 | 00:00 | Competitors are pushing prices down.\n"
+            "S002 | 00:05 | The team needs a clearer response.",
+            "en",
+            {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.2},
+        )
+
+    assert calls == 3
+
+
+@pytest.mark.asyncio
+async def test_does_not_retry_candidate_provider_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    llm = LlmClient(Settings())
+
+    async def generate(_system: str, _user: str, _options: dict, _schema: dict) -> str:
+        nonlocal calls
+        calls += 1
+        raise AppError(502, "LLM_REQUEST_FAILED", "Provider unavailable")
+
+    monkeypatch.setattr(llm, "_generate", generate)
+
+    with pytest.raises(AppError, match="Provider unavailable"):
+        await llm.generate_candidate_clippings(
+            "Pricing",
+            "The speaker discusses competitive pricing pressure.",
+            "S001 | 00:00 | Competitors are pushing prices down.",
+            "en",
+            {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.2},
+        )
+
+    assert calls == 1
 
 
 def test_accepts_complete_occurrence_category_partition_with_duplicate_terms() -> None:

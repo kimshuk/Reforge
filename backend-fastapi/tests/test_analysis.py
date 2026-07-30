@@ -12,6 +12,7 @@ from app.analysis import (
     resolve_boundary_labels,
 )
 from app.config import Settings
+from app.enrichment import EnrichmentContext, OccurrenceEnrichment, ResearchSource
 from app.errors import AppError
 from app.models import (
     AnalysisRun,
@@ -249,6 +250,7 @@ class ServiceStore:
         )
         self.saved_clippings: list[CandidateClipping] = []
         self.completed = False
+        self.enrichments = None
         self.db = self
 
     async def create_analysis_run(self, _source_type: str, _llm: dict) -> AnalysisRun:
@@ -271,8 +273,11 @@ class ServiceStore:
     async def save_warnings(self, _warnings: list) -> None:
         pass
 
-    async def save_category_graph(self, run_id, clippings, grouping, occurrences_by_id):
+    async def save_category_graph(
+        self, run_id, clippings, grouping, occurrences_by_id, enrichments_by_id=None
+    ):
         self.saved_clippings = clippings
+        self.enrichments = enrichments_by_id
         for clipping_item in clippings:
             clipping_item.id = clipping_item.id or uuid4()
         categories = [
@@ -326,6 +331,31 @@ class ServiceLlm:
         return [{"title": "OpenAI", "keywordIds": ["K001", "K002"]}]
 
 
+class RecordingEnricher:
+    def __init__(self) -> None:
+        self.calls: list[list[EnrichmentContext]] = []
+
+    async def enrich(self, contexts, _language, _options):
+        self.calls.append(contexts)
+        return {
+            context.keyword_id: OccurrenceEnrichment(
+                keyword_id=context.keyword_id,
+                level2=context.transcript_level2,
+                level3=context.transcript_level3,
+                level3_citation_ids=("C1",),
+                external_sources=(
+                    ResearchSource(
+                        "C1",
+                        f"Source {context.keyword_id}",
+                        f"https://example.com/{context.keyword_id}",
+                        "Supporting evidence",
+                    ),
+                ),
+            )
+            for context in contexts
+        }
+
+
 class FixedTranscriptAnalyzeService(AnalyzeService):
     async def _resolve_transcript(self, _source, _emit):
         return ("Transcript text long enough for analysis. " * 4, "video123", [])
@@ -349,9 +379,12 @@ async def test_analyze_returns_semantic_categories_with_distinct_contextual_occu
     ]
     store = ServiceStore(segments)
     llm = ServiceLlm()
+    enricher = RecordingEnricher()
     events: list[tuple[str, dict]] = []
 
-    result = await FixedTranscriptAnalyzeService(store, llm, Settings()).analyze(
+    result = await FixedTranscriptAnalyzeService(
+        store, llm, Settings(), enricher
+    ).analyze(
         {"type": "youtube", "youtubeUrl": "https://youtube.com/watch?v=video123"},
         lambda event, payload: events.append((event, payload)),
     )
@@ -369,6 +402,14 @@ async def test_analyze_returns_semantic_categories_with_distinct_contextual_occu
     assert first["source"]["ref"].endswith("t=46s")
     assert second["source"]["ref"].endswith("t=312s")
     assert first["sources"] == [first["source"]]
+    assert first["externalSources"] != second["externalSources"]
+    assert first["level3CitationIds"] == second["level3CitationIds"] == ["C1"]
+    assert first["source"]["ref"].endswith("t=46s")
+    assert [call[0].source_excerpts for call in enricher.calls] == [
+        ("Text 1",),
+        ("Text 3 Text 4",),
+    ]
+    assert set(store.enrichments) == {"K001", "K002"}
     grouping_events = [
         payload for _, payload in events if payload["stage"] == "grouping_keywords"
     ]
@@ -378,4 +419,5 @@ async def test_analyze_returns_semantic_categories_with_distinct_contextual_occu
     assert grouping_events[-1]["retainedOccurrenceCount"] == 2
     assert grouping_events[-1]["groupedOccurrenceCount"] == 2
     assert grouping_events[-1]["discardedOccurrenceCount"] == 2
+    assert any(payload["stage"] == "enriching_explanations" for _, payload in events)
     assert store.completed is True

@@ -133,6 +133,8 @@ iOS 앱은 현재 `POST {baseURL}/analyze?stream=progress`를 호출한다.
 
 응답의 카테고리는 `categoryId`, 키워드는 `candidateClippingId`를 identity로 사용한다. 동일한 `term`이 한 카테고리에 여러 번 존재할 수 있으므로 title이나 term을 SwiftUI identity 또는 선택 상태 key로 사용하지 않는다. 새 FastAPI 응답의 `sources`는 같은 contextual occurrence를 뒷받침하는 source만 포함하며, `source`는 primary source이다. NestJS rollback 응답처럼 ID와 `sources`가 없는 legacy payload는 transcript/category/keyword position으로 계산한 deterministic fallback ID를 사용한다.
 
+`level2CitationIds`, `level3CitationIds`, `externalSources`는 선택한 설명 단계의 외부 근거를 표시한다. 세 필드는 legacy 응답에서 없을 수 있으므로 빈 배열로 decode한다. 외부 링크는 transcript timestamp `source`와 별도로 표시하며, citation ID나 term을 identity로 사용하지 않는다.
+
 ## 분석 요청/응답 계약
 
 요청 body는 `AnalyzeRequest` 모델을 JSON으로 인코딩한다.

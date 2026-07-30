@@ -56,6 +56,18 @@ Topic chunks are internal, time-bounded extraction units. The response instead c
 
 Equal `term` values at different transcript ranges remain separate keyword records. Only accidental records with the same normalized term and the same resolved segment range are collapsed. `source` is the occurrence's primary reference. `sources` is an occurrence-local ordered list whose first item is the primary source; any remaining items support that same contextual occurrence and never represent unrelated appearances of the term.
 
+### Adaptive explanation enrichment
+
+The optional enrichment stage adds cited external detail to `level2` and `level3` when the planner detects a useful evidence gap. It is disabled by default:
+
+```dotenv
+EXPLANATION_ENRICHMENT_ENABLED=true
+EXPLANATION_ENRICHMENT_MAX_SOURCES=3
+EXPLANATION_ENRICHMENT_MAX_CONCURRENCY=3
+```
+
+Retrieval currently requires the OpenAI provider. Anthropic and Gemini analyses remain transcript-only. `externalSources` and the per-level citation ID arrays support explanation detail; they never replace the timestamped transcript `source` or `sources`. Disable `EXPLANATION_ENRICHMENT_ENABLED` and restart the backend to roll back without changing the API shape.
+
 ## Manual JSON and SSE verification
 
 Use a video that discusses the same keyword in meaningfully different sections. The example below uses the Korean-language test video from the API walkthrough:

@@ -5,7 +5,28 @@ from typing import Any
 import httpx
 
 from app.config import Settings
+from app.enrichment import (
+    EnrichmentContext,
+    EnrichmentPlan,
+    OccurrenceEnrichment,
+    ResearchEvidence,
+    validate_plan_payload,
+    validate_synthesis_payload,
+)
+from app.enrichment_prompts import (
+    ENRICHMENT_PLAN_SCHEMA,
+    ENRICHMENT_REVIEW_SCHEMA,
+    ENRICHMENT_SYNTHESIS_SCHEMA,
+    enrichment_plan_prompt,
+    enrichment_review_prompt,
+    enrichment_synthesis_prompt,
+)
 from app.errors import AppError
+from app.explanation_validation import (
+    explanation_ladder_errors,
+    sentence_count,
+    validate_explanation_ladder,
+)
 from app.prompts import (
     CANDIDATE_CLIPPING_SCHEMA,
     CATEGORY_GROUPING_SCHEMA,
@@ -15,7 +36,14 @@ from app.prompts import (
     topic_chunking_prompt,
 )
 
+__all__ = [
+    "explanation_ladder_errors",
+    "sentence_count",
+    "validate_explanation_ladder",
+]
+
 PROVIDERS = {"openai", "gemini", "claude"}
+MAX_CANDIDATE_GENERATION_ATTEMPTS = 3
 DEFAULT_MODELS = {
     "openai": "gpt-4o-mini",
     "gemini": "gemini-1.5-flash",
@@ -103,17 +131,45 @@ class LlmClient:
         system, user = candidate_clipping_prompt(
             chunk_title, chunk_summary, segments, target_language
         )
-        raw = await self._generate(system, user, options, CANDIDATE_CLIPPING_SCHEMA)
-        payload = parse_json_object(raw, "LLM_CLIPPINGS_INVALID_JSON")
-        candidates = payload.get("candidateClippings")
-        if not isinstance(candidates, list):
-            raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Invalid candidate clipping list")
         labels = [
             match.group(1)
             for line in segments.splitlines()
             if (match := re.match(r"^\s*([^|\s]+)\s*\|", line))
         ]
-        return [validate_candidate(value, index, labels) for index, value in enumerate(candidates)]
+        request_user = user
+        for attempt in range(MAX_CANDIDATE_GENERATION_ATTEMPTS):
+            raw = await self._generate(
+                system, request_user, options, CANDIDATE_CLIPPING_SCHEMA
+            )
+            try:
+                payload = parse_json_object(raw, "LLM_CLIPPINGS_INVALID_JSON")
+                candidates = payload.get("candidateClippings")
+                if not isinstance(candidates, list):
+                    raise AppError(
+                        502,
+                        "LLM_CLIPPINGS_INVALID_JSON",
+                        "Invalid candidate clipping list",
+                    )
+                return validate_candidates(candidates, labels)
+            except AppError as error:
+                retryable = error.code in {
+                    "LLM_CLIPPINGS_INVALID_JSON",
+                    "LLM_CLIPPINGS_INVALID_SOURCE_REF",
+                }
+                if attempt == MAX_CANDIDATE_GENERATION_ATTEMPTS - 1 or not retryable:
+                    raise
+                request_user = (
+                    f"{user}\n\n"
+                    "Correction required: the previous response failed semantic "
+                    f"validation: {error.message}\n"
+                    "Return a complete replacement JSON response. Preserve transcript "
+                    "grounding and source ranges while correcting the validation error. "
+                    "Recheck every candidate against the entire explanation ladder, not "
+                    "only the reported error. Do not add external facts.\n"
+                    f"Previous response:\n{raw}"
+                )
+
+        raise AssertionError("candidate generation retry loop exhausted")
 
     async def generate_keyword_categories(
         self,
@@ -130,6 +186,62 @@ class LlmClient:
             parse_json_object(raw, "LLM_CATEGORY_GROUPING_INVALID_JSON"),
             occurrence_ids,
         )
+
+    async def plan_explanation_enrichment(
+        self,
+        contexts: list[EnrichmentContext],
+        target_language: str,
+        options: dict[str, Any],
+    ) -> list[EnrichmentPlan]:
+        system, user = enrichment_plan_prompt(contexts, target_language)
+        raw = await self._generate(system, user, options, ENRICHMENT_PLAN_SCHEMA)
+        return validate_plan_payload(
+            parse_json_object(raw, "LLM_ENRICHMENT_PLAN_INVALID_JSON"), contexts
+        )
+
+    async def synthesize_explanation_enrichment(
+        self,
+        context: EnrichmentContext,
+        plan: EnrichmentPlan,
+        evidence: ResearchEvidence,
+        target_language: str,
+        options: dict[str, Any],
+    ) -> OccurrenceEnrichment:
+        system, user = enrichment_synthesis_prompt(
+            context, plan, evidence, target_language
+        )
+        raw = await self._generate(system, user, options, ENRICHMENT_SYNTHESIS_SCHEMA)
+        return validate_synthesis_payload(
+            parse_json_object(raw, "LLM_ENRICHMENT_SYNTHESIS_INVALID_JSON"),
+            context,
+            evidence,
+        )
+
+    async def review_explanation_enrichment(
+        self,
+        context: EnrichmentContext,
+        enrichment: OccurrenceEnrichment,
+        evidence: ResearchEvidence,
+        target_language: str,
+        options: dict[str, Any],
+    ) -> bool:
+        system, user = enrichment_review_prompt(
+            context, enrichment, evidence, target_language
+        )
+        raw = await self._generate(system, user, options, ENRICHMENT_REVIEW_SCHEMA)
+        payload = parse_json_object(raw, "LLM_ENRICHMENT_REVIEW_INVALID_JSON")
+        if (
+            set(payload) != {"approved", "reasonCode"}
+            or not isinstance(payload["approved"], bool)
+            or not isinstance(payload["reasonCode"], str)
+            or not payload["reasonCode"].strip()
+        ):
+            raise AppError(
+                502,
+                "LLM_ENRICHMENT_REVIEW_INVALID_JSON",
+                "Review payload must contain approved and reasonCode",
+            )
+        return payload["approved"]
 
     async def _generate(
         self,
@@ -263,39 +375,108 @@ def validate_candidate(value: Any, index: int, chunk_labels: list[str]) -> dict[
     )
     if not isinstance(value, dict) or not all(isinstance(value.get(key), str) for key in required_strings):
         raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", f"Invalid candidate clipping fields at index {index}")
-    if value["signalLevel"] not in {"high", "medium", "low"}:
-        raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", f"Invalid candidate clipping fields at index {index}")
     cleaned = {key: item.strip() if isinstance(item, str) else item for key, item in value.items()}
-    validate_explanation_ladder(
-        cleaned["title"],
-        cleaned["brief"],
-        cleaned["simpleExplanation"],
-        cleaned["contextualExplanation"],
-        cleaned["detailedExplanation"],
+    errors: list[tuple[str, str]] = []
+    if cleaned["kind"] not in {
+        "topic", "claim", "mechanism", "risk", "trend",
+        "entity", "example", "question", "contradiction",
+    }:
+        errors.append(("LLM_CLIPPINGS_INVALID_JSON", "Invalid candidate kind"))
+    if cleaned["signalLevel"] not in {"high", "medium", "low"}:
+        errors.append(("LLM_CLIPPINGS_INVALID_JSON", "Invalid signal level"))
+    if not 3 <= len(cleaned["text"]) <= 500:
+        errors.append(
+            ("LLM_CLIPPINGS_INVALID_JSON", "Candidate text must contain 3-500 characters")
+        )
+    errors.extend(
+        ("LLM_CLIPPINGS_INVALID_JSON", message)
+        for message in explanation_ladder_errors(
+            cleaned["title"],
+            cleaned["brief"],
+            cleaned["simpleExplanation"],
+            cleaned["contextualExplanation"],
+            cleaned["detailedExplanation"],
+        )
     )
     refs = cleaned.get("sourceRefs")
-    if not isinstance(refs, list) or not refs:
-        raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", f"Invalid source refs at candidate {index}")
-    order = {normalize_segment_ref(label): position for position, label in enumerate(chunk_labels)}
     validated_refs = []
-    for source_index, ref in enumerate(refs):
-        if not isinstance(ref, dict) or not all(
-            isinstance(ref.get(key), str)
-            for key in ("startSegmentId", "endSegmentId", "timestamp", "text")
-        ):
-            raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", f"Invalid source ref at candidate {index}, source {source_index}")
-        start_label, end_label = ref["startSegmentId"].strip(), ref["endSegmentId"].strip()
-        start, end = order.get(normalize_segment_ref(start_label)), order.get(normalize_segment_ref(end_label))
-        if start is None or end is None or start > end:
-            raise AppError(502, "LLM_CLIPPINGS_INVALID_SOURCE_REF", f"Source ref outside topic chunk at candidate {index}, source {source_index}")
-        validated_refs.append({
-            "startSegmentId": chunk_labels[start],
-            "endSegmentId": chunk_labels[end],
-            "timestamp": ref["timestamp"].strip(),
-            "text": ref["text"].strip(),
-        })
+    if not isinstance(refs, list) or not refs:
+        errors.append(("LLM_CLIPPINGS_INVALID_JSON", "Source refs must be non-empty"))
+    else:
+        order = {
+            normalize_segment_ref(label): position
+            for position, label in enumerate(chunk_labels)
+        }
+        for source_index, ref in enumerate(refs):
+            if not isinstance(ref, dict) or not all(
+                isinstance(ref.get(key), str)
+                for key in ("startSegmentId", "endSegmentId", "timestamp", "text")
+            ):
+                errors.append(
+                    (
+                        "LLM_CLIPPINGS_INVALID_JSON",
+                        f"Source ref {source_index} has invalid fields",
+                    )
+                )
+                continue
+            start_label = ref["startSegmentId"].strip()
+            end_label = ref["endSegmentId"].strip()
+            start = order.get(normalize_segment_ref(start_label))
+            end = order.get(normalize_segment_ref(end_label))
+            if start is None or end is None or start > end:
+                errors.append(
+                    (
+                        "LLM_CLIPPINGS_INVALID_SOURCE_REF",
+                        f"Source ref {source_index} is outside the topic chunk",
+                    )
+                )
+                continue
+            source_text = ref["text"].strip()
+            if not 3 <= len(source_text) <= 300:
+                errors.append(
+                    (
+                        "LLM_CLIPPINGS_INVALID_JSON",
+                        f"Source ref {source_index} text must contain 3-300 characters",
+                    )
+                )
+                continue
+            validated_refs.append({
+                "startSegmentId": chunk_labels[start],
+                "endSegmentId": chunk_labels[end],
+                "timestamp": ref["timestamp"].strip(),
+                "text": source_text,
+            })
+    if errors:
+        error_code = (
+            "LLM_CLIPPINGS_INVALID_SOURCE_REF"
+            if all(code == "LLM_CLIPPINGS_INVALID_SOURCE_REF" for code, _ in errors)
+            else "LLM_CLIPPINGS_INVALID_JSON"
+        )
+        raise AppError(502, error_code, "; ".join(message for _, message in errors))
     cleaned["sourceRefs"] = validated_refs
     return cleaned
+
+
+def validate_candidates(
+    candidates: list[Any], chunk_labels: list[str]
+) -> list[dict[str, Any]]:
+    validated: list[dict[str, Any]] = []
+    errors: list[tuple[str, str]] = []
+    for index, candidate in enumerate(candidates):
+        try:
+            validated.append(validate_candidate(candidate, index, chunk_labels))
+        except AppError as error:
+            title = candidate.get("title") if isinstance(candidate, dict) else None
+            label = f'Candidate {index} "{title}"' if isinstance(title, str) else f"Candidate {index}"
+            errors.append((error.code, f"{label}: {error.message}"))
+    if errors:
+        error_code = (
+            "LLM_CLIPPINGS_INVALID_SOURCE_REF"
+            if all(code == "LLM_CLIPPINGS_INVALID_SOURCE_REF" for code, _ in errors)
+            else "LLM_CLIPPINGS_INVALID_JSON"
+        )
+        raise AppError(502, error_code, " | ".join(message for _, message in errors))
+    return validated
 
 
 def validate_category_grouping(
@@ -334,76 +515,6 @@ def validate_category_grouping(
     if len(assigned) != len(occurrence_ids) or set(assigned) != known:
         raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Every occurrence ID must be assigned exactly once")
     return cleaned_categories
-
-
-def validate_explanation_ladder(term: str, brief: str, simple: str, contextual: str, detailed: str) -> None:
-    if any(not value.strip() for value in (term, brief, simple, contextual, detailed)):
-        raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Explanation ladder fields must not be empty")
-    levels = [normalize_explanation(value) for value in (simple, contextual, detailed)]
-    if len(set(levels)) != 3:
-        raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Explanation ladder levels must not be duplicates")
-    if len(term) > 60:
-        raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Term must be at most 60 characters")
-    if re.search(r"[.!?。！？]\s*$", term):
-        raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Term must be a reusable label, not a sentence")
-    brief_words = len(brief.split())
-    if " " in brief and (brief_words < 5 or brief_words > 10):
-        raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Brief must contain 5-10 words")
-    if " " not in brief and not 5 <= len(brief) <= 40:
-        raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Brief must contain 5-40 characters")
-    if len(brief) >= len(simple):
-        raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Brief must be shorter than simple explanation")
-    if sentence_count(simple) != 1:
-        raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Simple explanation must be one sentence")
-    if sentence_count(contextual) not in {2, 3} or len(simple) >= len(contextual):
-        raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Contextual explanation must be 2-3 sentences and add detail")
-    if sentence_count(detailed) not in {3, 4, 5} or len(contextual) >= len(detailed):
-        raise AppError(502, "LLM_CLIPPINGS_INVALID_JSON", "Detailed explanation must be 3-5 sentences and add detail")
-
-
-def sentence_count(value: str) -> int:
-    protected = re.sub(r"(?<=\d)\.(?=\d)", "<DOT>", value.strip())
-    protected = re.sub(
-        r"\b(?:e\.g|i\.e)\.",
-        lambda match: match.group(0).replace(".", "<DOT>"),
-        protected,
-        flags=re.IGNORECASE,
-    )
-    protected = re.sub(
-        r"\b(?:mr|mrs|ms|dr|prof|sr|jr)\.",
-        lambda match: match.group(0).replace(".", "<DOT>"),
-        protected,
-        flags=re.IGNORECASE,
-    )
-    protected = re.sub(
-        r"\b(?:[A-Za-z]\.){2,}",
-        lambda match: _protect_contextual_abbreviation(match, protected),
-        protected,
-    )
-    protected = re.sub(
-        r"\b(?:vs|etc)\.",
-        lambda match: _protect_contextual_abbreviation(match, protected),
-        protected,
-        flags=re.IGNORECASE,
-    )
-    parts = [
-        part
-        for part in re.split(r"[.!?。！？]+(?:[\"')\]]*)\s*", protected)
-        if part.strip()
-    ]
-    return max(1, len(parts))
-
-
-def _protect_contextual_abbreviation(match: re.Match[str], value: str) -> str:
-    token = match.group(0)
-    next_text = value[match.end() :].lstrip()
-    protect_final_period = bool(next_text and next_text[0].islower())
-    body = token[:-1].replace(".", "<DOT>")
-    return body + ("<DOT>" if protect_final_period else ".")
-
-
-def normalize_explanation(value: str) -> str:
-    return re.sub(r"[.?!。！？]+$", "", re.sub(r"\s+", " ", value.lower()).strip())
 
 
 def normalize_segment_ref(value: str) -> str:

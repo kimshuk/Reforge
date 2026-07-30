@@ -279,37 +279,45 @@ struct HomeView: View {
     private func selectedKeywordRow(keyword: AnalyzeKeyword, categoryId: String) -> some View {
         let level = keywordSelection.level(keywordId: keyword.id, in: categoryId)
         let levelText = keywordLevelText(for: keyword, level: level)
-        return HStack(alignment: .top, spacing: 8) {
-            (Text("- ").foregroundStyle(.secondary) + Text(keyword.term).fontWeight(.semibold).foregroundStyle(.primary) + Text(": \(levelText)").foregroundStyle(.secondary))
-                .font(.system(size: 14))
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer()
-            if let sourceURL = URL(string: keyword.source.ref) {
-                Link(destination: sourceURL) {
-                    Text(timestampLabel(from: keyword.source.ref))
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.accentColor)
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 8) {
+                (Text("- ").foregroundStyle(.secondary) + Text(keyword.term).fontWeight(.semibold).foregroundStyle(.primary) + Text(": \(levelText)").foregroundStyle(.secondary))
+                    .font(.system(size: 14))
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                if let sourceURL = URL(string: keyword.source.ref) {
+                    Link(destination: sourceURL) {
+                        Text(timestampLabel(from: keyword.source.ref))
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color.accentColor)
+                    }
                 }
-            }
-            if level < 3 {
+                if level < 3 {
+                    Button {
+                        keywordSelection.advanceLevel(keywordId: keyword.id, in: categoryId)
+                    } label: {
+                        Text("expand")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                }
                 Button {
-                    keywordSelection.advanceLevel(keywordId: keyword.id, in: categoryId)
+                    keywordSelection.remove(keywordId: keyword.id, from: categoryId)
                 } label: {
-                    Text("expand")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.accentColor)
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(4)
                 }
                 .buttonStyle(.plain)
             }
-            Button {
-                keywordSelection.remove(keywordId: keyword.id, from: categoryId)
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(4)
+            ForEach(keyword.externalSources(forLevel: level)) { source in
+                if let url = URL(string: source.url) {
+                    Link(source.title, destination: url)
+                        .font(.system(size: 12))
+                }
             }
-            .buttonStyle(.plain)
         }
     }
 

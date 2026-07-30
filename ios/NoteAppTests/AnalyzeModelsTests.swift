@@ -91,6 +91,37 @@ final class AnalyzeModelsTests: XCTestCase {
         XCTAssertEqual(first.categories.map(\.id), second.categories.map(\.id))
         XCTAssertEqual(category.keywords[0].sources, [category.keywords[0].source])
         XCTAssertNotEqual(category.keywords[0].id, category.keywords[1].id)
+        XCTAssertEqual(category.keywords[0].level2CitationIds, [])
+        XCTAssertEqual(category.keywords[0].level3CitationIds, [])
+        XCTAssertEqual(category.keywords[0].externalSources, [])
+    }
+
+    func testDecodesLevelSpecificExternalSources() throws {
+        let result = try decode(
+            """
+            {
+              "transcriptId": "transcript-1",
+              "sourceType": "youtube",
+              "categories": [{"title": "OpenAI", "keywords": [{
+                "candidateClippingId": "occurrence-tool",
+                "term": "Codex", "brief": "Tool context", "level1": "One",
+                "level2": "Two", "level3": "Three",
+                "source": {"type": "youtube", "ref": "https://example.com?t=46s"},
+                "level2CitationIds": ["C1"],
+                "level3CitationIds": ["C1", "C2"],
+                "externalSources": [
+                  {"citationId": "C1", "title": "Official", "url": "https://example.com/official"},
+                  {"citationId": "C2", "title": "Research", "url": "https://example.com/research"}
+                ]
+              }]}],
+              "expiresInSeconds": 1800
+            }
+            """
+        )
+        let keyword = try XCTUnwrap(result.categories.first?.keywords.first)
+        XCTAssertEqual(keyword.externalSources(forLevel: 2).map(\.citationId), ["C1"])
+        XCTAssertEqual(keyword.externalSources(forLevel: 3).map(\.citationId), ["C1", "C2"])
+        XCTAssertEqual(keyword.source.ref, "https://example.com?t=46s")
     }
 
     func testDuplicateTermsHaveIndependentSelectionAndExpansionState() throws {
