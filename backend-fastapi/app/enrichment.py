@@ -137,7 +137,7 @@ def validate_synthesis_payload(
 
     sources = evidence.sources if isinstance(evidence, ResearchEvidence) else ()
     known_citation_ids = {
-        source.citation_id.strip()
+        source.citation_id
         for source in sources
         if isinstance(source, ResearchSource) and isinstance(source.citation_id, str)
     }
@@ -269,10 +269,12 @@ def _validate_evidence(evidence: ResearchEvidence) -> list[str]:
             continue
         if not isinstance(source.citation_id, str) or not source.citation_id.strip():
             errors.append(f"Research source {index} citation ID must be non-empty")
-        elif source.citation_id.strip() in citation_ids:
+        elif source.citation_id != source.citation_id.strip():
+            errors.append(f"Research source {index} citation ID must be canonical")
+        elif source.citation_id in citation_ids:
             errors.append("Research source citation IDs must be unique")
         else:
-            citation_ids.add(source.citation_id.strip())
+            citation_ids.add(source.citation_id)
         if not isinstance(source.title, str) or not source.title.strip():
             errors.append(f"Research source {index} title must be non-empty")
         if not isinstance(source.supporting_text, str) or not source.supporting_text.strip():
@@ -305,5 +307,11 @@ def _validate_citation_ids(
 def _is_absolute_http_url(value: Any) -> bool:
     if not isinstance(value, str) or not value.strip():
         return False
-    parsed = urlparse(value.strip())
-    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+    try:
+        parsed = urlparse(value.strip())
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return False
+        parsed.port
+    except ValueError:
+        return False
+    return True

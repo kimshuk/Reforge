@@ -173,7 +173,15 @@ def test_synthesis_cannot_change_level1_or_occurrence_identity() -> None:
 
 @pytest.mark.parametrize(
     "url",
-    ["/relative", "ftp://example.com/source", "https:///missing-host"],
+    [
+        "/relative",
+        "ftp://example.com/source",
+        "https:///missing-host",
+        "https://:443/path",
+        "https://user@/path",
+        "https://[::1",
+        "https://example.com:bad/path",
+    ],
 )
 def test_synthesis_requires_absolute_http_urls(url: str) -> None:
     invalid_evidence = evidence(
@@ -184,6 +192,29 @@ def test_synthesis_requires_absolute_http_urls(url: str) -> None:
 
     with pytest.raises(AppError, match="URL"):
         validate_synthesis_payload(synthesis(), context(), invalid_evidence)
+
+
+def test_synthesis_rejects_noncanonical_source_citation_ids() -> None:
+    invalid_evidence = evidence(
+        sources=(
+            ResearchSource(
+                " C1 ",
+                "Source C1",
+                "https://example.com/c1",
+                "Supporting evidence.",
+            ),
+        )
+    )
+
+    with pytest.raises(AppError, match="canonical"):
+        validate_synthesis_payload(synthesis(), context(), invalid_evidence)
+
+
+def test_synthesis_retains_sources_for_valid_citation_mappings() -> None:
+    result = validate_synthesis_payload(synthesis(), context(), evidence())
+
+    assert result.level3_citation_ids == ("C1",)
+    assert [source.citation_id for source in result.external_sources] == ["C1"]
 
 
 def test_synthesis_requires_unique_source_ids_and_at_most_three_sources() -> None:
