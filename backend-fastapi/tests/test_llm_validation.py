@@ -80,6 +80,19 @@ def test_accepts_glanceable_brief_without_whitespace() -> None:
     assert validate_candidate(candidate, 0, ["S001", "S002"])["brief"] == candidate["brief"]
 
 
+def test_accepts_glanceable_korean_brief_with_fewer_than_five_space_delimited_words() -> None:
+    candidate = {**GOOD, "brief": "AI가 시장 변동성을 유발한다"}
+
+    assert validate_candidate(candidate, 0, ["S001", "S002"])["brief"] == candidate["brief"]
+
+
+def test_still_rejects_english_brief_with_fewer_than_five_words() -> None:
+    candidate = {**GOOD, "brief": "Market volatility increases quickly"}
+
+    with pytest.raises(AppError, match="5-10 words"):
+        validate_candidate(candidate, 0, ["S001", "S002"])
+
+
 @pytest.mark.parametrize(
     "simple",
     [
