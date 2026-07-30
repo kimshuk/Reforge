@@ -52,7 +52,10 @@ struct AnalyzeResponse: Decodable, Identifiable, Hashable {
                         level2: keyword.level2,
                         level3: keyword.level3,
                         source: keyword.source,
-                        sources: keyword.sources ?? [keyword.source]
+                        sources: keyword.sources ?? [keyword.source],
+                        level2CitationIds: keyword.level2CitationIds,
+                        level3CitationIds: keyword.level3CitationIds,
+                        externalSources: keyword.externalSources
                     )
                 }
             )
@@ -77,6 +80,22 @@ struct AnalyzeKeyword: Hashable, Identifiable {
     let level3: String
     let source: AnalyzeSource
     let sources: [AnalyzeSource]
+    let level2CitationIds: [String]
+    let level3CitationIds: [String]
+    let externalSources: [AnalyzeExternalSource]
+
+    func externalSources(forLevel level: Int) -> [AnalyzeExternalSource] {
+        let ids = Set(level == 2 ? level2CitationIds : level == 3 ? level3CitationIds : [])
+        return externalSources.filter { ids.contains($0.citationId) }
+    }
+}
+
+struct AnalyzeExternalSource: Codable, Hashable, Identifiable {
+    let citationId: String
+    let title: String
+    let url: String
+
+    var id: String { citationId }
 }
 
 struct AnalyzeSource: Codable, Hashable {
@@ -131,4 +150,27 @@ private struct AnalyzeKeywordPayload: Decodable {
     let level3: String
     let source: AnalyzeSource
     let sources: [AnalyzeSource]?
+    let level2CitationIds: [String]
+    let level3CitationIds: [String]
+    let externalSources: [AnalyzeExternalSource]
+
+    private enum CodingKeys: String, CodingKey {
+        case candidateClippingId, term, brief, level1, level2, level3
+        case source, sources, level2CitationIds, level3CitationIds, externalSources
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        candidateClippingId = try container.decodeIfPresent(String.self, forKey: .candidateClippingId)
+        term = try container.decode(String.self, forKey: .term)
+        brief = try container.decode(String.self, forKey: .brief)
+        level1 = try container.decode(String.self, forKey: .level1)
+        level2 = try container.decode(String.self, forKey: .level2)
+        level3 = try container.decode(String.self, forKey: .level3)
+        source = try container.decode(AnalyzeSource.self, forKey: .source)
+        sources = try container.decodeIfPresent([AnalyzeSource].self, forKey: .sources)
+        level2CitationIds = try container.decodeIfPresent([String].self, forKey: .level2CitationIds) ?? []
+        level3CitationIds = try container.decodeIfPresent([String].self, forKey: .level3CitationIds) ?? []
+        externalSources = try container.decodeIfPresent([AnalyzeExternalSource].self, forKey: .externalSources) ?? []
+    }
 }

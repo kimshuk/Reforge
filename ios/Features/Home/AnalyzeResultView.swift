@@ -24,7 +24,9 @@ struct AnalyzeResultView: View {
 
                             Text("Level 1: \(keyword.level1)")
                             Text("Level 2: \(keyword.level2)")
+                            externalLinks(keyword.externalSources(forLevel: 2))
                             Text("Level 3: \(keyword.level3)")
+                            externalLinks(keyword.externalSources(forLevel: 3))
 
                             if let url = URL(string: keyword.source.ref) {
                                 Link("Source: \(keyword.source.ref)", destination: url)
@@ -39,6 +41,16 @@ struct AnalyzeResultView: View {
         }
         .navigationTitle("Analysis Result")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private func externalLinks(_ sources: [AnalyzeExternalSource]) -> some View {
+        ForEach(sources) { source in
+            if let url = URL(string: source.url) {
+                Link(source.title, destination: url)
+                    .font(.footnote)
+            }
+        }
     }
 }
 
