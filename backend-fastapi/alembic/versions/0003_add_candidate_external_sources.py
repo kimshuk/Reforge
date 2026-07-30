@@ -5,7 +5,7 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision = "0003_add_candidate_external_sources"
+revision = "0003_external_citations"
 down_revision = "0002_add_keyword_categories"
 branch_labels = None
 depends_on = None
