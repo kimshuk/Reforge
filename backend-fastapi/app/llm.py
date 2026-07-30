@@ -5,6 +5,22 @@ from typing import Any
 import httpx
 
 from app.config import Settings
+from app.enrichment import (
+    EnrichmentContext,
+    EnrichmentPlan,
+    OccurrenceEnrichment,
+    ResearchEvidence,
+    validate_plan_payload,
+    validate_synthesis_payload,
+)
+from app.enrichment_prompts import (
+    ENRICHMENT_PLAN_SCHEMA,
+    ENRICHMENT_REVIEW_SCHEMA,
+    ENRICHMENT_SYNTHESIS_SCHEMA,
+    enrichment_plan_prompt,
+    enrichment_review_prompt,
+    enrichment_synthesis_prompt,
+)
 from app.errors import AppError
 from app.explanation_validation import (
     explanation_ladder_errors,
@@ -170,6 +186,62 @@ class LlmClient:
             parse_json_object(raw, "LLM_CATEGORY_GROUPING_INVALID_JSON"),
             occurrence_ids,
         )
+
+    async def plan_explanation_enrichment(
+        self,
+        contexts: list[EnrichmentContext],
+        target_language: str,
+        options: dict[str, Any],
+    ) -> list[EnrichmentPlan]:
+        system, user = enrichment_plan_prompt(contexts, target_language)
+        raw = await self._generate(system, user, options, ENRICHMENT_PLAN_SCHEMA)
+        return validate_plan_payload(
+            parse_json_object(raw, "LLM_ENRICHMENT_PLAN_INVALID_JSON"), contexts
+        )
+
+    async def synthesize_explanation_enrichment(
+        self,
+        context: EnrichmentContext,
+        plan: EnrichmentPlan,
+        evidence: ResearchEvidence,
+        target_language: str,
+        options: dict[str, Any],
+    ) -> OccurrenceEnrichment:
+        system, user = enrichment_synthesis_prompt(
+            context, plan, evidence, target_language
+        )
+        raw = await self._generate(system, user, options, ENRICHMENT_SYNTHESIS_SCHEMA)
+        return validate_synthesis_payload(
+            parse_json_object(raw, "LLM_ENRICHMENT_SYNTHESIS_INVALID_JSON"),
+            context,
+            evidence,
+        )
+
+    async def review_explanation_enrichment(
+        self,
+        context: EnrichmentContext,
+        enrichment: OccurrenceEnrichment,
+        evidence: ResearchEvidence,
+        target_language: str,
+        options: dict[str, Any],
+    ) -> bool:
+        system, user = enrichment_review_prompt(
+            context, enrichment, evidence, target_language
+        )
+        raw = await self._generate(system, user, options, ENRICHMENT_REVIEW_SCHEMA)
+        payload = parse_json_object(raw, "LLM_ENRICHMENT_REVIEW_INVALID_JSON")
+        if (
+            set(payload) != {"approved", "reasonCode"}
+            or not isinstance(payload["approved"], bool)
+            or not isinstance(payload["reasonCode"], str)
+            or not payload["reasonCode"].strip()
+        ):
+            raise AppError(
+                502,
+                "LLM_ENRICHMENT_REVIEW_INVALID_JSON",
+                "Review payload must contain approved and reasonCode",
+            )
+        return payload["approved"]
 
     async def _generate(
         self,
