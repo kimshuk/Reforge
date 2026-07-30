@@ -22,17 +22,26 @@ def test_analyze_openapi_documents_body_and_stream_parameters() -> None:
 
 
 def test_analyze_openapi_documents_semantic_category_response() -> None:
-    operation = client.get("/openapi.json").json()["paths"]["/analyze"]["post"]
+    document = client.get("/openapi.json").json()
+    operation = document["paths"]["/analyze"]["post"]
     success = operation["responses"]["200"]["content"]
 
     result_schema = success["application/json"]["schema"]
-    definitions = result_schema["$defs"]
+    assert result_schema == {"$ref": "#/components/schemas/AnalyzeResult"}
+    definitions = document["components"]["schemas"]
     category_schema = definitions["AnalyzeCategory"]
     assert category_schema["properties"]["categoryId"]
+    assert category_schema["properties"]["keywords"]["items"] == {
+        "$ref": "#/components/schemas/AnalyzeKeyword"
+    }
     keyword_schema = definitions["AnalyzeKeyword"]
     assert keyword_schema["properties"]["candidateClippingId"]
-    assert keyword_schema["properties"]["source"]
-    assert keyword_schema["properties"]["sources"]
+    assert keyword_schema["properties"]["source"] == {
+        "$ref": "#/components/schemas/KeywordSource"
+    }
+    assert keyword_schema["properties"]["sources"]["items"] == {
+        "$ref": "#/components/schemas/KeywordSource"
+    }
     assert success["text/event-stream"]["examples"]["result"]["summary"]
 
 

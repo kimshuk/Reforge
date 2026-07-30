@@ -59,7 +59,6 @@ ANALYZE_RESPONSES = {
     200: {
         "description": "Completed analysis JSON or Server-Sent Event stream.",
         "content": {
-            "application/json": {"schema": AnalyzeResult.model_json_schema()},
             "text/event-stream": {
                 "examples": {
                     "progress": {
@@ -144,6 +143,7 @@ async def get_transcript(transcript_id: str, db: AsyncSession = Depends(get_db))
 
 @app.post(
     "/analyze",
+    response_model=AnalyzeResult,
     openapi_extra={"requestBody": ANALYZE_REQUEST_BODY},
     responses=ANALYZE_RESPONSES,
 )
