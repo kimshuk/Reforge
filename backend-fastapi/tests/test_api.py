@@ -124,6 +124,10 @@ def test_transcript_endpoint_returns_existing_error_envelope(
             {"youtubeUrl": "https://youtu.be/dQw4w9WgXcQ", "unknown": True},
             "INVALID_REQUEST",
         ),
+        (
+            {"youtubeUrl": "https://youtu.be/dQw4w9WgXcQ", "": True},
+            "INVALID_REQUEST",
+        ),
     ],
 )
 def test_transcript_endpoint_validates_request_fields(payload, code: str) -> None:

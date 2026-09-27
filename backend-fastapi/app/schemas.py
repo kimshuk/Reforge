@@ -58,7 +58,7 @@ class YoutubeTranscriptRequest(BaseModel):
         unknown = next(
             (key for key in value if key not in {"youtubeUrl", "title"}), None
         )
-        if unknown:
+        if unknown is not None:
             raise AppError(400, "INVALID_REQUEST", f"Unsupported request field: {unknown}")
         return {
             "youtubeUrl": _required_nonempty(
