@@ -9,6 +9,10 @@ enum ShareIngestionError: Error, Equatable {
     case videoIdentityMismatch
 }
 
+protocol ShareIngesting {
+    func ingest(_ input: SharedURLInput) async throws -> ShareIngestionResult
+}
+
 protocol ContentNotePersisting {
     func find(sourceKey: String) throws -> StoredContentNote?
     func saveOrReuse(_ draft: ContentNoteDraft) throws -> SaveNoteOutcome
@@ -96,3 +100,5 @@ final class ShareIngestionCoordinator {
         return value.isEmpty ? nil : value
     }
 }
+
+extension ShareIngestionCoordinator: ShareIngesting {}
