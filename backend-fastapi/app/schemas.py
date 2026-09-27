@@ -44,6 +44,42 @@ class AnalyzeSource(BaseModel):
     max_output_tokens: Any = None
 
 
+class YoutubeTranscriptRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    youtubeUrl: str
+    title: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_request(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            raise AppError(400, "INVALID_REQUEST", "Request body must be a JSON object")
+        unknown = next(
+            (key for key in value if key not in {"youtubeUrl", "title"}), None
+        )
+        if unknown:
+            raise AppError(400, "INVALID_REQUEST", f"Unsupported request field: {unknown}")
+        return {
+            "youtubeUrl": _required_nonempty(
+                value.get("youtubeUrl"),
+                "INVALID_YOUTUBE_URL",
+                "youtubeUrl must be a non-empty string",
+            ),
+            "title": _optional_nonempty(value.get("title"), "INVALID_TITLE", "title"),
+        }
+
+
+class YoutubeTranscriptResponse(BaseModel):
+    transcriptId: str
+    videoId: str
+    canonicalYoutubeUrl: str
+    transcriptText: str
+    languageCode: str | None
+    language: str | None
+    isGenerated: bool | None
+
+
 class KeywordSource(BaseModel):
     type: Literal["youtube", "manual"]
     ref: str

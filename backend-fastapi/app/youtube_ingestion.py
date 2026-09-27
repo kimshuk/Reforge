@@ -3,7 +3,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from app.sanitizer import CleanedSegment, sanitize_transcript
-from app.schemas import assert_transcript_available
+from app.schemas import YoutubeTranscriptResponse, assert_transcript_available
 from app.store import TranscriptStore
 from app.youtube import YoutubeTranscript, fetch_youtube_transcript
 
@@ -42,4 +42,28 @@ class YoutubeTranscriptIngestionService:
             language_code=result.language_code,
             language=result.language,
             is_generated=result.is_generated,
+        )
+
+    async def ingest(
+        self, youtube_url: str, title: str | None
+    ) -> YoutubeTranscriptResponse:
+        if self.store is None:
+            raise RuntimeError("TranscriptStore is required for ingestion")
+        prepared = await self.prepare(youtube_url)
+        stored = await self.store.set_transcript(
+            transcript_text=prepared.user_transcript_text,
+            source_type="youtube",
+            video_id=prepared.video_id,
+            title=title,
+            youtube_url=prepared.canonical_url,
+            source_segments=prepared.source_segments,
+        )
+        return YoutubeTranscriptResponse(
+            transcriptId=str(stored.transcript_id),
+            videoId=prepared.video_id,
+            canonicalYoutubeUrl=prepared.canonical_url,
+            transcriptText=prepared.user_transcript_text,
+            languageCode=prepared.language_code,
+            language=prepared.language,
+            isGenerated=prepared.is_generated,
         )

@@ -1,9 +1,12 @@
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main_module
+from app.errors import AppError
 from app.main import app
+from app.schemas import YoutubeTranscriptResponse
 
 client = TestClient(app)
 
@@ -19,6 +22,115 @@ def test_analyze_openapi_documents_body_and_stream_parameters() -> None:
     parameters = {(item["in"], item["name"].lower()) for item in operation["parameters"]}
     assert ("query", "stream") in parameters
     assert ("header", "accept") in parameters
+
+
+def test_transcript_openapi_documents_request_and_response() -> None:
+    document = client.get("/openapi.json").json()
+    operation = document["paths"]["/youtube/transcript"]["post"]
+
+    request_schema = operation["requestBody"]["content"]["application/json"]["schema"]
+    response_schema = operation["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]
+
+    assert request_schema == {"$ref": "#/components/schemas/YoutubeTranscriptRequest"}
+    assert response_schema == {"$ref": "#/components/schemas/YoutubeTranscriptResponse"}
+
+
+def transcript_response(text: str) -> YoutubeTranscriptResponse:
+    return YoutubeTranscriptResponse(
+        transcriptId="11111111-1111-4111-8111-111111111111",
+        videoId="dQw4w9WgXcQ",
+        canonicalYoutubeUrl="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        transcriptText=text,
+        languageCode="en",
+        language="English",
+        isGenerated=False,
+    )
+
+
+def install_transcript_service(monkeypatch, result):
+    class StubTranscriptService:
+        def __init__(self, _store) -> None:
+            pass
+
+        async def ingest(self, _youtube_url, _title):
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+    monkeypatch.setattr(main_module, "YoutubeTranscriptIngestionService", StubTranscriptService)
+
+
+def test_transcript_endpoint_accepts_65_to_79_character_source(monkeypatch) -> None:
+    text = "x" * 70
+    install_transcript_service(monkeypatch, transcript_response(text))
+
+    response = client.post(
+        "/youtube/transcript",
+        json={"youtubeUrl": "https://youtu.be/dQw4w9WgXcQ"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["transcriptText"] == text
+
+
+def test_transcript_endpoint_accepts_noise_only_nonempty_source(monkeypatch) -> None:
+    install_transcript_service(monkeypatch, transcript_response("[Music]"))
+
+    response = client.post(
+        "/youtube/transcript",
+        json={"youtubeUrl": "https://youtu.be/dQw4w9WgXcQ"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["transcriptText"] == "[Music]"
+
+
+@pytest.mark.parametrize(
+    ("code", "status"),
+    [
+        ("EMPTY_TRANSCRIPT", 502),
+        ("TRANSCRIPT_UNAVAILABLE", 502),
+        ("TRANSCRIPT_FETCH_FAILED", 502),
+        ("INVALID_YOUTUBE_URL", 400),
+    ],
+)
+def test_transcript_endpoint_returns_existing_error_envelope(
+    monkeypatch, code: str, status: int
+) -> None:
+    install_transcript_service(monkeypatch, AppError(status, code, "safe message"))
+
+    response = client.post(
+        "/youtube/transcript",
+        json={"youtubeUrl": "https://youtu.be/dQw4w9WgXcQ"},
+    )
+
+    assert response.status_code == status
+    assert response.json() == {"error": {"code": code, "message": "safe message"}}
+
+
+@pytest.mark.parametrize(
+    ("payload", "code"),
+    [
+        ([], "INVALID_REQUEST"),
+        ({}, "INVALID_YOUTUBE_URL"),
+        ({"youtubeUrl": "   "}, "INVALID_YOUTUBE_URL"),
+        (
+            {"youtubeUrl": "https://youtu.be/dQw4w9WgXcQ", "title": "   "},
+            "INVALID_TITLE",
+        ),
+        (
+            {"youtubeUrl": "https://youtu.be/dQw4w9WgXcQ", "unknown": True},
+            "INVALID_REQUEST",
+        ),
+    ],
+)
+def test_transcript_endpoint_validates_request_fields(payload, code: str) -> None:
+    response = client.post("/youtube/transcript", json=payload)
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == code
 
 
 def test_analyze_openapi_documents_semantic_category_response() -> None:

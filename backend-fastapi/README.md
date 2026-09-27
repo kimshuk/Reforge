@@ -28,6 +28,7 @@ TEST_DATABASE_URL=postgresql+psycopg://reforge:reforge@localhost:5432/reforge \
 The service exposes:
 
 - `POST /analyze`, with JSON or SSE progress responses
+- `POST /youtube/transcript`, which fetches and stores a YouTube transcript without starting analysis
 - `GET /transcript/{transcriptId}`
 - `GET /health`
 
