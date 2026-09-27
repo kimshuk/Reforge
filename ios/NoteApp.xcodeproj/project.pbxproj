@@ -19,6 +19,10 @@
 		B40000000000000000000015 /* SharedModelContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000016 /* SharedModelContainer.swift */; };
 		B40000000000000000000017 /* SharedStoreLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000018 /* SharedStoreLock.swift */; };
 		B40000000000000000000019 /* ContentNoteRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000020 /* ContentNoteRepository.swift */; };
+		B50000000000000000000001 /* ShareIngestionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000002 /* ShareIngestionCoordinatorTests.swift */; };
+		B50000000000000000000011 /* SharedURLInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000012 /* SharedURLInput.swift */; };
+		B50000000000000000000013 /* ShareTitleResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000014 /* ShareTitleResolver.swift */; };
+		B50000000000000000000015 /* ShareIngestionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50000000000000000000016 /* ShareIngestionCoordinator.swift */; };
 		E9C385272F5BD2EE000F0758 /* NoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C385262F5BD2EE000F0758 /* NoteApp.swift */; };
 		E9C3852D2F5BD2EF000F0758 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E9C3852C2F5BD2EF000F0758 /* Assets.xcassets */; };
 		E9C3853F2F5BD8AE000F0758 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C3853E2F5BD8AE000F0758 /* HomeView.swift */; };
@@ -55,6 +59,10 @@
 		B40000000000000000000016 /* SharedModelContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedModelContainer.swift; sourceTree = "<group>"; };
 		B40000000000000000000018 /* SharedStoreLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedStoreLock.swift; sourceTree = "<group>"; };
 		B40000000000000000000020 /* ContentNoteRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentNoteRepository.swift; sourceTree = "<group>"; };
+		B50000000000000000000002 /* ShareIngestionCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareIngestionCoordinatorTests.swift; sourceTree = "<group>"; };
+		B50000000000000000000012 /* SharedURLInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedURLInput.swift; sourceTree = "<group>"; };
+		B50000000000000000000014 /* ShareTitleResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareTitleResolver.swift; sourceTree = "<group>"; };
+		B50000000000000000000016 /* ShareIngestionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareIngestionCoordinator.swift; sourceTree = "<group>"; };
 		A10000000000000000000004 /* NoteAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NoteAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9C385232F5BD2EE000F0758 /* NoteApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NoteApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9C385262F5BD2EE000F0758 /* NoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteApp.swift; sourceTree = "<group>"; };
@@ -138,12 +146,23 @@
 		E9C385352F5BD4DE000F0758 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				B50000000000000000000010 /* Sharing */,
 				B30000000000000000000003 /* YouTube */,
 				E9C3853B2F5BD56A000F0758 /* Extensions */,
 				E9C3853A2F5BD564000F0758 /* Storage */,
 				E9C385392F5BD55E000F0758 /* Networking */,
 			);
 			path = Core;
+			sourceTree = "<group>";
+		};
+		B50000000000000000000010 /* Sharing */ = {
+			isa = PBXGroup;
+			children = (
+				B50000000000000000000012 /* SharedURLInput.swift */,
+				B50000000000000000000014 /* ShareTitleResolver.swift */,
+				B50000000000000000000016 /* ShareIngestionCoordinator.swift */,
+			);
+			path = Sharing;
 			sourceTree = "<group>";
 		};
 		B30000000000000000000003 /* YouTube */ = {
@@ -234,6 +253,7 @@
 				B30000000000000000000005 /* YouTubeTranscriptServiceTests.swift */,
 				B30000000000000000000006 /* AppConfigTests.swift */,
 				B40000000000000000000002 /* ContentNoteRepositoryTests.swift */,
+				B50000000000000000000002 /* ShareIngestionCoordinatorTests.swift */,
 			);
 			path = NoteAppTests;
 			sourceTree = "<group>";
@@ -347,6 +367,7 @@
 				B30000000000000000000014 /* YouTubeTranscriptServiceTests.swift in Sources */,
 				B30000000000000000000015 /* AppConfigTests.swift in Sources */,
 				B40000000000000000000001 /* ContentNoteRepositoryTests.swift in Sources */,
+				B50000000000000000000001 /* ShareIngestionCoordinatorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -361,6 +382,9 @@
 				B40000000000000000000015 /* SharedModelContainer.swift in Sources */,
 				B40000000000000000000017 /* SharedStoreLock.swift in Sources */,
 				B40000000000000000000019 /* ContentNoteRepository.swift in Sources */,
+				B50000000000000000000011 /* SharedURLInput.swift in Sources */,
+				B50000000000000000000013 /* ShareTitleResolver.swift in Sources */,
+				B50000000000000000000015 /* ShareIngestionCoordinator.swift in Sources */,
 				E9C385472F5C1000000F0758 /* AnalyzeResultView.swift in Sources */,
 				E9C385462F5C1000000F0758 /* AppConfig.swift in Sources */,
 				E9C385452F5C1000000F0758 /* AnalyzeService.swift in Sources */,
