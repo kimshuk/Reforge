@@ -31,13 +31,14 @@ struct AnalyzeResponse: Decodable, Identifiable, Hashable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        transcriptId = try container.decode(String.self, forKey: .transcriptId)
+        let decodedTranscriptId = try container.decode(String.self, forKey: .transcriptId)
+        transcriptId = decodedTranscriptId
         sourceType = try container.decode(String.self, forKey: .sourceType)
         expiresInSeconds = try container.decode(Int.self, forKey: .expiresInSeconds)
         videoId = try container.decodeIfPresent(String.self, forKey: .videoId)
         let payloads = try container.decode([AnalyzeCategoryPayload].self, forKey: .categories)
         categories = payloads.enumerated().map { categoryIndex, payload in
-            let categoryIdentity = payload.categoryId ?? "\(transcriptId):category:\(categoryIndex)"
+            let categoryIdentity = payload.categoryId ?? "\(decodedTranscriptId):category:\(categoryIndex)"
             return AnalyzeCategory(
                 categoryId: payload.categoryId,
                 id: categoryIdentity,
