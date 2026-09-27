@@ -21,12 +21,12 @@ from app.openai_search import OpenAIWebSearchClient
 from app.sanitizer import (
     CleanedSegment,
     format_timestamp,
-    sanitize_transcript,
     segment_manual_transcript,
 )
 from app.schemas import AnalyzeResult, AnalyzeSource, assert_transcript_text, parse_analyze_request
 from app.store import TRANSCRIPT_TTL_SECONDS, TranscriptStore
 from app.youtube import fetch_youtube_transcript
+from app.youtube_ingestion import YoutubeTranscriptIngestionService
 
 ProgressEmitter = Callable[[str, dict[str, Any]], None]
 
@@ -38,12 +38,16 @@ class AnalyzeService:
         llm: LlmClient,
         settings: Settings,
         enricher: ExplanationEnricher | None = None,
+        youtube_ingestion: YoutubeTranscriptIngestionService | None = None,
     ) -> None:
         self.store = store
         self.llm = llm
         self.settings = settings
         self.enricher = enricher or ExplanationEnricher(
             llm, OpenAIWebSearchClient(settings), settings
+        )
+        self.youtube_ingestion = youtube_ingestion or YoutubeTranscriptIngestionService(
+            store, fetch_youtube_transcript
         )
 
     async def analyze(
@@ -275,25 +279,28 @@ class AnalyzeService:
             text = source.text or ""
             return text, None, segment_manual_transcript(text)
         _emit(emit, "progress", stage="fetching_transcript", message="Fetching YouTube transcript")
-        result = await asyncio.to_thread(fetch_youtube_transcript, source.youtube_url or "")
-        source.youtube_url = f"https://www.youtube.com/watch?v={result.video_id}"
+        prepared = await self.youtube_ingestion.prepare(source.youtube_url or "")
+        source.youtube_url = prepared.canonical_url
         _emit(
             emit,
             "progress",
             stage="sanitizing_transcript",
             message="Preparing transcript for analysis",
-            videoId=result.video_id,
+            videoId=prepared.video_id,
         )
-        sanitized = sanitize_transcript(result.snippets)
         _emit(
             emit,
             "progress",
             stage="transcript_ready",
             message="Transcript prepared",
-            videoId=result.video_id,
-            segmentCount=sanitized.cleaned_snippet_count,
+            videoId=prepared.video_id,
+            segmentCount=len(prepared.source_segments),
         )
-        return sanitized.llm_transcript_text, result.video_id, sanitized.source_segments
+        return (
+            prepared.analysis_transcript_text,
+            prepared.video_id,
+            prepared.source_segments,
+        )
 
 
 def format_segments(segments: list[TranscriptSegment]) -> str:

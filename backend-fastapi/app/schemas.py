@@ -165,6 +165,15 @@ def assert_transcript_text(value: Any) -> str:
     return text
 
 
+def assert_transcript_available(value: Any) -> str:
+    if not isinstance(value, str):
+        raise AppError(502, "INVALID_TRANSCRIPT", "Transcript text is invalid")
+    text = value.strip()
+    if not text:
+        raise AppError(502, "EMPTY_TRANSCRIPT", "Transcript is empty or unavailable")
+    return text
+
+
 def _required_nonempty(value: Any, code: str, message: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise AppError(400, code, message)
