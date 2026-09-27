@@ -8,17 +8,33 @@
 import SwiftUI
 
 struct RootView: View {
-    let analyzeService: AnalyzeService
-    let youtubeTitleService: YouTubeTitleService
+    @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var viewModel: HomeViewModel
+    private let router: PendingNoteRouter
+
+    init(
+        analyzeService: AnalyzeService,
+        youtubeTitleService: YouTubeTitleService,
+        router: PendingNoteRouter
+    ) {
+        _viewModel = StateObject(
+            wrappedValue: HomeViewModel(
+                analyzeService: analyzeService,
+                youtubeTitleService: youtubeTitleService
+            )
+        )
+        self.router = router
+    }
 
     var body: some View {
         NavigationStack {
-            HomeView(
-                viewModel: HomeViewModel(
-                    analyzeService: analyzeService,
-                    youtubeTitleService: youtubeTitleService
-                )
-            )
+            HomeView(viewModel: viewModel)
+        }
+        .onChange(of: scenePhase) {
+            guard scenePhase == .active else { return }
+            try? router.consumeLatest { note in
+                viewModel.applySharedNote(note)
+            }
         }
     }
 }

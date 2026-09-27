@@ -12,11 +12,18 @@ import SwiftData
 struct NoteApp: App {
     private let analyzeService: AnalyzeService
     private let youtubeTitleService: YouTubeTitleService
+    private let pendingNoteRouter: PendingNoteRouter
 
     init() {
         do {
             self.analyzeService = try URLSessionAnalyzeService(config: .default)
             self.youtubeTitleService = YouTubeOEmbedService()
+            let container = try SharedModelContainer.makeAppGroupContainer()
+            let repository = ContentNoteRepository(
+                container: container,
+                lock: try SharedModelContainer.appGroupLock()
+            )
+            self.pendingNoteRouter = PendingNoteRouter(repository: repository)
         } catch {
             fatalError("Failed to initialize AnalyzeService: \(error.localizedDescription)")
         }
@@ -24,7 +31,11 @@ struct NoteApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(analyzeService: analyzeService, youtubeTitleService: youtubeTitleService)
+            RootView(
+                analyzeService: analyzeService,
+                youtubeTitleService: youtubeTitleService,
+                router: pendingNoteRouter
+            )
         }
     }
 }

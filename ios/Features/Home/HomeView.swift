@@ -15,14 +15,14 @@ struct HomeView: View {
         case youtubeLink
     }
 
-    @StateObject private var viewModel: HomeViewModel
+    @ObservedObject private var viewModel: HomeViewModel
     @StateObject private var keyboardObserver = KeyboardObserver()
     @State private var expandedCategoryId: String?
     @State private var keywordSelection = KeywordSelectionState()
     @FocusState private var focusedField: Field?
 
     init(viewModel: HomeViewModel) {
-        _viewModel = StateObject(wrappedValue: viewModel)
+        self.viewModel = viewModel
     }
     
     var body: some View {
@@ -118,6 +118,9 @@ struct HomeView: View {
         }
         .onChange(of: viewModel.analysisResult) {
             configureCategorySelection(for: viewModel.analysisResult)
+        }
+        .onChange(of: viewModel.inputGeneration) {
+            configureCategorySelection(for: nil)
         }
     }
 

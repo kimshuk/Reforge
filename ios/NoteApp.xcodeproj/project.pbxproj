@@ -23,6 +23,9 @@
 		B60000000000000000000043 /* ShareInputLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000012 /* ShareInputLoader.swift */; };
 		B60000000000000000000044 /* ShareExtensionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60000000000000000000014 /* ShareExtensionViewModel.swift */; };
 		B60000000000000000000050 /* ShareExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B60000000000000000000026 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B70000000000000000000001 /* PendingNoteRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70000000000000000000002 /* PendingNoteRouter.swift */; };
+		B70000000000000000000003 /* HomeViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70000000000000000000004 /* HomeViewModelTests.swift */; };
+		B70000000000000000000005 /* PendingNoteRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70000000000000000000006 /* PendingNoteRouterTests.swift */; };
 		A10000000000000000000001 /* AnalyzeModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* AnalyzeModelsTests.swift */; };
 		B30000000000000000000011 /* YouTubeVideoIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000001 /* YouTubeVideoIdentity.swift */; };
 		B30000000000000000000012 /* YouTubeVideoIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000002 /* YouTubeVideoIdentityTests.swift */; };
@@ -92,6 +95,9 @@
 		B60000000000000000000023 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		B60000000000000000000025 /* NoteApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NoteApp.entitlements; sourceTree = "<group>"; };
 		B60000000000000000000026 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B70000000000000000000002 /* PendingNoteRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingNoteRouter.swift; sourceTree = "<group>"; };
+		B70000000000000000000004 /* HomeViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModelTests.swift; sourceTree = "<group>"; };
+		B70000000000000000000006 /* PendingNoteRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingNoteRouterTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000002 /* AnalyzeModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeModelsTests.swift; sourceTree = "<group>"; };
 		B30000000000000000000001 /* YouTubeVideoIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeVideoIdentity.swift; sourceTree = "<group>"; };
 		B30000000000000000000002 /* YouTubeVideoIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeVideoIdentityTests.swift; sourceTree = "<group>"; };
@@ -191,6 +197,7 @@
 				E9C385262F5BD2EE000F0758 /* NoteApp.swift */,
 				E9C385422F5BDF93000F0758 /* RootView.swift */,
 				B60000000000000000000025 /* NoteApp.entitlements */,
+				B70000000000000000000002 /* PendingNoteRouter.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -328,6 +335,8 @@
 				B50000000000000000000002 /* ShareIngestionCoordinatorTests.swift */,
 				B60000000000000000000002 /* ShareInputLoaderTests.swift */,
 				B60000000000000000000004 /* ShareExtensionViewModelTests.swift */,
+				B70000000000000000000004 /* HomeViewModelTests.swift */,
+				B70000000000000000000006 /* PendingNoteRouterTests.swift */,
 			);
 			path = NoteAppTests;
 			sourceTree = "<group>";
@@ -498,6 +507,8 @@
 				B50000000000000000000001 /* ShareIngestionCoordinatorTests.swift in Sources */,
 				B60000000000000000000001 /* ShareInputLoaderTests.swift in Sources */,
 				B60000000000000000000003 /* ShareExtensionViewModelTests.swift in Sources */,
+				B70000000000000000000003 /* HomeViewModelTests.swift in Sources */,
+				B70000000000000000000005 /* PendingNoteRouterTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -517,6 +528,7 @@
 				B50000000000000000000015 /* ShareIngestionCoordinator.swift in Sources */,
 				B60000000000000000000011 /* ShareInputLoader.swift in Sources */,
 				B60000000000000000000013 /* ShareExtensionViewModel.swift in Sources */,
+				B70000000000000000000001 /* PendingNoteRouter.swift in Sources */,
 				E9C385472F5C1000000F0758 /* AnalyzeResultView.swift in Sources */,
 				E9C385462F5C1000000F0758 /* AppConfig.swift in Sources */,
 				E9C385452F5C1000000F0758 /* AnalyzeService.swift in Sources */,
