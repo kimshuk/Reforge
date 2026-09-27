@@ -8,6 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		A10000000000000000000001 /* AnalyzeModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* AnalyzeModelsTests.swift */; };
+		B30000000000000000000011 /* YouTubeVideoIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000001 /* YouTubeVideoIdentity.swift */; };
+		B30000000000000000000012 /* YouTubeVideoIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000002 /* YouTubeVideoIdentityTests.swift */; };
+		B30000000000000000000013 /* YouTubeTranscriptService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000004 /* YouTubeTranscriptService.swift */; };
+		B30000000000000000000014 /* YouTubeTranscriptServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000005 /* YouTubeTranscriptServiceTests.swift */; };
+		B30000000000000000000015 /* AppConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000006 /* AppConfigTests.swift */; };
 		E9C385272F5BD2EE000F0758 /* NoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C385262F5BD2EE000F0758 /* NoteApp.swift */; };
 		E9C3852D2F5BD2EF000F0758 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E9C3852C2F5BD2EF000F0758 /* Assets.xcassets */; };
 		E9C3853F2F5BD8AE000F0758 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C3853E2F5BD8AE000F0758 /* HomeView.swift */; };
@@ -32,6 +37,12 @@
 
 /* Begin PBXFileReference section */
 		A10000000000000000000002 /* AnalyzeModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeModelsTests.swift; sourceTree = "<group>"; };
+		B30000000000000000000001 /* YouTubeVideoIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeVideoIdentity.swift; sourceTree = "<group>"; };
+		B30000000000000000000002 /* YouTubeVideoIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeVideoIdentityTests.swift; sourceTree = "<group>"; };
+		B30000000000000000000004 /* YouTubeTranscriptService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeTranscriptService.swift; sourceTree = "<group>"; };
+		B30000000000000000000005 /* YouTubeTranscriptServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeTranscriptServiceTests.swift; sourceTree = "<group>"; };
+		B30000000000000000000006 /* AppConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigTests.swift; sourceTree = "<group>"; };
+		B30000000000000000000007 /* Backend.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Backend.xcconfig; sourceTree = "<group>"; };
 		A10000000000000000000004 /* NoteAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NoteAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9C385232F5BD2EE000F0758 /* NoteApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NoteApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9C385262F5BD2EE000F0758 /* NoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteApp.swift; sourceTree = "<group>"; };
@@ -67,6 +78,7 @@
 		E9C3851A2F5BD2EE000F0758 = {
 			isa = PBXGroup;
 			children = (
+				B30000000000000000000008 /* Config */,
 				A10000000000000000000006 /* NoteAppTests */,
 				E9C385372F5BD4F4000F0758 /* Resources */,
 				E9C385362F5BD4E8000F0758 /* UI */,
@@ -75,6 +87,14 @@
 				E9C385332F5BD4B9000F0758 /* App */,
 				E9C385242F5BD2EE000F0758 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		B30000000000000000000008 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				B30000000000000000000007 /* Backend.xcconfig */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 		E9C385242F5BD2EE000F0758 /* Products */ = {
@@ -106,11 +126,20 @@
 		E9C385352F5BD4DE000F0758 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				B30000000000000000000003 /* YouTube */,
 				E9C3853B2F5BD56A000F0758 /* Extensions */,
 				E9C3853A2F5BD564000F0758 /* Storage */,
 				E9C385392F5BD55E000F0758 /* Networking */,
 			);
 			path = Core;
+			sourceTree = "<group>";
+		};
+		B30000000000000000000003 /* YouTube */ = {
+			isa = PBXGroup;
+			children = (
+				B30000000000000000000001 /* YouTubeVideoIdentity.swift */,
+			);
+			path = YouTube;
 			sourceTree = "<group>";
 		};
 		E9C385362F5BD4E8000F0758 /* UI */ = {
@@ -144,6 +173,7 @@
 			isa = PBXGroup;
 			children = (
 				E9C3854A2F5C1000000F0758 /* AppConfig.swift */,
+				B30000000000000000000004 /* YouTubeTranscriptService.swift */,
 				E9C385482F5C1000000F0758 /* AnalyzeModels.swift */,
 				E9C385492F5C1000000F0758 /* AnalyzeService.swift */,
 				E9C3854D2F5C1000000F0758 /* YouTubeOEmbedService.swift */,
@@ -183,6 +213,9 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000002 /* AnalyzeModelsTests.swift */,
+				B30000000000000000000002 /* YouTubeVideoIdentityTests.swift */,
+				B30000000000000000000005 /* YouTubeTranscriptServiceTests.swift */,
+				B30000000000000000000006 /* AppConfigTests.swift */,
 			);
 			path = NoteAppTests;
 			sourceTree = "<group>";
@@ -292,6 +325,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000001 /* AnalyzeModelsTests.swift in Sources */,
+				B30000000000000000000012 /* YouTubeVideoIdentityTests.swift in Sources */,
+				B30000000000000000000014 /* YouTubeTranscriptServiceTests.swift in Sources */,
+				B30000000000000000000015 /* AppConfigTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -299,6 +335,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B30000000000000000000011 /* YouTubeVideoIdentity.swift in Sources */,
+				B30000000000000000000013 /* YouTubeTranscriptService.swift in Sources */,
 				E9C385472F5C1000000F0758 /* AnalyzeResultView.swift in Sources */,
 				E9C385462F5C1000000F0758 /* AppConfig.swift in Sources */,
 				E9C385452F5C1000000F0758 /* AnalyzeService.swift in Sources */,
@@ -352,6 +390,7 @@
 		};
 		E9C3852E2F5BD2EF000F0758 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B30000000000000000000007 /* Backend.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -414,6 +453,7 @@
 		};
 		E9C3852F2F5BD2EF000F0758 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B30000000000000000000007 /* Backend.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
