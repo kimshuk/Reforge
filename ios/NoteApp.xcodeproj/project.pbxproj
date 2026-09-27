@@ -13,6 +13,12 @@
 		B30000000000000000000013 /* YouTubeTranscriptService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000004 /* YouTubeTranscriptService.swift */; };
 		B30000000000000000000014 /* YouTubeTranscriptServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000005 /* YouTubeTranscriptServiceTests.swift */; };
 		B30000000000000000000015 /* AppConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000006 /* AppConfigTests.swift */; };
+		B40000000000000000000001 /* ContentNoteRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000002 /* ContentNoteRepositoryTests.swift */; };
+		B40000000000000000000011 /* ContentNote.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000012 /* ContentNote.swift */; };
+		B40000000000000000000013 /* PendingNoteRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000014 /* PendingNoteRoute.swift */; };
+		B40000000000000000000015 /* SharedModelContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000016 /* SharedModelContainer.swift */; };
+		B40000000000000000000017 /* SharedStoreLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000018 /* SharedStoreLock.swift */; };
+		B40000000000000000000019 /* ContentNoteRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000020 /* ContentNoteRepository.swift */; };
 		E9C385272F5BD2EE000F0758 /* NoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C385262F5BD2EE000F0758 /* NoteApp.swift */; };
 		E9C3852D2F5BD2EF000F0758 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E9C3852C2F5BD2EF000F0758 /* Assets.xcassets */; };
 		E9C3853F2F5BD8AE000F0758 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C3853E2F5BD8AE000F0758 /* HomeView.swift */; };
@@ -43,6 +49,12 @@
 		B30000000000000000000005 /* YouTubeTranscriptServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeTranscriptServiceTests.swift; sourceTree = "<group>"; };
 		B30000000000000000000006 /* AppConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigTests.swift; sourceTree = "<group>"; };
 		B30000000000000000000007 /* Backend.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Backend.xcconfig; sourceTree = "<group>"; };
+		B40000000000000000000002 /* ContentNoteRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentNoteRepositoryTests.swift; sourceTree = "<group>"; };
+		B40000000000000000000012 /* ContentNote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentNote.swift; sourceTree = "<group>"; };
+		B40000000000000000000014 /* PendingNoteRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingNoteRoute.swift; sourceTree = "<group>"; };
+		B40000000000000000000016 /* SharedModelContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedModelContainer.swift; sourceTree = "<group>"; };
+		B40000000000000000000018 /* SharedStoreLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedStoreLock.swift; sourceTree = "<group>"; };
+		B40000000000000000000020 /* ContentNoteRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentNoteRepository.swift; sourceTree = "<group>"; };
 		A10000000000000000000004 /* NoteAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NoteAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9C385232F5BD2EE000F0758 /* NoteApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NoteApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9C385262F5BD2EE000F0758 /* NoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteApp.swift; sourceTree = "<group>"; };
@@ -184,6 +196,11 @@
 		E9C3853A2F5BD564000F0758 /* Storage */ = {
 			isa = PBXGroup;
 			children = (
+				B40000000000000000000012 /* ContentNote.swift */,
+				B40000000000000000000014 /* PendingNoteRoute.swift */,
+				B40000000000000000000016 /* SharedModelContainer.swift */,
+				B40000000000000000000018 /* SharedStoreLock.swift */,
+				B40000000000000000000020 /* ContentNoteRepository.swift */,
 			);
 			path = Storage;
 			sourceTree = "<group>";
@@ -216,6 +233,7 @@
 				B30000000000000000000002 /* YouTubeVideoIdentityTests.swift */,
 				B30000000000000000000005 /* YouTubeTranscriptServiceTests.swift */,
 				B30000000000000000000006 /* AppConfigTests.swift */,
+				B40000000000000000000002 /* ContentNoteRepositoryTests.swift */,
 			);
 			path = NoteAppTests;
 			sourceTree = "<group>";
@@ -328,6 +346,7 @@
 				B30000000000000000000012 /* YouTubeVideoIdentityTests.swift in Sources */,
 				B30000000000000000000014 /* YouTubeTranscriptServiceTests.swift in Sources */,
 				B30000000000000000000015 /* AppConfigTests.swift in Sources */,
+				B40000000000000000000001 /* ContentNoteRepositoryTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -337,6 +356,11 @@
 			files = (
 				B30000000000000000000011 /* YouTubeVideoIdentity.swift in Sources */,
 				B30000000000000000000013 /* YouTubeTranscriptService.swift in Sources */,
+				B40000000000000000000011 /* ContentNote.swift in Sources */,
+				B40000000000000000000013 /* PendingNoteRoute.swift in Sources */,
+				B40000000000000000000015 /* SharedModelContainer.swift in Sources */,
+				B40000000000000000000017 /* SharedStoreLock.swift in Sources */,
+				B40000000000000000000019 /* ContentNoteRepository.swift in Sources */,
 				E9C385472F5C1000000F0758 /* AnalyzeResultView.swift in Sources */,
 				E9C385462F5C1000000F0758 /* AppConfig.swift in Sources */,
 				E9C385452F5C1000000F0758 /* AnalyzeService.swift in Sources */,
