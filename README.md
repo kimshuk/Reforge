@@ -83,6 +83,12 @@ The `NoteAppTests` Xcode target covers modern occurrence IDs, duplicate display 
 xcodebuild test -project ios/NoteApp.xcodeproj -scheme NoteApp -destination 'platform=iOS Simulator,name=iPhone 16'
 ```
 
+## CI
+
+GitHub Actions runs FastAPI tests and Ruff, `NoteAppTests` on an iOS Simulator, and the PostgreSQL migration contract test on pull requests and pushes to `master`. The PostgreSQL job uses a disposable service database because its test downgrades and re-upgrades migrations. The FastAPI test job runs without a database and skips that contract test.
+
+CI uses fixtures and stubs for external services; it does not call YouTube or an LLM provider. Verify live YouTube transcript fetching from the deployed backend environment separately.
+
 ## Notes
 
 - Project-specific ignore rules are kept in each service and client directory.
