@@ -1,4 +1,6 @@
 import XCTest
+import SwiftUI
+import UIKit
 @testable import NoteApp
 
 @MainActor
@@ -106,6 +108,50 @@ final class NotesViewModelTests: XCTestCase {
         XCTAssertEqual(list.errorMessage, "Store unavailable")
         XCTAssertEqual(detail.errorMessage, "Store unavailable")
         XCTAssertEqual(trash.errorMessage, "Store unavailable")
+    }
+
+    func testTrashForegroundRefreshUsesCurrentCutoff() {
+        let activationTime = Date()
+        let expired = makeNote(
+            title: "Expired while backgrounded",
+            trashedAt: activationTime.addingTimeInterval(-31 * 86_400)
+        )
+        let store = MemoryNotesStore(trash: [expired])
+        let phase = TrashScenePhase()
+        let host = UIHostingController(rootView: TrashSceneHarness(
+            store: store,
+            initialNow: Date(timeIntervalSince1970: 100),
+            phase: phase
+        ))
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        XCTAssertEqual(store.trash.map(\.id), [expired.id])
+
+        phase.value = .background
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        phase.value = .active
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+
+        XCTAssertTrue(store.trash.isEmpty)
+        window.isHidden = true
+    }
+}
+
+@MainActor
+private final class TrashScenePhase: ObservableObject {
+    @Published var value: ScenePhase = .active
+}
+
+private struct TrashSceneHarness: View {
+    let store: MemoryNotesStore
+    let initialNow: Date
+    @ObservedObject var phase: TrashScenePhase
+
+    var body: some View {
+        TrashView(repository: store, now: initialNow)
+            .environment(\.scenePhase, phase.value)
     }
 }
 

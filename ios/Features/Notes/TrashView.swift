@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TrashView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel: TrashViewModel
     @State private var noteToDelete: StoredContentNote?
 
@@ -55,5 +56,8 @@ struct TrashView: View {
             }
         }
         .onAppear { viewModel.load(now: now) }
+        .onChange(of: scenePhase) {
+            if scenePhase == .active { viewModel.load(now: Date()) }
+        }
     }
 }
