@@ -18,11 +18,12 @@ Android 사용자가 YouTube 공유 대상에서 Reforge를 선택하면 앱이 
 
 - `android/` 아래 Kotlin·Jetpack Compose 네이티브 앱
 - application ID `com.andrewkim.reforge`
-- 최소 지원 버전 Android 8.0(API 26); compile·target SDK는 구현 시점에 설치된 최신 안정 SDK
+- 최소 지원 버전 Android 8.0(API 26); compile·target SDK는 구현 시점의 최신 안정 SDK인 API 37
 - `ACTION_SEND` 기반 YouTube URL 공유 수신
 - 공유 가져오기 진행 화면과 취소
 - 기존 FastAPI transcript·analysis 계약 사용
 - Room 기반 콘텐츠 노트, 활성 목록, 상세, 휴지통
+- Home·My Notes 탭별 독립 탐색 스택
 - 활성 중복 재사용, 휴지통 중복 복원 확인, 새 영상 저장
 - 상세에서 명시적으로 시작하는 분석 흐름
 - 휴지통 복원·영구 삭제·30일 만료 정리
@@ -31,6 +32,7 @@ Android 사용자가 YouTube 공유 대상에서 Reforge를 선택하면 앱이 
 ### 제외
 
 - 계정, 로그인, 서버 노트 저장, iOS·Android 동기화
+- Android Auto Backup, cloud backup, device-to-device DB 이전
 - 공유만으로 자동 LLM 분석
 - 백그라운드 큐, 완료 알림, 자동 재시도
 - 최종 브랜드 디자인, 커스텀 디자인 시스템, 고급 애니메이션
@@ -52,14 +54,14 @@ Android 사용자가 YouTube 공유 대상에서 Reforge를 선택하면 앱이 
 
 ### 일반 실행
 
-앱은 `Home`과 `My Notes`를 최상위 목적지로 제공한다. `My Notes`에서 활성 노트 목록, 노트 상세, 휴지통으로 이동한다. 화면의 정보 구조와 기능은 iOS와 동등하게 유지하되 Android의 내비게이션, 시스템 뒤로 가기, Material 3 구성요소를 사용한다.
+앱은 `Home`과 `My Notes`를 최상위 목적지로 제공하고 각 탭의 탐색 스택을 독립적으로 유지한다. `My Notes`에서 활성 노트 목록, 노트 상세, 휴지통으로 이동한다. 공유 저장·활성 중복·복원 성공은 `My Notes` 탭을 선택하고 대상 상세를 연다. 화면의 정보 구조와 기능은 iOS와 동등하게 유지하되 Android의 내비게이션, 시스템 뒤로 가기, Material 3 구성요소를 사용한다.
 
 ### 새 영상 공유
 
 1. 사용자가 YouTube에서 `공유 → Reforge`를 선택한다.
 2. Android가 `ACTION_SEND`와 `text/plain` payload로 `MainActivity`를 연다.
 3. 앱은 공유 전용 가져오기 화면을 첫 목적지로 표시한다.
-4. 공유 text에서 지원하는 YouTube URL 하나를 찾아 정확한 video ID와 canonical URL로 정규화한다.
+4. 공유 text에서 지원하는 YouTube URL을 찾아 정확한 video ID와 canonical URL로 정규화한다. 같은 영상의 URL 변형이 여러 번 있으면 하나로 수렴하고 서로 다른 영상이 두 개 이상이면 잘못된 공유 입력으로 종료한다.
 5. 활성·휴지통 어디에도 같은 `youtube:<videoId>`가 없으면 제목과 transcript를 요청한다.
 6. transcript 응답의 video ID가 요청한 video ID와 같은지 확인한다.
 7. transcript와 노트를 Room transaction으로 저장한다.
@@ -82,7 +84,7 @@ Android 사용자가 YouTube 공유 대상에서 Reforge를 선택하면 앱이 
 
 ### 노트 분석
 
-노트 상세의 `Analyze` 탭 자체를 사용자의 명시적 분석 시작으로 본다. 탭하면 Home 분석 화면으로 이동해 저장된 제목과 URL을 적용하고 바로 기존 `/analyze` 요청을 시작한다. 공유 저장만으로는 분석하지 않는다.
+노트 상세의 `Analyze` 탭 자체를 사용자의 명시적 분석 시작으로 본다. 탭하면 그 순간 화면에 표시된 note의 제목과 canonical URL을 `AnalysisInputSnapshot`으로 캡처하고 Home 분석 화면으로 이동해 바로 기존 `/analyze` 요청을 시작한다. 클릭 직후 노트가 다른 경로에서 휴지통 이동·삭제돼도 전달된 snapshot으로 분석을 계속한다. 공유 저장만으로는 분석하지 않는다.
 
 ### 화면 이탈과 새 공유
 
@@ -96,7 +98,9 @@ Android 사용자가 YouTube 공유 대상에서 Reforge를 선택하면 앱이 
 
 ### 단일 Activity
 
-`MainActivity` 하나와 Navigation Compose를 사용한다. `onCreate`와 `onNewIntent`가 동일한 `ShareIntentParser`를 호출하고, 유효한 공유 입력은 nav coordinator에 새 입력 세대로 전달한다. 일반 launcher 실행은 마지막 임시 공유 화면을 복구하지 않고 기본 앱 목적지에서 시작한다.
+`MainActivity` 하나와 Navigation Compose를 사용한다. 외부 공유가 기존 앱 task의 같은 Activity로 전달되도록 launcher Activity는 `singleTask`로 선언한다. cold start의 `onCreate`와 warm start의 `onNewIntent`가 동일한 `ShareIntentParser`를 호출하고, 유효한 공유 입력은 nav coordinator에 새 입력 세대로 전달한다.
+
+Activity 재생성은 새 사용자 공유로 취급하지 않는다. launch intent는 `savedInstanceState == null`일 때 한 번만 소비하고 즉시 neutral launcher intent로 교체한다. `onNewIntent`로 도착한 실제 새 공유만 현재 generation을 교체한다. 가져오기 완료 상태에는 generation과 note ID를 함께 저장하고, 상세 navigation이 수락된 뒤에만 완료 상태를 확인 처리한다. 회전·process recreation에서는 완료 상세 이동을 복구할 수 있지만 이미 소비한 공유를 다시 요청하지 않는다.
 
 ### 목적지
 
@@ -117,7 +121,9 @@ Android 사용자가 YouTube 공유 대상에서 Reforge를 선택하면 앱이 
 - `ShareIntentParser`: `ACTION_SEND`와 `text/plain`을 검증하고 공유 text에서 지원 URL을 추출한다.
 - `YouTubeVideoIdentity`: 지원 host·path를 검증하고 11자 video ID, canonical URL, source key를 만든다.
 - `ShareIngestionCoordinator`: active / trashed / absent 분기, transcript·title 요청, 응답 identity 확인, 저장 결과를 조율한다.
-- `ShareImportViewModel`: 입력 세대, progress, 복원 확인, 오류, navigation effect를 관리한다.
+- `ShareImportViewModel`: 입력 세대, progress, 복원 확인, 오류, 완료 navigation 상태와 확인 처리를 관리한다.
+- `YouTubeAvailabilityService`: oEmbed 401/404/429/기타 상태를 iOS와 같은 typed unavailable reason으로 보존한다. Home은 해당 상태와 기존 문구를 사용한다.
+- `ShareTitleResolver`: 공유 수집에서만 availability 실패를 canonical URL fallback으로 축소한다.
 
 ### 데이터
 
@@ -165,7 +171,7 @@ Android 사용자가 YouTube 공유 대상에서 Reforge를 선택하면 앱이 
 - 저장 직전 transaction 안에서 source key를 다시 조회한다.
 - transcript response video ID가 요청 ID와 다르면 저장하지 않는다.
 - 제목 요청 실패·제한 시간 초과는 canonical URL을 제목으로 사용하며 transcript 저장을 막지 않는다.
-- 저장 성공 이후에만 상세 navigation effect를 발행한다.
+- 저장 성공 이후에만 완료 navigation 상태를 기록한다. My Notes 상세가 이를 수락한 뒤 같은 generation의 완료 상태만 확인 처리한다.
 
 ## 오류와 사용자 문구
 
@@ -177,6 +183,8 @@ Android 사용자가 YouTube 공유 대상에서 Reforge를 선택하면 앱이 
 | 로컬 저장 실패 | `Couldn’t save this video. Please try again.` | 부분 저장 없이 `Back` |
 | 휴지통 중복 | `This video is in Trash. Restore it?` | `Cancel / Restore` |
 
+Home의 oEmbed availability는 iOS와 같은 문구를 사용한다: `This video is private or restricted.`, `This video was removed or is not found.`, `YouTube is rate-limiting checks right now. Please try again.`, `Unable to verify YouTube video availability.` 공유 수집은 이 상태를 사용자 오류로 확장하지 않고 제목 fallback에만 사용한다.
+
 새 오류 화면에는 `Back`만 둔다. 재시도 버튼, 자동 재시도, 완료 알림은 추가하지 않는다. 알려진 backend 오류 코드는 위 문구로 매핑하고 raw exception, URL, stack trace를 사용자에게 노출하지 않는다.
 
 ## 생명주기·동시성
@@ -184,10 +192,12 @@ Android 사용자가 YouTube 공유 대상에서 Reforge를 선택하면 앱이 
 - ViewModel의 coroutine scope가 현재 가져오기 job을 소유한다.
 - 각 공유 입력에 generation ID를 부여하고 state·effect 적용 전에 현재 generation과 비교한다.
 - `onNewIntent`는 기존 job을 취소한 뒤 새 generation을 시작한다.
+- 완료 navigation 상태도 generation을 포함한다. 화면은 적용 직전에 generation을 다시 확인하고 상세 전환을 수락한 뒤 확인 처리한다.
 - 화면 이탈은 job을 취소하지만 process 전체의 다른 화면 작업은 취소하지 않는다.
 - Room transaction은 짧게 유지하고 파일·네트워크 I/O를 포함하지 않는다.
 - 동일 영상의 빠른 연속 공유는 DB unique index와 transaction 후 재조회로 하나의 note에 수렴한다.
-- navigation effect는 성공마다 한 번만 소비한다. 구성 변경이나 state 복원으로 상세가 중복 push되지 않게 한다.
+- Activity 재생성은 기존 intent를 재소비하지 않는다. 저장 후 navigation 전 process가 종료되면 저장된 완료 상태가 동일 상세 이동을 복구한다.
+- Room DB와 노트 데이터는 cloud backup과 device-to-device transfer 대상에서 제외한다.
 
 ## 검증 전략
 
@@ -219,10 +229,14 @@ Android 사용자가 YouTube 공유 대상에서 Reforge를 선택하면 앱이 
 - 저장 후 상세로 한 번만 이동
 - 상세 `Analyze`가 Home으로 이동하며 분석을 한 번 시작
 - 새 공유가 기존 가져오기 UI를 대체
+- Home·My Notes 탭을 오가도 각 탭의 상세·휴지통 stack 유지
+- 회전·process recreation 전후 공유 intent 재소비와 완료 navigation 중복 방지
+- oEmbed 401/404/429/기타 상태의 typed 문구와 network·decode non-blocking 처리
 
 ### 빌드·수동 확인
 
 - Gradle unit test, instrumented test, lint, debug build
+- property 미설정·HTTP·HTTPS 조합의 Release URL guard와 merged manifest·backup rule 확인
 - 단일 Android 에뮬레이터로 자동 테스트해 불필요한 병렬 device 생성을 피한다.
 - 실제 Android 기기에서 YouTube 앱 공유 대상 노출, 새 영상, 활성 중복, 휴지통 복원·취소, 뒤로 가기, 앱 재진입을 확인한다.
 - backend가 로컬이면 에뮬레이터 `10.0.2.2`와 실기기 LAN 접근을 각각 확인한다.
