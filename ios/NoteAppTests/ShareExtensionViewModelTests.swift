@@ -66,6 +66,24 @@ final class ShareExtensionViewModelTests: XCTestCase {
         XCTAssertEqual(cancelled, 1)
     }
 
+    func testOfflineAndTimeoutShowApprovedProviderFailureText() async {
+        for code in [URLError.notConnectedToInternet, .timedOut] {
+            var completed = 0
+            var cancelled = 0
+            let viewModel = ShareExtensionViewModel(
+                ingestor: IngestorStub(error: URLError(code)),
+                complete: { completed += 1 },
+                cancel: { cancelled += 1 }
+            )
+
+            await viewModel.run(input: validInput)
+
+            XCTAssertEqual(viewModel.statusText, "Transcript provider failed. Please try again.")
+            XCTAssertEqual(completed, 0)
+            XCTAssertEqual(cancelled, 0)
+        }
+    }
+
     private var validInput: SharedURLInput {
         SharedURLInput(
             url: URL(string: "https://youtu.be/dQw4w9WgXcQ")!,

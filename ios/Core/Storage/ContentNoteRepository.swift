@@ -19,11 +19,13 @@ final class ContentNoteRepository: @unchecked Sendable {
         try lock.withLock {
             let context = ModelContext(container)
             if let existing = try findModel(sourceKey: draft.sourceKey, in: context) {
+                try throwIfTaskCancelled()
                 context.insert(PendingNoteRoute(noteId: existing.id))
                 try context.save()
                 return .alreadySaved(existing.stored)
             }
 
+            try throwIfTaskCancelled()
             let note = ContentNote(draft: draft)
             context.insert(note)
             context.insert(PendingNoteRoute(noteId: note.id))
@@ -34,6 +36,7 @@ final class ContentNoteRepository: @unchecked Sendable {
 
     func enqueueRoute(noteID: UUID) throws {
         try lock.withLock {
+            try throwIfTaskCancelled()
             let context = ModelContext(container)
             context.insert(PendingNoteRoute(noteId: noteID))
             try context.save()
@@ -78,5 +81,14 @@ final class ContentNoteRepository: @unchecked Sendable {
             predicate: #Predicate { $0.sourceKey == sourceKey }
         )
         return try context.fetch(descriptor).first
+    }
+
+    nonisolated private func throwIfTaskCancelled() throws {
+        let isCancelled = withUnsafeCurrentTask { task in
+            task?.isCancelled ?? false
+        }
+        if isCancelled {
+            throw CancellationError()
+        }
     }
 }

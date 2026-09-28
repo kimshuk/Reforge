@@ -42,6 +42,10 @@ final class ShareExtensionViewModel: ObservableObject {
             complete()
         } catch let error as YouTubeTranscriptServiceError {
             isLoading = false
+            guard !Task.isCancelled else {
+                cancel()
+                return
+            }
             guard case let .backend(_, code, _) = error else {
                 cancel()
                 return
@@ -54,6 +58,13 @@ final class ShareExtensionViewModel: ObservableObject {
             default:
                 cancel()
             }
+        } catch let error as URLError {
+            isLoading = false
+            guard !Task.isCancelled, error.code != .cancelled else {
+                cancel()
+                return
+            }
+            statusText = "Transcript provider failed. Please try again."
         } catch {
             isLoading = false
             cancel()

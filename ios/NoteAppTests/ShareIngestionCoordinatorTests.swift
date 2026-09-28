@@ -65,6 +65,34 @@ final class ShareIngestionCoordinatorTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<PendingNoteRoute>()), 2)
     }
 
+    func testCancelledDuplicateDoesNotAddRoute() async throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let original = makeDraft()
+        _ = try fixture.repository.saveOrReuse(original)
+        let coordinator = ShareIngestionCoordinator(
+            repository: fixture.repository,
+            transcriptService: TranscriptStub(response: makeResponse()),
+            titleResolver: TitleStub(result: nil)
+        )
+        let gate = CancellationGate()
+        let task = Task {
+            await gate.wait()
+            return try await coordinator.ingest(validInput)
+        }
+        task.cancel()
+        gate.open()
+
+        do {
+            _ = try await task.value
+            XCTFail("Expected cancellation")
+        } catch is CancellationError {
+        }
+
+        let context = ModelContext(fixture.container)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<PendingNoteRoute>()), 1)
+    }
+
     func testInvalidURLAndTranscriptFailureDoNotSaveAnything() async throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.directory) }
@@ -392,6 +420,23 @@ private final class RepositoryStub: ContentNotePersisting {
 private enum StubError: Error {
     case transcript
     case save
+}
+
+@MainActor
+private final class CancellationGate {
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var isOpen = false
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func open() {
+        isOpen = true
+        continuation?.resume()
+        continuation = nil
+    }
 }
 
 private struct SlowTitleService: YouTubeTitleService {

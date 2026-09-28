@@ -90,6 +90,7 @@ final class HomeViewModel: ObservableObject {
         }
 
         guard analysisResult == nil else { return }
+        guard lastAutoFilledURL != trimmedURL else { return }
 
         let generation = inputGeneration
         autoFillTask = Task { [weak self] in
@@ -111,7 +112,7 @@ final class HomeViewModel: ObservableObject {
         errorMessage = ""
         analysisResult = nil
         videoUnavailableReason = nil
-        lastAutoFilledURL = ""
+        lastAutoFilledURL = note.sourceURL.absoluteString
         submittedURL = ""
         submittedTitle = ""
     }

@@ -56,6 +56,21 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertNil(viewModel.analysisResult)
     }
 
+    func testURLChangeCallbackAfterSharedNoteDoesNotClearOrRefetchTitle() async throws {
+        let titleService = CountingTitleService()
+        let viewModel = HomeViewModel(
+            analyzeService: ControlledAnalyzeService(),
+            youtubeTitleService: titleService
+        )
+
+        viewModel.applySharedNote(makeStoredNote())
+        viewModel.handleYouTubeLinkChange()
+        try await Task.sleep(nanoseconds: 600_000_000)
+
+        XCTAssertEqual(viewModel.titleInput, "Shared title")
+        XCTAssertEqual(titleService.callCount, 0)
+    }
+
     private func makeStoredNote() -> StoredContentNote {
         StoredContentNote(
             id: UUID(), sourceKey: "youtube:dQw4w9WgXcQ", sourceType: "youtube",
@@ -94,6 +109,16 @@ private final class ControlledAnalyzeService: AnalyzeService {
 private struct StaticTitleService: YouTubeTitleService {
     func checkAvailability(for youtubeURL: String) async throws -> YouTubeAvailabilityResult {
         .available(title: "Late title")
+    }
+}
+
+@MainActor
+private final class CountingTitleService: YouTubeTitleService {
+    private(set) var callCount = 0
+
+    func checkAvailability(for youtubeURL: String) async throws -> YouTubeAvailabilityResult {
+        callCount += 1
+        return .available(title: "Overwriting title")
     }
 }
 

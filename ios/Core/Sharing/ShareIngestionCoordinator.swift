@@ -40,8 +40,10 @@ final class ShareIngestionCoordinator {
     }
 
     func ingest(_ input: SharedURLInput) async throws -> ShareIngestionResult {
+        try Task.checkCancellation()
         let identity = try YouTubeVideoIdentity(url: input.url)
         if let existing = try repository.find(sourceKey: identity.sourceKey) {
+            try Task.checkCancellation()
             try repository.enqueueRoute(noteID: existing.id)
             return .alreadySaved(noteID: existing.id)
         }
