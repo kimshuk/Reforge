@@ -124,6 +124,56 @@ final class ContentNoteRepositoryTests: XCTestCase {
         XCTAssertEqual(remaining.noteID, draft.id)
     }
 
+    func testReopenedStorePreservesActiveAndTrashedNotesWithPendingRoute() throws {
+        let directory = try makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let storeURL = directory.appendingPathComponent("store.sqlite")
+        let lockURL = directory.appendingPathComponent("reforge-shared-store.lock")
+        let active = makeDraft(id: UUID(), transcriptText: "Active transcript")
+        let trashed = makeDraft(
+            id: UUID(),
+            sourceURL: URL(string: "https://youtu.be/9bZkp7q19f0")!,
+            title: "Trashed title",
+            transcriptText: "Trashed transcript",
+            createdAt: Date(timeIntervalSince1970: 2_000),
+            videoID: "9bZkp7q19f0"
+        )
+        let trashedAt = Date(timeIntervalSince1970: 3_000)
+        var savedRouteIDs: [UUID] = []
+
+        do {
+            let repository = ContentNoteRepository(
+                container: try SharedModelContainer.make(at: storeURL),
+                lock: SharedStoreLock(fileURL: lockURL)
+            )
+            _ = try repository.saveOrReuse(trashed)
+            try repository.moveToTrash(noteID: trashed.id, at: trashedAt)
+            _ = try repository.saveOrReuse(active)
+            savedRouteIDs = try repository.pendingRouteSnapshot().routeIDs
+            XCTAssertEqual(savedRouteIDs.count, 1)
+        }
+
+        let reopened = ContentNoteRepository(
+            container: try SharedModelContainer.make(at: storeURL),
+            lock: SharedStoreLock(fileURL: lockURL)
+        )
+        let activeNotes = try reopened.activeNotes()
+        XCTAssertEqual(activeNotes.count, 1)
+        XCTAssertEqual(activeNotes.first?.id, active.id)
+        XCTAssertEqual(activeNotes.first?.transcriptText, "Active transcript")
+        XCTAssertNil(activeNotes.first?.trashedAt)
+
+        let trashedNotes = try reopened.trashedNotes()
+        XCTAssertEqual(trashedNotes.count, 1)
+        XCTAssertEqual(trashedNotes.first?.id, trashed.id)
+        XCTAssertEqual(trashedNotes.first?.transcriptText, "Trashed transcript")
+        XCTAssertEqual(trashedNotes.first?.trashedAt, trashedAt)
+
+        let pendingRoute = try reopened.pendingRouteSnapshot()
+        XCTAssertEqual(pendingRoute.routeIDs, savedRouteIDs)
+        XCTAssertEqual(pendingRoute.noteID, active.id)
+    }
+
     func testSnapshotReturnsNilForLatestMissingNoteAndCanAcknowledgeIt() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.directory) }
@@ -412,15 +462,16 @@ final class ContentNoteRepositoryTests: XCTestCase {
         sourceURL: URL = URL(string: "https://youtu.be/dQw4w9WgXcQ")!,
         title: String = "First title",
         transcriptText: String = "First transcript",
-        createdAt: Date = Date(timeIntervalSince1970: 1_000)
+        createdAt: Date = Date(timeIntervalSince1970: 1_000),
+        videoID: String = "dQw4w9WgXcQ"
     ) -> ContentNoteDraft {
         ContentNoteDraft(
             id: id,
-            sourceKey: "youtube:dQw4w9WgXcQ",
+            sourceKey: "youtube:\(videoID)",
             sourceType: "youtube",
-            videoId: "dQw4w9WgXcQ",
+            videoId: videoID,
             sourceURL: sourceURL,
-            canonicalURL: URL(string: "https://www.youtube.com/watch?v=dQw4w9WgXcQ")!,
+            canonicalURL: URL(string: "https://www.youtube.com/watch?v=\(videoID)")!,
             title: title,
             transcriptId: "11111111-1111-4111-8111-111111111111",
             transcriptText: transcriptText,
