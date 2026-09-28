@@ -19,7 +19,12 @@ class YoutubeTranscriptService(
     client: OkHttpClient = OkHttpClient(),
     private val json: Json = Json,
 ) : YoutubeTranscriptFetching {
-    private val timedClient = client.newBuilder().callTimeout(30, TimeUnit.SECONDS).build()
+    internal val timedClient = client.newBuilder()
+        .callTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
     val callTimeoutMillis: Int = timedClient.callTimeoutMillis
     private val api = Retrofit.Builder().baseUrl(baseUrl).client(timedClient)
         .build().create(ReforgeApi::class.java)

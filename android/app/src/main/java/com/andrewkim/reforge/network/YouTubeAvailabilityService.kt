@@ -40,7 +40,7 @@ private data class OEmbedResponse(val title: String)
 class YouTubeAvailabilityService(
     baseUrl: HttpUrl = DEFAULT_OEMBED_BASE_URL,
     client: OkHttpClient = OkHttpClient(),
-    private val json: Json = Json,
+    private val json: Json = Json { ignoreUnknownKeys = true },
 ) : YouTubeAvailabilityChecking {
     private val api = Retrofit.Builder().baseUrl(baseUrl).client(client)
         .build().create(YouTubeOEmbedApi::class.java)

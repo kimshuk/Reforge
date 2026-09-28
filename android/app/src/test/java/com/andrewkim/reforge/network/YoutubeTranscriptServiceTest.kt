@@ -1,13 +1,21 @@
 package com.andrewkim.reforge.network
 
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.SerializationException
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -25,6 +33,9 @@ class YoutubeTranscriptServiceTest {
         val client = YoutubeTranscriptService(server.url("/v1/"))
         val response = client.fetch(canonical, "Shared title")
         assertEquals(30_000, client.callTimeoutMillis)
+        assertEquals(30_000, client.timedClient.connectTimeoutMillis)
+        assertEquals(30_000, client.timedClient.readTimeoutMillis)
+        assertEquals(30_000, client.timedClient.writeTimeoutMillis)
         val request = server.takeRequest()
         assertEquals("POST", request.method)
         assertEquals("/v1/youtube/transcript", request.path)
@@ -52,6 +63,33 @@ class YoutubeTranscriptServiceTest {
         assertEquals(502, error.statusCode)
         assertEquals("TRANSCRIPT_UNAVAILABLE", error.code)
         assertEquals("No transcript", error.backendMessage)
+    }
+
+    @Test fun responseAfterDefaultTenSecondReadWindowStillSucceeds() = runBlocking {
+        server.enqueue(
+            MockResponse().setResponseCode(200).setBody(SUCCESS)
+                .setHeadersDelay(10_500, TimeUnit.MILLISECONDS)
+        )
+        val result = YoutubeTranscriptService(server.url("/")).fetch(canonical, null)
+        assertEquals("dQw4w9WgXcQ", result.videoId)
+    }
+
+    @Test fun cancellingInFlightTranscriptRequestStopsHttpCall() = runBlocking {
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+        val client = YoutubeTranscriptService(server.url("/"))
+        val call = async(Dispatchers.IO) { client.fetch(canonical, null) }
+        assertNotNull(server.takeRequest(5, TimeUnit.SECONDS))
+        call.cancel(CancellationException("leave screen"))
+        withTimeout(5_000) {
+            call.join()
+            while (client.timedClient.dispatcher.runningCallsCount() != 0) delay(10)
+        }
+        try {
+            call.await()
+            throw AssertionError("Expected caller cancellation")
+        } catch (cancellation: CancellationException) {
+            assertEquals("leave screen", cancellation.message)
+        }
     }
 
     @Test fun malformedSuccessJsonFailsDecoding() {
