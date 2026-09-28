@@ -21,7 +21,10 @@ class AppConfigTest {
 
     @Test fun releaseRequiresInjectedHttps() {
         assertEquals("https://api.example.invalid/", AppConfig.from("https://api.example.invalid", true).backendBaseUrl.toString())
-        listOf("", "http://10.0.2.2:3000", "http://api.example.invalid").forEach {
+        listOf(
+            "", "http://10.0.2.2:3000", "http://api.example.invalid",
+            "https://example.invalid:99999", "https://example.invalid/$(BACKEND_PATH)"
+        ).forEach {
             assertThrows(IllegalArgumentException::class.java) { AppConfig.from(it, true) }
         }
     }
