@@ -26,6 +26,14 @@
 		B70000000000000000000001 /* PendingNoteRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70000000000000000000002 /* PendingNoteRouter.swift */; };
 		B70000000000000000000003 /* HomeViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70000000000000000000004 /* HomeViewModelTests.swift */; };
 		B70000000000000000000005 /* PendingNoteRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70000000000000000000006 /* PendingNoteRouterTests.swift */; };
+		C20000000000000000000001 /* NotesViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000002 /* NotesViewModelTests.swift */; };
+		C20000000000000000000003 /* NotesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000004 /* NotesStore.swift */; };
+		C20000000000000000000005 /* NotesListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000006 /* NotesListViewModel.swift */; };
+		C20000000000000000000008 /* ContentNoteDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000009 /* ContentNoteDetailViewModel.swift */; };
+		C2000000000000000000000A /* TrashViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2000000000000000000000B /* TrashViewModel.swift */; };
+		C2000000000000000000000C /* NotesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2000000000000000000000D /* NotesListView.swift */; };
+		C2000000000000000000000E /* ContentNoteDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2000000000000000000000F /* ContentNoteDetailView.swift */; };
+		C20000000000000000000010 /* TrashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000011 /* TrashView.swift */; };
 		A10000000000000000000001 /* AnalyzeModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* AnalyzeModelsTests.swift */; };
 		B30000000000000000000011 /* YouTubeVideoIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000001 /* YouTubeVideoIdentity.swift */; };
 		B30000000000000000000012 /* YouTubeVideoIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000002 /* YouTubeVideoIdentityTests.swift */; };
@@ -99,6 +107,14 @@
 		B70000000000000000000002 /* PendingNoteRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingNoteRouter.swift; sourceTree = "<group>"; };
 		B70000000000000000000004 /* HomeViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModelTests.swift; sourceTree = "<group>"; };
 		B70000000000000000000006 /* PendingNoteRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingNoteRouterTests.swift; sourceTree = "<group>"; };
+		C20000000000000000000002 /* NotesViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesViewModelTests.swift; sourceTree = "<group>"; };
+		C20000000000000000000004 /* NotesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesStore.swift; sourceTree = "<group>"; };
+		C20000000000000000000006 /* NotesListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesListViewModel.swift; sourceTree = "<group>"; };
+		C20000000000000000000009 /* ContentNoteDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentNoteDetailViewModel.swift; sourceTree = "<group>"; };
+		C2000000000000000000000B /* TrashViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashViewModel.swift; sourceTree = "<group>"; };
+		C2000000000000000000000D /* NotesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesListView.swift; sourceTree = "<group>"; };
+		C2000000000000000000000F /* ContentNoteDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentNoteDetailView.swift; sourceTree = "<group>"; };
+		C20000000000000000000011 /* TrashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashView.swift; sourceTree = "<group>"; };
 		A10000000000000000000002 /* AnalyzeModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeModelsTests.swift; sourceTree = "<group>"; };
 		B30000000000000000000001 /* YouTubeVideoIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeVideoIdentity.swift; sourceTree = "<group>"; };
 		B30000000000000000000002 /* YouTubeVideoIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeVideoIdentityTests.swift; sourceTree = "<group>"; };
@@ -218,6 +234,7 @@
 			isa = PBXGroup;
 			children = (
 				E9C385382F5BD550000F0758 /* Home */,
+				C20000000000000000000007 /* Notes */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -281,6 +298,20 @@
 			path = Home;
 			sourceTree = "<group>";
 		};
+		C20000000000000000000007 /* Notes */ = {
+			isa = PBXGroup;
+			children = (
+				C20000000000000000000004 /* NotesStore.swift */,
+				C20000000000000000000006 /* NotesListViewModel.swift */,
+				C20000000000000000000009 /* ContentNoteDetailViewModel.swift */,
+				C2000000000000000000000B /* TrashViewModel.swift */,
+				C2000000000000000000000D /* NotesListView.swift */,
+				C2000000000000000000000F /* ContentNoteDetailView.swift */,
+				C20000000000000000000011 /* TrashView.swift */,
+			);
+			path = Notes;
+			sourceTree = "<group>";
+		};
 		E9C385392F5BD55E000F0758 /* Networking */ = {
 			isa = PBXGroup;
 			children = (
@@ -339,6 +370,7 @@
 				B60000000000000000000004 /* ShareExtensionViewModelTests.swift */,
 				B70000000000000000000004 /* HomeViewModelTests.swift */,
 				B70000000000000000000006 /* PendingNoteRouterTests.swift */,
+				C20000000000000000000002 /* NotesViewModelTests.swift */,
 			);
 			path = NoteAppTests;
 			sourceTree = "<group>";
@@ -511,6 +543,7 @@
 				B60000000000000000000003 /* ShareExtensionViewModelTests.swift in Sources */,
 				B70000000000000000000003 /* HomeViewModelTests.swift in Sources */,
 				B70000000000000000000005 /* PendingNoteRouterTests.swift in Sources */,
+				C20000000000000000000001 /* NotesViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -540,6 +573,13 @@
 				E9C385272F5BD2EE000F0758 /* NoteApp.swift in Sources */,
 				E9C385412F5BDF3E000F0758 /* HomeViewModel.swift in Sources */,
 				E9C3853F2F5BD8AE000F0758 /* HomeView.swift in Sources */,
+				C20000000000000000000003 /* NotesStore.swift in Sources */,
+				C20000000000000000000005 /* NotesListViewModel.swift in Sources */,
+				C20000000000000000000008 /* ContentNoteDetailViewModel.swift in Sources */,
+				C2000000000000000000000A /* TrashViewModel.swift in Sources */,
+				C2000000000000000000000C /* NotesListView.swift in Sources */,
+				C2000000000000000000000E /* ContentNoteDetailView.swift in Sources */,
+				C20000000000000000000010 /* TrashView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
