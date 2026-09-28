@@ -45,7 +45,7 @@ class RoomContentNoteRepository(
                 val row = ContentNoteEntity.fromDraft(draft)
                 dao.insert(row)
                 saveObserver.afterInsertBeforeCommit()
-                SaveNoteOutcome.Saved(row.toDomain())
+                SaveNoteOutcome.Saved(requireNotNull(dao.find(row.id)).toDomain())
             }
         } catch (error: SQLiteConstraintException) {
             // A different writer may have inserted this source key after the first read.

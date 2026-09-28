@@ -124,6 +124,19 @@ class RoomContentNoteRepositoryTest {
         assertEquals(listOf(note), repository.observeActive().first())
     }
 
+    @Test fun savedOutcomeMatchesPersistedNanosecondTimestamp() = runBlocking {
+        val input = draft(
+            videoId = "nanoVideo01",
+            createdAt = Instant.parse("2026-09-29T00:00:00.123456789Z"),
+        )
+        val saved = (repository.saveOrReuse(input) as SaveNoteOutcome.Saved).note
+        val persisted = repository.find(saved.id)
+        val reused = repository.saveOrReuse(draft(videoId = input.videoId))
+        assertEquals(Instant.parse("2026-09-29T00:00:00.123Z"), saved.createdAt)
+        assertEquals(persisted, saved)
+        assertEquals(SaveNoteOutcome.AlreadySaved(saved), reused)
+    }
+
     @Test fun trashedDuplicateRequiresRestoreWithoutChanges() = runBlocking {
         val input = draft(videoId = "sameVideo02")
         val original = save(input)
