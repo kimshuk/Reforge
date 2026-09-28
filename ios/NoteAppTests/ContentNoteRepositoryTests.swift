@@ -142,8 +142,9 @@ final class ContentNoteRepositoryTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: fixture.directory) }
         let older = makeDraft(id: UUID(), createdAt: Date(timeIntervalSince1970: 100))
         let newer = makeDraft(id: UUID(), createdAt: Date(timeIntervalSince1970: 200))
+        let middleActive = makeDraft(id: UUID(), createdAt: Date(timeIntervalSince1970: 250))
         let other = makeDraft(id: UUID(), createdAt: Date(timeIntervalSince1970: 300))
-        for draft in [older, newer, other] {
+        for draft in [older, newer, middleActive, other] {
             let context = ModelContext(fixture.container)
             let note = ContentNote(draft: draft)
             note.sourceKey = draft.id.uuidString
@@ -153,7 +154,7 @@ final class ContentNoteRepositoryTests: XCTestCase {
         try fixture.repository.moveToTrash(noteID: older.id, at: Date(timeIntervalSince1970: 400))
         try fixture.repository.moveToTrash(noteID: newer.id, at: Date(timeIntervalSince1970: 500))
 
-        XCTAssertEqual(try fixture.repository.activeNotes().map(\.id), [other.id])
+        XCTAssertEqual(try fixture.repository.activeNotes().map(\.id), [other.id, middleActive.id])
         XCTAssertEqual(try fixture.repository.trashedNotes().map(\.id), [newer.id, older.id])
     }
 
@@ -202,6 +203,44 @@ final class ContentNoteRepositoryTests: XCTestCase {
         assertStored(restored, equals: draft)
         XCTAssertNil(restored.trashedAt)
         XCTAssertEqual(try fixture.repository.pendingRouteSnapshot().note?.id, draft.id)
+    }
+
+    func testRestoreAndEnqueueRouteSaveFailureLeavesTrashedNoteAndNoRoute() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let draft = makeDraft()
+        let trashedAt = Date(timeIntervalSince1970: 2_000)
+        _ = try fixture.repository.saveOrReuse(draft)
+        try fixture.repository.moveToTrash(noteID: draft.id, at: trashedAt)
+
+        let schema = Schema([ContentNote.self, PendingNoteRoute.self])
+        let readOnlyConfiguration = ModelConfiguration(
+            "ReforgeSharedContent",
+            schema: schema,
+            url: fixture.directory.appendingPathComponent("store.sqlite"),
+            allowsSave: false
+        )
+        let readOnlyContainer = try ModelContainer(
+            for: schema,
+            configurations: [readOnlyConfiguration]
+        )
+        let readOnlyRepository = ContentNoteRepository(
+            container: readOnlyContainer,
+            lock: SharedStoreLock(fileURL: fixture.directory.appendingPathComponent("reforge-shared-store.lock"))
+        )
+
+        XCTAssertThrowsError(try readOnlyRepository.restoreAndEnqueueRoute(noteID: draft.id))
+
+        let reopened = try SharedModelContainer.make(
+            at: fixture.directory.appendingPathComponent("store.sqlite")
+        )
+        let context = ModelContext(reopened)
+        let notes = try context.fetch(FetchDescriptor<ContentNote>())
+        XCTAssertEqual(notes.count, 1)
+        XCTAssertEqual(notes.first?.id, draft.id)
+        XCTAssertEqual(notes.first?.transcriptText, draft.transcriptText)
+        XCTAssertEqual(notes.first?.trashedAt, trashedAt)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<PendingNoteRoute>()), 0)
     }
 
     func testPrepareForShareRoutesOnlyActiveNotes() throws {
