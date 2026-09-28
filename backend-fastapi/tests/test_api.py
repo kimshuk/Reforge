@@ -213,6 +213,21 @@ def test_rejects_analyze_body_over_one_megabyte() -> None:
     assert response.json()["error"]["message"] == "Request body is too large"
 
 
+def test_rejects_youtube_transcript_body_over_one_megabyte() -> None:
+    response = client.post(
+        "/youtube/transcript",
+        content=(
+            b'{"youtubeUrl":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","title":"'
+            + b"x" * (1024 * 1024)
+            + b'"}'
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 413
+    assert response.json()["error"]["message"] == "Request body is too large"
+
+
 def test_wraps_framework_404_in_compatible_envelope() -> None:
     response = client.get("/missing")
 

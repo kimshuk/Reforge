@@ -2,15 +2,20 @@ import json
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-MAX_ANALYZE_BODY_BYTES = 1024 * 1024
+MAX_REQUEST_BODY_BYTES = 1024 * 1024
+LIMITED_POST_PATHS = frozenset({"/analyze", "/youtube/transcript"})
 
 
-class AnalyzeBodyLimitMiddleware:
+class RequestBodyLimitMiddleware:
     def __init__(self, app: Callable[..., Awaitable[None]]) -> None:
         self.app = app
 
     async def __call__(self, scope: dict[str, Any], receive: Callable[..., Awaitable[dict[str, Any]]], send: Callable[..., Awaitable[None]]) -> None:
-        if scope.get("type") != "http" or scope.get("method") != "POST" or scope.get("path") != "/analyze":
+        if (
+            scope.get("type") != "http"
+            or scope.get("method") != "POST"
+            or scope.get("path") not in LIMITED_POST_PATHS
+        ):
             await self.app(scope, receive, send)
             return
         messages: list[dict[str, Any]] = []
@@ -18,7 +23,7 @@ class AnalyzeBodyLimitMiddleware:
         while True:
             message = await receive()
             total += len(message.get("body", b""))
-            if total > MAX_ANALYZE_BODY_BYTES:
+            if total > MAX_REQUEST_BODY_BYTES:
                 await self._reject(send)
                 return
             messages.append(message)

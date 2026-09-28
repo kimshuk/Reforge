@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analysis import AnalyzeService
-from app.body_limit import AnalyzeBodyLimitMiddleware
+from app.body_limit import RequestBodyLimitMiddleware
 from app.config import get_settings
 from app.database import get_db
 from app.errors import AppError, register_error_handlers
@@ -96,7 +96,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Reforge Backend", lifespan=lifespan)
-app.add_middleware(AnalyzeBodyLimitMiddleware)
+app.add_middleware(RequestBodyLimitMiddleware)
 register_error_handlers(app)
 
 
