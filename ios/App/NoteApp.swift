@@ -10,13 +10,29 @@ import SwiftData
 
 @main
 struct NoteApp: App {
-    private let analyzeService: AnalyzeService
-    private let youtubeTitleService: YouTubeTitleService
+    private let repository: ContentNoteRepository
+    private let coordinator: AppCoordinator
 
     init() {
         do {
-            self.analyzeService = try URLSessionAnalyzeService(config: .default)
-            self.youtubeTitleService = YouTubeOEmbedService()
+            let analyzeService = try URLSessionAnalyzeService(config: .default)
+            let youtubeTitleService = YouTubeOEmbedService()
+            let container = try SharedModelContainer.makeAppGroupContainer()
+            let repository = ContentNoteRepository(
+                container: container,
+                lock: try SharedModelContainer.appGroupLock()
+            )
+            self.repository = repository
+            self.coordinator = AppCoordinator(
+                homeViewModel: HomeViewModel(
+                    analyzeService: analyzeService,
+                    youtubeTitleService: youtubeTitleService
+                ),
+                router: PendingNoteRouter(repository: repository),
+                purgeExpiredTrash: { cutoff in
+                    _ = try repository.purgeExpiredTrash(cutoff: cutoff)
+                }
+            )
         } catch {
             fatalError("Failed to initialize AnalyzeService: \(error.localizedDescription)")
         }
@@ -24,7 +40,7 @@ struct NoteApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(analyzeService: analyzeService, youtubeTitleService: youtubeTitleService)
+            RootView(coordinator: coordinator, repository: repository)
         }
     }
 }

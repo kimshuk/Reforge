@@ -22,8 +22,9 @@ from app.models import (
     TranscriptSegment,
 )
 from app.sanitizer import segment_manual_transcript
-from app.schemas import AnalyzeSource
+from app.schemas import AnalyzeSource, assert_transcript_text
 from app.store import StoredTranscript
+from app.youtube import YoutubeTranscript
 
 
 def segment(sequence: int) -> TranscriptSegment:
@@ -359,6 +360,96 @@ class RecordingEnricher:
 class FixedTranscriptAnalyzeService(AnalyzeService):
     async def _resolve_transcript(self, _source, _emit):
         return ("Transcript text long enough for analysis. " * 4, "video123", [])
+
+
+def youtube_result(text: str) -> YoutubeTranscript:
+    return YoutubeTranscript(
+        video_id="dQw4w9WgXcQ",
+        transcript_text=text,
+        snippets=[{"text": text, "start": 0, "duration": 5}],
+        language_code="en",
+        language="English",
+        is_generated=False,
+    )
+
+
+def transcript_resolver() -> AnalyzeService:
+    return AnalyzeService(
+        object(),
+        ServiceLlm(),
+        Settings(),
+        RecordingEnricher(),
+    )
+
+
+@pytest.mark.asyncio
+async def test_youtube_analysis_validates_labeled_analysis_text_not_user_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider_text = "a" * 70
+    monkeypatch.setattr(
+        "app.analysis.fetch_youtube_transcript", lambda _url: youtube_result(provider_text)
+    )
+
+    analysis_text, _, _ = await transcript_resolver()._resolve_transcript(
+        AnalyzeSource(
+            type="youtube",
+            youtube_url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+            target_language="en",
+        ),
+        None,
+    )
+
+    assert len(provider_text) < 80
+    assert len(assert_transcript_text(analysis_text)) >= 80
+
+
+@pytest.mark.asyncio
+async def test_youtube_analysis_keeps_short_source_result_when_labeled_text_is_long_enough(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider_text = "short provider transcript remains unchanged for the source payload exactly!!"
+    monkeypatch.setattr(
+        "app.analysis.fetch_youtube_transcript", lambda _url: youtube_result(provider_text)
+    )
+
+    analysis_text, video_id, source_segments = await transcript_resolver()._resolve_transcript(
+        AnalyzeSource(
+            type="youtube",
+            youtube_url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+            target_language="en",
+        ),
+        None,
+    )
+
+    assert 65 <= len(provider_text) <= 79
+    assert assert_transcript_text(analysis_text).endswith(provider_text)
+    assert video_id == "dQw4w9WgXcQ"
+    assert source_segments[0].raw_text == provider_text
+
+
+@pytest.mark.asyncio
+async def test_youtube_analysis_rejects_when_analysis_text_is_under_80_chars(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider_text = "too short even after the stable segment label"
+    monkeypatch.setattr(
+        "app.analysis.fetch_youtube_transcript", lambda _url: youtube_result(provider_text)
+    )
+
+    analysis_text, _, _ = await transcript_resolver()._resolve_transcript(
+        AnalyzeSource(
+            type="youtube",
+            youtube_url="https://youtube.com/watch?v=dQw4w9WgXcQ",
+            target_language="en",
+        ),
+        None,
+    )
+
+    with pytest.raises(AppError) as raised:
+        assert_transcript_text(analysis_text)
+
+    assert raised.value.code == "SHORT_TRANSCRIPT"
 
 
 @pytest.mark.asyncio

@@ -12,15 +12,21 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analysis import AnalyzeService
-from app.body_limit import AnalyzeBodyLimitMiddleware
+from app.body_limit import RequestBodyLimitMiddleware
 from app.config import get_settings
 from app.database import get_db
 from app.errors import AppError, register_error_handlers
 from app.explanation_enrichment import ExplanationEnricher
 from app.llm import LlmClient
 from app.openai_search import OpenAIWebSearchClient
-from app.schemas import AnalyzeRequest, AnalyzeResult
+from app.schemas import (
+    AnalyzeRequest,
+    AnalyzeResult,
+    YoutubeTranscriptRequest,
+    YoutubeTranscriptResponse,
+)
 from app.store import TranscriptStore, transcript_expiry
+from app.youtube_ingestion import YoutubeTranscriptIngestionService
 
 settings = get_settings()
 logger = logging.getLogger("reforge")
@@ -90,7 +96,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Reforge Backend", lifespan=lifespan)
-app.add_middleware(AnalyzeBodyLimitMiddleware)
+app.add_middleware(RequestBodyLimitMiddleware)
 register_error_handlers(app)
 
 
@@ -141,6 +147,17 @@ async def get_transcript(transcript_id: str, db: AsyncSession = Depends(get_db))
         "expiresAt": expires_at,
         "transcriptText": transcript.transcript_text,
     }
+
+
+@app.post("/youtube/transcript", response_model=YoutubeTranscriptResponse)
+async def ingest_youtube_transcript(
+    body: YoutubeTranscriptRequest,
+    db: AsyncSession = Depends(get_db),
+) -> YoutubeTranscriptResponse:
+    return await YoutubeTranscriptIngestionService(TranscriptStore(db)).ingest(
+        body.youtubeUrl,
+        body.title,
+    )
 
 
 @app.post(

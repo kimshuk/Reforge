@@ -18,6 +18,7 @@ final class HomeViewModel: ObservableObject {
     @Published var errorMessage: String = ""
     @Published var analysisResult: AnalyzeResponse?
     @Published var videoUnavailableReason: VideoUnavailableReason?
+    @Published private(set) var inputGeneration: UInt64 = 0
 
     private let analyzeService: AnalyzeService
     private let youtubeTitleService: YouTubeTitleService
@@ -89,15 +90,35 @@ final class HomeViewModel: ObservableObject {
         }
 
         guard analysisResult == nil else { return }
+        guard lastAutoFilledURL != trimmedURL else { return }
 
+        let generation = inputGeneration
         autoFillTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 500_000_000)
             guard !Task.isCancelled else { return }
-            await self?.autoFillTitleIfPossible(for: trimmedURL)
+            await self?.autoFillTitleIfPossible(for: trimmedURL, generation: generation)
         }
     }
 
+    func applySharedNote(_ note: StoredContentNote) {
+        autoFillTask?.cancel()
+        autoFillTask = nil
+        inputGeneration &+= 1
+        youtubeLink = note.canonicalURL.absoluteString
+        titleInput = note.title
+        isLoading = false
+        loadingStage = ""
+        loadingStatusMessage = ""
+        errorMessage = ""
+        analysisResult = nil
+        videoUnavailableReason = nil
+        lastAutoFilledURL = note.canonicalURL.absoluteString
+        submittedURL = ""
+        submittedTitle = ""
+    }
+
     func analyze() async {
+        let generation = inputGeneration
         let trimmedTitle = titleInput.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedURL = youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -130,31 +151,37 @@ final class HomeViewModel: ObservableObject {
         submittedTitle = trimmedTitle
 
         do {
+            let target = self
             let result = try await analyzeService.analyzeYouTube(
                 title: trimmedTitle,
                 youtubeUrl: trimmedURL
-            ) { [weak self] update in
+            ) { update in
                 Task { @MainActor in
-                    self?.loadingStage = update.stage
-                    self?.loadingStatusMessage = update.message
+                    guard target.inputGeneration == generation else { return }
+                    target.loadingStage = update.stage
+                    target.loadingStatusMessage = update.message
                 }
             }
+            guard inputGeneration == generation else { return }
             loadingStage = "completed"
             loadingStatusMessage = "Analysis complete."
             analysisResult = result
         } catch {
+            guard inputGeneration == generation else { return }
             errorMessage = error.localizedDescription
         }
 
+        guard inputGeneration == generation else { return }
         isLoading = false
         loadingStage = ""
         loadingStatusMessage = ""
     }
 
-    private func autoFillTitleIfPossible(for youtubeURL: String) async {
+    private func autoFillTitleIfPossible(for youtubeURL: String, generation: UInt64) async {
         do {
             let availability = try await youtubeTitleService.checkAvailability(for: youtubeURL)
             guard !Task.isCancelled else { return }
+            guard inputGeneration == generation else { return }
 
             let currentURL = youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines)
             guard currentURL == youtubeURL else { return }
