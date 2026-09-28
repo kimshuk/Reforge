@@ -1,6 +1,7 @@
 package com.andrewkim.reforge
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -58,8 +59,11 @@ class MainActivity : ComponentActivity() {
                 ReforgeNavHost(
                     navController = navController,
                     shareState = shareState,
+                    repository = (application as ReforgeApplication).container.repository,
                     onSelectHome = { appCoordinator.selectTab(AppDestination.HOME_GRAPH) },
                     onSelectNotes = { appCoordinator.selectTab(AppDestination.NOTES_GRAPH) },
+                    onAnalyzeNote = appCoordinator::openHomeForAnalysis,
+                    onOpenYoutube = { url -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
                     onBackShare = appCoordinator::finishShare,
                     onConfirmRestore = shareImport::confirmRestore,
                     onCancelRestore = {
