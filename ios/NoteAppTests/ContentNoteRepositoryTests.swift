@@ -137,6 +137,179 @@ final class ContentNoteRepositoryTests: XCTestCase {
         XCTAssertTrue(try fixture.repository.pendingRouteSnapshot().routeIDs.isEmpty)
     }
 
+    func testActiveAndTrashedNotesSortNewestFirst() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let older = makeDraft(id: UUID(), createdAt: Date(timeIntervalSince1970: 100))
+        let newer = makeDraft(id: UUID(), createdAt: Date(timeIntervalSince1970: 200))
+        let other = makeDraft(id: UUID(), createdAt: Date(timeIntervalSince1970: 300))
+        for draft in [older, newer, other] {
+            let context = ModelContext(fixture.container)
+            let note = ContentNote(draft: draft)
+            note.sourceKey = draft.id.uuidString
+            context.insert(note)
+            try context.save()
+        }
+        try fixture.repository.moveToTrash(noteID: older.id, at: Date(timeIntervalSince1970: 400))
+        try fixture.repository.moveToTrash(noteID: newer.id, at: Date(timeIntervalSince1970: 500))
+
+        XCTAssertEqual(try fixture.repository.activeNotes().map(\.id), [other.id])
+        XCTAssertEqual(try fixture.repository.trashedNotes().map(\.id), [newer.id, older.id])
+    }
+
+    func testMoveRestoreAndPermanentDeletePreserveFieldsAndRemoveRoutes() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let draft = makeDraft()
+        _ = try fixture.repository.saveOrReuse(draft)
+        try fixture.repository.enqueueRoute(noteID: draft.id)
+        let deletedAt = Date(timeIntervalSince1970: 2_000)
+
+        try fixture.repository.moveToTrash(noteID: draft.id, at: deletedAt)
+        XCTAssertEqual(try fixture.repository.note(id: draft.id)?.trashedAt, deletedAt)
+        XCTAssertTrue(try fixture.repository.pendingRouteSnapshot().routeIDs.isEmpty)
+        XCTAssertTrue(try fixture.repository.activeNotes().isEmpty)
+
+        try fixture.repository.restore(noteID: draft.id)
+        let restored = try XCTUnwrap(fixture.repository.note(id: draft.id))
+        assertStored(restored, equals: draft)
+        XCTAssertNil(restored.trashedAt)
+        XCTAssertTrue(try fixture.repository.pendingRouteSnapshot().routeIDs.isEmpty)
+
+        try fixture.repository.enqueueRoute(noteID: draft.id)
+        try fixture.repository.deletePermanently(noteID: draft.id)
+        XCTAssertNil(try fixture.repository.note(id: draft.id))
+        XCTAssertTrue(try fixture.repository.pendingRouteSnapshot().routeIDs.isEmpty)
+    }
+
+    func testRestoreAndEnqueueRouteAndTrashedReuse() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let draft = makeDraft()
+        _ = try fixture.repository.saveOrReuse(draft)
+        try fixture.repository.moveToTrash(noteID: draft.id, at: Date(timeIntervalSince1970: 2_000))
+
+        let result = try fixture.repository.saveOrReuse(makeDraft(id: UUID(), title: "Replacement"))
+        guard case let .restoreRequired(note) = result else {
+            return XCTFail("Expected restore confirmation")
+        }
+        XCTAssertEqual(note.id, draft.id)
+        XCTAssertEqual(note.title, draft.title)
+        XCTAssertEqual(try fixture.repository.trashedNotes().count, 1)
+        XCTAssertTrue(try fixture.repository.pendingRouteSnapshot().routeIDs.isEmpty)
+
+        let restored = try fixture.repository.restoreAndEnqueueRoute(noteID: draft.id)
+        assertStored(restored, equals: draft)
+        XCTAssertNil(restored.trashedAt)
+        XCTAssertEqual(try fixture.repository.pendingRouteSnapshot().note?.id, draft.id)
+    }
+
+    func testPrepareForShareRoutesOnlyActiveNotes() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let draft = makeDraft()
+        XCTAssertEqual(try fixture.repository.prepareForShare(sourceKey: draft.sourceKey), .absent)
+        _ = try fixture.repository.saveOrReuse(draft)
+        try fixture.repository.acknowledge(routeIDs: fixture.repository.pendingRouteSnapshot().routeIDs)
+
+        guard case let .activeRouted(active) = try fixture.repository.prepareForShare(sourceKey: draft.sourceKey) else {
+            return XCTFail("Expected active route")
+        }
+        XCTAssertEqual(active.id, draft.id)
+        XCTAssertEqual(try fixture.repository.pendingRouteSnapshot().note?.id, draft.id)
+        try fixture.repository.moveToTrash(noteID: draft.id, at: Date(timeIntervalSince1970: 2_000))
+
+        guard case let .trashed(trashed) = try fixture.repository.prepareForShare(sourceKey: draft.sourceKey) else {
+            return XCTFail("Expected trashed note")
+        }
+        XCTAssertEqual(trashed.id, draft.id)
+        XCTAssertTrue(try fixture.repository.pendingRouteSnapshot().routeIDs.isEmpty)
+    }
+
+    func testPurgeExpiredTrashIncludesCutoffAndCanRetry() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let cutoff = Date(timeIntervalSince1970: 30 * 24 * 60 * 60)
+        let expired = makeDraft(id: UUID())
+        let retained = makeDraft(id: UUID())
+        let context = ModelContext(fixture.container)
+        let expiredNote = ContentNote(draft: expired)
+        expiredNote.sourceKey = expired.id.uuidString
+        let retainedNote = ContentNote(draft: retained)
+        retainedNote.sourceKey = retained.id.uuidString
+        context.insert(expiredNote)
+        context.insert(retainedNote)
+        try context.save()
+        try fixture.repository.moveToTrash(noteID: expired.id, at: cutoff)
+        try fixture.repository.moveToTrash(noteID: retained.id, at: cutoff.addingTimeInterval(1))
+        try fixture.repository.enqueueRoute(noteID: expired.id)
+
+        let blockedRepository = ContentNoteRepository(
+            container: fixture.container,
+            lock: SharedStoreLock(fileURL: fixture.directory)
+        )
+        XCTAssertThrowsError(try blockedRepository.purgeExpiredTrash(cutoff: cutoff))
+        XCTAssertNotNil(try fixture.repository.note(id: expired.id))
+
+        XCTAssertEqual(try fixture.repository.purgeExpiredTrash(cutoff: cutoff), 1)
+        XCTAssertNil(try fixture.repository.note(id: expired.id))
+        XCTAssertNotNil(try fixture.repository.note(id: retained.id))
+        XCTAssertTrue(try fixture.repository.pendingRouteSnapshot().routeIDs.isEmpty)
+        XCTAssertEqual(try fixture.repository.purgeExpiredTrash(cutoff: cutoff), 0)
+    }
+
+    func testPrepareForShareCannotRouteANoteMovedToTrashConcurrently() async throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let draft = makeDraft()
+        _ = try fixture.repository.saveOrReuse(draft)
+        try fixture.repository.acknowledge(routeIDs: fixture.repository.pendingRouteSnapshot().routeIDs)
+        let secondRepository = ContentNoteRepository(
+            container: try SharedModelContainer.make(at: fixture.directory.appendingPathComponent("store.sqlite")),
+            lock: SharedStoreLock(fileURL: fixture.directory.appendingPathComponent("reforge-shared-store.lock"))
+        )
+        let sourceKey = draft.sourceKey
+        let noteID = draft.id
+
+        let prepareTask = Task.detached {
+            try secondRepository.prepareForShare(sourceKey: sourceKey)
+        }
+        let trashTask = Task.detached {
+            try fixture.repository.moveToTrash(noteID: noteID, at: Date(timeIntervalSince1970: 2_000))
+        }
+        _ = try await prepareTask.value
+        try await trashTask.value
+
+        XCTAssertNotNil(try fixture.repository.note(id: draft.id)?.trashedAt)
+        XCTAssertTrue(try fixture.repository.pendingRouteSnapshot().routeIDs.isEmpty)
+    }
+
+    func testConcurrentTrashAndSaveNeverCreateDuplicateOrRouteTrashedNote() async throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let draft = makeDraft()
+        _ = try fixture.repository.saveOrReuse(draft)
+        try fixture.repository.acknowledge(routeIDs: fixture.repository.pendingRouteSnapshot().routeIDs)
+        let secondRepository = ContentNoteRepository(
+            container: try SharedModelContainer.make(at: fixture.directory.appendingPathComponent("store.sqlite")),
+            lock: SharedStoreLock(fileURL: fixture.directory.appendingPathComponent("reforge-shared-store.lock"))
+        )
+        let replacement = makeDraft(id: UUID(), title: "Concurrent replacement")
+        let noteID = draft.id
+
+        let saveTask = Task.detached { try secondRepository.saveOrReuse(replacement) }
+        let trashTask = Task.detached {
+            try fixture.repository.moveToTrash(noteID: noteID, at: Date(timeIntervalSince1970: 2_000))
+        }
+        _ = try await saveTask.value
+        try await trashTask.value
+
+        let context = ModelContext(fixture.container)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ContentNote>()), 1)
+        XCTAssertNotNil(try fixture.repository.note(id: draft.id)?.trashedAt)
+        XCTAssertTrue(try fixture.repository.pendingRouteSnapshot().routeIDs.isEmpty)
+    }
+
     private func makeFixture() throws -> (
         directory: URL,
         container: ModelContainer,
