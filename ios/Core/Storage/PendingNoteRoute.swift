@@ -16,5 +16,5 @@ final class PendingNoteRoute {
 
 struct PendingRouteSnapshot: Equatable, Sendable {
     let routeIDs: [UUID]
-    let note: StoredContentNote?
+    let noteID: UUID?
 }

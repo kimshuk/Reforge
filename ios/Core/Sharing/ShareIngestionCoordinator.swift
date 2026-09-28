@@ -3,6 +3,7 @@ import Foundation
 enum ShareIngestionResult: Equatable, Sendable {
     case saved(noteID: UUID)
     case alreadySaved(noteID: UUID)
+    case restoreRequired(noteID: UUID)
 }
 
 enum ShareIngestionError: Error, Equatable {
@@ -11,12 +12,13 @@ enum ShareIngestionError: Error, Equatable {
 
 protocol ShareIngesting {
     func ingest(_ input: SharedURLInput) async throws -> ShareIngestionResult
+    func restore(noteID: UUID) async throws -> ShareIngestionResult
 }
 
 protocol ContentNotePersisting {
-    func find(sourceKey: String) throws -> StoredContentNote?
+    func prepareForShare(sourceKey: String) throws -> ShareNotePreparation
     func saveOrReuse(_ draft: ContentNoteDraft) throws -> SaveNoteOutcome
-    func enqueueRoute(noteID: UUID) throws
+    func restoreAndEnqueueRoute(noteID: UUID) throws -> StoredContentNote
 }
 
 extension ContentNoteRepository: ContentNotePersisting {}
@@ -42,10 +44,13 @@ final class ShareIngestionCoordinator {
     func ingest(_ input: SharedURLInput) async throws -> ShareIngestionResult {
         try Task.checkCancellation()
         let identity = try YouTubeVideoIdentity(url: input.url)
-        if let existing = try repository.find(sourceKey: identity.sourceKey) {
-            try Task.checkCancellation()
-            try repository.enqueueRoute(noteID: existing.id)
-            return .alreadySaved(noteID: existing.id)
+        switch try repository.prepareForShare(sourceKey: identity.sourceKey) {
+        case .activeRouted(let note):
+            return .alreadySaved(noteID: note.id)
+        case .trashed(let note):
+            return .restoreRequired(noteID: note.id)
+        case .absent:
+            break
         }
 
         let sharedTitle = normalizedTitle(input.sharedTitle)
@@ -93,7 +98,15 @@ final class ShareIngestionCoordinator {
             return .saved(noteID: note.id)
         case .alreadySaved(let note):
             return .alreadySaved(noteID: note.id)
+        case .restoreRequired(let note):
+            return .restoreRequired(noteID: note.id)
         }
+    }
+
+    func restore(noteID: UUID) async throws -> ShareIngestionResult {
+        try Task.checkCancellation()
+        let note = try repository.restoreAndEnqueueRoute(noteID: noteID)
+        return .alreadySaved(noteID: note.id)
     }
 
     private func normalizedTitle(_ title: String?) -> String? {

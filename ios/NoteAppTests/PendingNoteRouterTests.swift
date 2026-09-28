@@ -3,51 +3,82 @@ import XCTest
 
 @MainActor
 final class PendingNoteRouterTests: XCTestCase {
-    func testAppliesLatestNoteBeforeAcknowledgingCapturedRoutes() throws {
-        let note = makeStoredNote()
-        let routeIDs = [UUID(), UUID()]
-        let store = RoutingStoreStub(
-            snapshot: PendingRouteSnapshot(routeIDs: routeIDs, note: note)
-        )
-        var applied: StoredContentNote?
+    func testOpensLatestNoteBeforeAcknowledgingCapturedRoutes() throws {
+        let olderRoute = UUID()
+        let latestRoute = UUID()
+        let noteID = UUID()
+        let store = RoutingStoreStub(routes: [
+            (olderRoute, UUID()), (latestRoute, noteID)
+        ])
+        var opened: UUID?
 
-        try PendingNoteRouter(repository: store).consumeLatest {
-            store.events.append("apply")
-            applied = $0
+        try PendingNoteRouter(repository: store).consumeLatest { id in
+            store.events.append("open")
+            opened = id
         }
 
-        XCTAssertEqual(applied, note)
-        XCTAssertEqual(store.acknowledged, routeIDs)
-        XCTAssertEqual(store.events, ["apply", "ack"])
+        XCTAssertEqual(opened, noteID)
+        XCTAssertEqual(store.acknowledged, [[olderRoute, latestRoute]])
+        XCTAssertEqual(store.events, ["open", "ack"])
     }
 
-    func testApplyFailureKeepsRoutesAndMissingNoteAcknowledgesOrphans() throws {
-        let note = makeStoredNote()
-        let routeIDs = [UUID()]
-        let failing = RoutingStoreStub(snapshot: .init(routeIDs: routeIDs, note: note))
-        XCTAssertThrowsError(
-            try PendingNoteRouter(repository: failing).consumeLatest { _ in
-                failing.events.append("apply")
-                throw RouterTestFailure.failed
-            }
-        )
-        XCTAssertTrue(failing.acknowledged.isEmpty)
+    func testAcknowledgeKeepsRouteCreatedAfterSnapshot() throws {
+        let firstRoute = UUID()
+        let latestRoute = UUID()
+        let laterRoute = UUID()
+        let noteID = UUID()
+        let store = RoutingStoreStub(routes: [
+            (firstRoute, UUID()), (latestRoute, noteID)
+        ])
 
-        let orphan = RoutingStoreStub(snapshot: .init(routeIDs: routeIDs, note: nil))
-        try PendingNoteRouter(repository: orphan).consumeLatest { _ in
-            XCTFail("Missing note must not be applied")
+        try PendingNoteRouter(repository: store).consumeLatest { _ in
+            store.routes.append((laterRoute, UUID()))
         }
-        XCTAssertEqual(orphan.acknowledged, routeIDs)
+
+        XCTAssertEqual(store.acknowledged, [[firstRoute, latestRoute]])
+        XCTAssertEqual(store.routes.map(\.0), [laterRoute])
     }
 
-    private func makeStoredNote() -> StoredContentNote {
-        StoredContentNote(
-            id: UUID(), sourceKey: "youtube:dQw4w9WgXcQ", sourceType: "youtube",
-            videoId: "dQw4w9WgXcQ", sourceURL: URL(string: "https://youtu.be/dQw4w9WgXcQ")!,
-            canonicalURL: URL(string: "https://www.youtube.com/watch?v=dQw4w9WgXcQ")!,
-            title: "Title", transcriptId: "id", transcriptText: "text",
-            transcriptLanguageCode: "en", transcriptIsGenerated: false, createdAt: Date()
-        )
+    func testInvalidLatestRouteIsRemovedBeforeOpeningOlderActiveNote() throws {
+        let validRoute = UUID()
+        let invalidRoute = UUID()
+        let noteID = UUID()
+        let store = RoutingStoreStub(routes: [
+            (validRoute, noteID), (invalidRoute, nil)
+        ])
+        var opened: UUID?
+
+        try PendingNoteRouter(repository: store).consumeLatest { opened = $0 }
+
+        XCTAssertEqual(opened, noteID)
+        XCTAssertEqual(store.acknowledged, [[invalidRoute], [validRoute]])
+        XCTAssertTrue(store.routes.isEmpty)
+    }
+
+    func testSeveralInvalidLatestRoutesAreRemovedOneAtATime() throws {
+        let validRoute = UUID()
+        let missingRoute = UUID()
+        let trashedRoute = UUID()
+        let noteID = UUID()
+        let store = RoutingStoreStub(routes: [
+            (validRoute, noteID), (missingRoute, nil), (trashedRoute, nil)
+        ])
+
+        try PendingNoteRouter(repository: store).consumeLatest { XCTAssertEqual($0, noteID) }
+
+        XCTAssertEqual(store.acknowledged, [[trashedRoute], [missingRoute], [validRoute]])
+    }
+
+    func testOpenFailureKeepsCapturedRoutes() {
+        let routeID = UUID()
+        let store = RoutingStoreStub(routes: [(routeID, UUID())])
+
+        XCTAssertThrowsError(try PendingNoteRouter(repository: store).consumeLatest { _ in
+            throw RouterTestFailure.failed
+        })
+
+        XCTAssertTrue(store.acknowledged.isEmpty)
+        XCTAssertEqual(store.routes.map(\.0), [routeID])
     }
 }
 
@@ -55,11 +86,19 @@ private enum RouterTestFailure: Error { case failed }
 
 @MainActor
 private final class RoutingStoreStub: PendingNoteRoutingStore {
-    let snapshot: PendingRouteSnapshot
-    var acknowledged: [UUID] = []
+    var routes: [(UUID, UUID?)]
+    var acknowledged: [[UUID]] = []
     var events: [String] = []
 
-    init(snapshot: PendingRouteSnapshot) { self.snapshot = snapshot }
-    func pendingRouteSnapshot() throws -> PendingRouteSnapshot { snapshot }
-    func acknowledge(routeIDs: [UUID]) throws { acknowledged = routeIDs; events.append("ack") }
+    init(routes: [(UUID, UUID?)]) { self.routes = routes }
+
+    func pendingRouteSnapshot() throws -> PendingRouteSnapshot {
+        PendingRouteSnapshot(routeIDs: routes.map(\.0), noteID: routes.last?.1)
+    }
+
+    func acknowledge(routeIDs: [UUID]) throws {
+        acknowledged.append(routeIDs)
+        events.append("ack")
+        routes.removeAll { routeIDs.contains($0.0) }
+    }
 }

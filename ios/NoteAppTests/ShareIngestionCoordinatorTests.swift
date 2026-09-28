@@ -65,6 +65,44 @@ final class ShareIngestionCoordinatorTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<PendingNoteRoute>()), 2)
     }
 
+    func testTrashedDuplicateNeedsRestoreWithoutNetworkOrRoute() async throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let draft = makeDraft()
+        _ = try fixture.repository.saveOrReuse(draft)
+        try fixture.repository.moveToTrash(noteID: draft.id, at: Date(timeIntervalSince1970: 2_000))
+        let transcript = TranscriptStub(response: makeResponse())
+        let title = TitleStub(result: "Unused")
+        let coordinator = ShareIngestionCoordinator(
+            repository: fixture.repository, transcriptService: transcript, titleResolver: title
+        )
+
+        let result = try await coordinator.ingest(validInput)
+        XCTAssertEqual(result, .restoreRequired(noteID: draft.id))
+        XCTAssertEqual(transcript.callCount, 0)
+        XCTAssertEqual(title.callCount, 0)
+        XCTAssertTrue(try fixture.repository.pendingRouteSnapshot().routeIDs.isEmpty)
+
+        let restored = try await coordinator.restore(noteID: draft.id)
+        XCTAssertEqual(restored, .alreadySaved(noteID: draft.id))
+        XCTAssertEqual(try fixture.repository.note(id: draft.id)?.transcriptText, draft.transcriptText)
+        XCTAssertNil(try fixture.repository.note(id: draft.id)?.trashedAt)
+        XCTAssertEqual(try fixture.repository.pendingRouteSnapshot().noteID, draft.id)
+    }
+
+    func testSaveRaceCanReturnRestoreRequired() async throws {
+        let note = makeStoredNote()
+        let repository = RepositoryStub(saveOutcome: .restoreRequired(note))
+        let coordinator = ShareIngestionCoordinator(
+            repository: repository,
+            transcriptService: TranscriptStub(response: makeResponse()),
+            titleResolver: TitleStub(result: "Title")
+        )
+
+        let result = try await coordinator.ingest(validInput)
+        XCTAssertEqual(result, .restoreRequired(noteID: note.id))
+    }
+
     func testCancelledDuplicateDoesNotAddRoute() async throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.directory) }
@@ -377,17 +415,17 @@ private final class SuspendedTranscriptStub: YouTubeTranscriptFetching {
 
 @MainActor
 private final class RepositoryStub: ContentNotePersisting {
-    var found: StoredContentNote?
+    var preparation: ShareNotePreparation
     var saveOutcome: SaveNoteOutcome
     var saveError: Error?
     var onSave: (() -> Void)?
     private(set) var saveCount = 0
 
     init(
-        found: StoredContentNote? = nil,
+        preparation: ShareNotePreparation = .absent,
         saveOutcome: SaveNoteOutcome? = nil
     ) {
-        self.found = found
+        self.preparation = preparation
         let fallback = StoredContentNote(
             id: UUID(),
             sourceKey: "youtube:dQw4w9WgXcQ",
@@ -405,7 +443,7 @@ private final class RepositoryStub: ContentNotePersisting {
         self.saveOutcome = saveOutcome ?? .saved(fallback)
     }
 
-    func find(sourceKey: String) throws -> StoredContentNote? { found }
+    func prepareForShare(sourceKey: String) throws -> ShareNotePreparation { preparation }
 
     func saveOrReuse(_ draft: ContentNoteDraft) throws -> SaveNoteOutcome {
         saveCount += 1
@@ -414,7 +452,10 @@ private final class RepositoryStub: ContentNotePersisting {
         return saveOutcome
     }
 
-    func enqueueRoute(noteID: UUID) throws {}
+    func restoreAndEnqueueRoute(noteID: UUID) throws -> StoredContentNote {
+        guard case let .trashed(note) = preparation else { throw StubError.save }
+        return note
+    }
 }
 
 private enum StubError: Error {
