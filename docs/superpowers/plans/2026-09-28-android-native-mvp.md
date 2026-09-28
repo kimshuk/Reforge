@@ -258,7 +258,7 @@ git commit -m "feat: Android 공유 수집 상태 흐름 추가"
 - Create: `android/app/src/androidTest/java/com/andrewkim/reforge/navigation/ShareNavigationTest.kt`
 
 **Interfaces:**
-- Consumes: Task 3 repository and Task 4 persisted import state.
+- Consumes: Task 2 `ShareIntentParser`, Task 3 repository, and Task 4 persisted import state.
 - Produces: `data class AnalysisInputSnapshot(val title: String, val canonicalUrl: String)` plus independent `home` and `notes` tab graphs, `note/{noteId}`, `trash`, and `share-import`; `AppCoordinator.acceptShare(intent)`, `openNote(noteId: String)`, `openHomeForAnalysis(snapshot: AnalysisInputSnapshot)`, and `finishShare()`.
 - Produces: UI callbacks only; Composables never access DAO, Retrofit, Activity intent, or mutable repository state directly.
 
@@ -345,7 +345,7 @@ Use MockWebServer for exact request JSON, ordered progress, fragmentation, resul
 - Create: `android/app/src/androidTest/java/com/andrewkim/reforge/analysis/HomeScreenTest.kt`
 
 **Interfaces:**
-- Consumes: Task 2 typed availability, Task 6 `AnalysisInputSnapshot`, Task 7 client.
+- Consumes: Task 2 typed availability, Task 5 `AnalysisInputSnapshot`, Task 7 client.
 - Produces: `setUrl`, `setTitle`, `analyze`, `applySnapshotAndAnalyze`; input generation, progress, error, result, category expansion, and keyword selection state.
 
 - [ ] **Step 1: Implement Home state behavior**
