@@ -20,7 +20,7 @@ final class HomeViewModelTests: XCTestCase {
 
         viewModel.applySharedNote(makeStoredNote())
 
-        XCTAssertEqual(viewModel.youtubeLink, "https://youtu.be/dQw4w9WgXcQ")
+        XCTAssertEqual(viewModel.youtubeLink, "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
         XCTAssertEqual(viewModel.titleInput, "Shared title")
         XCTAssertFalse(viewModel.isLoading)
         XCTAssertEqual(viewModel.loadingStage, "")
@@ -48,7 +48,7 @@ final class HomeViewModelTests: XCTestCase {
         analyze.resume(throwing: TestFailure.failed)
         await task.value
 
-        XCTAssertEqual(viewModel.youtubeLink, "https://youtu.be/dQw4w9WgXcQ")
+        XCTAssertEqual(viewModel.youtubeLink, "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
         XCTAssertEqual(viewModel.titleInput, "Shared title")
         XCTAssertFalse(viewModel.isLoading)
         XCTAssertEqual(viewModel.loadingStage, "")
@@ -71,6 +71,23 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertEqual(titleService.callCount, 0)
     }
 
+    func testAnalyzeSharedNoteSendsCanonicalURLExactlyOnce() async {
+        let service = ControlledAnalyzeService()
+        let viewModel = HomeViewModel(
+            analyzeService: service,
+            youtubeTitleService: StaticTitleService()
+        )
+        viewModel.applySharedNote(makeStoredNote())
+
+        let task = Task { await viewModel.analyze() }
+        await service.waitUntilStarted()
+        service.resume(throwing: TestFailure.failed)
+        await task.value
+
+        XCTAssertEqual(service.callCount, 1)
+        XCTAssertEqual(service.receivedURLs, ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"])
+    }
+
     private func makeStoredNote() -> StoredContentNote {
         StoredContentNote(
             id: UUID(), sourceKey: "youtube:dQw4w9WgXcQ", sourceType: "youtube",
@@ -88,9 +105,11 @@ private final class ControlledAnalyzeService: AnalyzeService {
     private var startedContinuation: CheckedContinuation<Void, Never>?
     private var progress: (@Sendable (AnalyzeProgressUpdate) -> Void)?
     private(set) var callCount = 0
+    private(set) var receivedURLs: [String] = []
 
     func analyzeYouTube(title: String, youtubeUrl: String, onProgress: @escaping @Sendable (AnalyzeProgressUpdate) -> Void) async throws -> AnalyzeResponse {
         callCount += 1
+        receivedURLs.append(youtubeUrl)
         progress = onProgress
         startedContinuation?.resume()
         startedContinuation = nil

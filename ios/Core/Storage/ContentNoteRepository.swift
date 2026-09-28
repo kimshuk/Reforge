@@ -154,14 +154,15 @@ final class ContentNoteRepository: @unchecked Sendable {
         )
         let routes = try context.fetch(descriptor)
         guard let latest = routes.last else {
-            return PendingRouteSnapshot(routeIDs: [], note: nil)
+            return PendingRouteSnapshot(routeIDs: [], noteID: nil)
         }
         let noteID = latest.noteId
         let noteDescriptor = FetchDescriptor<ContentNote>(
             predicate: #Predicate { $0.id == noteID }
         )
-        let note = try context.fetch(noteDescriptor).first?.stored
-        return PendingRouteSnapshot(routeIDs: routes.map(\.id), note: note)
+        let activeNoteID = try context.fetch(noteDescriptor).first
+            .flatMap { $0.trashedAt == nil ? $0.id : nil }
+        return PendingRouteSnapshot(routeIDs: routes.map(\.id), noteID: activeNoteID)
     }
 
     func acknowledge(routeIDs: [UUID]) throws {

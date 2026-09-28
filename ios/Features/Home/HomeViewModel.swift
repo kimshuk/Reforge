@@ -104,7 +104,7 @@ final class HomeViewModel: ObservableObject {
         autoFillTask?.cancel()
         autoFillTask = nil
         inputGeneration &+= 1
-        youtubeLink = note.sourceURL.absoluteString
+        youtubeLink = note.canonicalURL.absoluteString
         titleInput = note.title
         isLoading = false
         loadingStage = ""
@@ -112,7 +112,7 @@ final class HomeViewModel: ObservableObject {
         errorMessage = ""
         analysisResult = nil
         videoUnavailableReason = nil
-        lastAutoFilledURL = note.sourceURL.absoluteString
+        lastAutoFilledURL = note.canonicalURL.absoluteString
         submittedURL = ""
         submittedTitle = ""
     }

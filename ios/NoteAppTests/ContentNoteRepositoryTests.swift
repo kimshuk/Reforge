@@ -104,7 +104,7 @@ final class ContentNoteRepositoryTests: XCTestCase {
         let draft = makeDraft()
         _ = try fixture.repository.saveOrReuse(draft)
         let firstSnapshot = try fixture.repository.pendingRouteSnapshot()
-        XCTAssertEqual(firstSnapshot.note?.id, draft.id)
+        XCTAssertEqual(firstSnapshot.noteID, draft.id)
 
         let recreated = ContentNoteRepository(
             container: try SharedModelContainer.make(
@@ -121,7 +121,7 @@ final class ContentNoteRepositoryTests: XCTestCase {
 
         let remaining = try recreated.pendingRouteSnapshot()
         XCTAssertEqual(remaining.routeIDs.count, 1)
-        XCTAssertEqual(remaining.note?.id, draft.id)
+        XCTAssertEqual(remaining.noteID, draft.id)
     }
 
     func testSnapshotReturnsNilForLatestMissingNoteAndCanAcknowledgeIt() throws {
@@ -131,10 +131,40 @@ final class ContentNoteRepositoryTests: XCTestCase {
 
         let snapshot = try fixture.repository.pendingRouteSnapshot()
 
-        XCTAssertNil(snapshot.note)
+        XCTAssertNil(snapshot.noteID)
         XCTAssertEqual(snapshot.routeIDs.count, 1)
         try fixture.repository.acknowledge(routeIDs: snapshot.routeIDs)
         XCTAssertTrue(try fixture.repository.pendingRouteSnapshot().routeIDs.isEmpty)
+    }
+
+    func testSnapshotOrdersRoutesByCreationAndRejectsLatestTrashedNote() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let active = makeDraft(id: UUID())
+        let trashed = makeDraft(id: UUID())
+        let firstRoute = PendingNoteRoute(
+            noteId: active.id, createdAt: Date(timeIntervalSince1970: 100)
+        )
+        let latestRoute = PendingNoteRoute(
+            noteId: trashed.id, createdAt: Date(timeIntervalSince1970: 200)
+        )
+        let context = ModelContext(fixture.container)
+        let activeModel = ContentNote(draft: active)
+        let trashedModel = ContentNote(draft: trashed)
+        trashedModel.sourceKey = trashed.id.uuidString
+        trashedModel.trashedAt = Date(timeIntervalSince1970: 300)
+        context.insert(activeModel)
+        context.insert(trashedModel)
+        context.insert(latestRoute)
+        context.insert(firstRoute)
+        try context.save()
+
+        let snapshot = try fixture.repository.pendingRouteSnapshot()
+
+        XCTAssertEqual(snapshot.routeIDs, [firstRoute.id, latestRoute.id])
+        XCTAssertNil(snapshot.noteID)
+        try fixture.repository.acknowledge(routeIDs: [latestRoute.id])
+        XCTAssertEqual(try fixture.repository.pendingRouteSnapshot().noteID, active.id)
     }
 
     func testActiveAndTrashedNotesSortNewestFirst() throws {
@@ -202,7 +232,7 @@ final class ContentNoteRepositoryTests: XCTestCase {
         let restored = try fixture.repository.restoreAndEnqueueRoute(noteID: draft.id)
         assertStored(restored, equals: draft)
         XCTAssertNil(restored.trashedAt)
-        XCTAssertEqual(try fixture.repository.pendingRouteSnapshot().note?.id, draft.id)
+        XCTAssertEqual(try fixture.repository.pendingRouteSnapshot().noteID, draft.id)
     }
 
     func testRestoreAndEnqueueRouteSaveFailureLeavesTrashedNoteAndNoRoute() throws {
@@ -255,7 +285,7 @@ final class ContentNoteRepositoryTests: XCTestCase {
             return XCTFail("Expected active route")
         }
         XCTAssertEqual(active.id, draft.id)
-        XCTAssertEqual(try fixture.repository.pendingRouteSnapshot().note?.id, draft.id)
+        XCTAssertEqual(try fixture.repository.pendingRouteSnapshot().noteID, draft.id)
         try fixture.repository.moveToTrash(noteID: draft.id, at: Date(timeIntervalSince1970: 2_000))
 
         guard case let .trashed(trashed) = try fixture.repository.prepareForShare(sourceKey: draft.sourceKey) else {

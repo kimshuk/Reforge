@@ -26,6 +26,8 @@
 		B70000000000000000000001 /* PendingNoteRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70000000000000000000002 /* PendingNoteRouter.swift */; };
 		B70000000000000000000003 /* HomeViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70000000000000000000004 /* HomeViewModelTests.swift */; };
 		B70000000000000000000005 /* PendingNoteRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70000000000000000000006 /* PendingNoteRouterTests.swift */; };
+		B70000000000000000000007 /* AppCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B70000000000000000000008 /* AppCoordinatorTests.swift */; };
+		B70000000000000000000009 /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7000000000000000000000A /* AppCoordinator.swift */; };
 		C20000000000000000000001 /* NotesViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000002 /* NotesViewModelTests.swift */; };
 		C20000000000000000000003 /* NotesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000004 /* NotesStore.swift */; };
 		C20000000000000000000005 /* NotesListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000006 /* NotesListViewModel.swift */; };
@@ -107,6 +109,8 @@
 		B70000000000000000000002 /* PendingNoteRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingNoteRouter.swift; sourceTree = "<group>"; };
 		B70000000000000000000004 /* HomeViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModelTests.swift; sourceTree = "<group>"; };
 		B70000000000000000000006 /* PendingNoteRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingNoteRouterTests.swift; sourceTree = "<group>"; };
+		B70000000000000000000008 /* AppCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCoordinatorTests.swift; sourceTree = "<group>"; };
+		B7000000000000000000000A /* AppCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCoordinator.swift; sourceTree = "<group>"; };
 		C20000000000000000000002 /* NotesViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesViewModelTests.swift; sourceTree = "<group>"; };
 		C20000000000000000000004 /* NotesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesStore.swift; sourceTree = "<group>"; };
 		C20000000000000000000006 /* NotesListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesListViewModel.swift; sourceTree = "<group>"; };
@@ -216,6 +220,7 @@
 				B60000000000000000000025 /* NoteApp.entitlements */,
 				B80000000000000000000001 /* Info.plist */,
 				B70000000000000000000002 /* PendingNoteRouter.swift */,
+				B7000000000000000000000A /* AppCoordinator.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -370,6 +375,7 @@
 				B60000000000000000000004 /* ShareExtensionViewModelTests.swift */,
 				B70000000000000000000004 /* HomeViewModelTests.swift */,
 				B70000000000000000000006 /* PendingNoteRouterTests.swift */,
+				B70000000000000000000008 /* AppCoordinatorTests.swift */,
 				C20000000000000000000002 /* NotesViewModelTests.swift */,
 			);
 			path = NoteAppTests;
@@ -543,6 +549,7 @@
 				B60000000000000000000003 /* ShareExtensionViewModelTests.swift in Sources */,
 				B70000000000000000000003 /* HomeViewModelTests.swift in Sources */,
 				B70000000000000000000005 /* PendingNoteRouterTests.swift in Sources */,
+				B70000000000000000000007 /* AppCoordinatorTests.swift in Sources */,
 				C20000000000000000000001 /* NotesViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -564,6 +571,7 @@
 				B60000000000000000000011 /* ShareInputLoader.swift in Sources */,
 				B60000000000000000000013 /* ShareExtensionViewModel.swift in Sources */,
 				B70000000000000000000001 /* PendingNoteRouter.swift in Sources */,
+				B70000000000000000000009 /* AppCoordinator.swift in Sources */,
 				E9C385472F5C1000000F0758 /* AnalyzeResultView.swift in Sources */,
 				E9C385462F5C1000000F0758 /* AppConfig.swift in Sources */,
 				E9C385452F5C1000000F0758 /* AnalyzeService.swift in Sources */,

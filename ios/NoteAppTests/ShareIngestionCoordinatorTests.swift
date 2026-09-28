@@ -87,7 +87,7 @@ final class ShareIngestionCoordinatorTests: XCTestCase {
         XCTAssertEqual(restored, .alreadySaved(noteID: draft.id))
         XCTAssertEqual(try fixture.repository.note(id: draft.id)?.transcriptText, draft.transcriptText)
         XCTAssertNil(try fixture.repository.note(id: draft.id)?.trashedAt)
-        XCTAssertEqual(try fixture.repository.pendingRouteSnapshot().note?.id, draft.id)
+        XCTAssertEqual(try fixture.repository.pendingRouteSnapshot().noteID, draft.id)
     }
 
     func testSaveRaceCanReturnRestoreRequired() async throws {

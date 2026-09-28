@@ -9,32 +9,54 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var viewModel: HomeViewModel
-    private let router: PendingNoteRouter
+    @StateObject private var coordinator: AppCoordinator
+    private let repository: ContentNoteRepository
 
-    init(
-        analyzeService: AnalyzeService,
-        youtubeTitleService: YouTubeTitleService,
-        router: PendingNoteRouter
-    ) {
-        _viewModel = StateObject(
-            wrappedValue: HomeViewModel(
-                analyzeService: analyzeService,
-                youtubeTitleService: youtubeTitleService
-            )
-        )
-        self.router = router
+    init(coordinator: AppCoordinator, repository: ContentNoteRepository) {
+        _coordinator = StateObject(wrappedValue: coordinator)
+        self.repository = repository
     }
 
     var body: some View {
-        NavigationStack {
-            HomeView(viewModel: viewModel)
-        }
-        .onChange(of: scenePhase) {
-            guard scenePhase == .active else { return }
-            try? router.consumeLatest { note in
-                viewModel.applySharedNote(note)
+        TabView(selection: $coordinator.selectedTab) {
+            NavigationStack {
+                HomeView(viewModel: coordinator.homeViewModel)
             }
+            .tabItem { Label("Home", systemImage: "house") }
+            .tag(AppTab.home)
+
+            NavigationStack(path: $coordinator.notesPath) {
+                NotesListView(
+                    repository: repository,
+                    onOpenNote: { coordinator.openNote($0) },
+                    onOpenTrash: { coordinator.notesPath.append(.trash) }
+                )
+                .navigationDestination(for: NotesRoute.self) { route in
+                    switch route {
+                    case .detail(let noteID):
+                        ContentNoteDetailView(
+                            repository: repository,
+                            noteID: noteID,
+                            onAnalyze: { note in
+                                Task { await coordinator.analyze(note) }
+                            },
+                            onDeleted: {
+                                if coordinator.notesPath.last == .detail(noteID) {
+                                    coordinator.notesPath.removeLast()
+                                }
+                            }
+                        )
+                    case .trash:
+                        TrashView(repository: repository, now: Date())
+                    }
+                }
+            }
+            .tabItem { Label("My Notes", systemImage: "note.text") }
+            .tag(AppTab.myNotes)
+        }
+        .task { coordinator.activate() }
+        .onChange(of: scenePhase) {
+            if scenePhase == .active { coordinator.activate() }
         }
     }
 }
