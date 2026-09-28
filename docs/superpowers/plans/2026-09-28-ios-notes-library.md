@@ -20,7 +20,7 @@
 - 휴지통 영상 재공유 복원 시 같은 note ID와 자막을 유지하고 복원+route를 한 save로 처리한다.
 - 검색, 편집, 분석 결과 저장, 내보내기, 계정·동기화, Android, 백엔드 변경은 제외한다.
 - 새 외부 의존성을 추가하지 않는다.
-- 이 계획은 프로젝트 정책에 따라 TDD를 전제하지 않는다. 각 구현 단위 직후 회귀 테스트를 추가·실행한다.
+- 사용자가 TDD 추가를 승인했다. 모든 새 동작과 버그 수정은 production code보다 실패하는 테스트를 먼저 작성하고, 예상한 이유로 RED임을 확인한 뒤 최소 구현으로 GREEN을 만들고 REFACTOR한다. 아래 Task의 구현·테스트 목록은 요구사항 묶음이며 실제 실행 순서는 각 동작마다 RED → GREEN → REFACTOR다.
 - iOS 자동 검증 destination은 현재 사용 가능한 `platform=iOS Simulator,id=27BE906F-3031-4204-970C-4D62383904EA`를 사용한다.
 
 ## Review Focus
