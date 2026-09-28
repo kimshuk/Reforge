@@ -214,6 +214,73 @@ class ShareNavigationTest {
         }
     }
 
+    @Test fun generalLaunchDiscardsQueuedCompletionWithoutDeletingSavedNote() {
+        val gate = transcript.block(FIRST_ID)
+        ActivityScenario.launch<MainActivity>(launcher()).use { scenario ->
+            sendToExisting(FIRST)
+            waitFor("share-loading")
+            val activity = arrayOfNulls<MainActivity>(1)
+            scenario.onActivity { activity[0] = it }
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+            gate.complete(response(FIRST_ID))
+            compose.waitUntil(5_000) { activeCount() == 1 }
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                activity[0]!!.appCoordinator.acceptShare(launcher())
+            }
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+            waitFor("home")
+            compose.onNodeWithTag("note-detail").assertDoesNotExist()
+            scenario.recreate()
+            waitFor("home")
+            compose.onNodeWithTag("note-detail").assertDoesNotExist()
+            assertEquals(1, activeCount())
+            assertEquals(1, transcript.calls.get())
+        }
+    }
+
+    @Test fun processRecreationDuringLoadingExitsShareWithoutReplay() {
+        val gate = transcript.block(FIRST_ID)
+        ActivityScenario.launch<MainActivity>(launcher()).use { scenario ->
+            sendToExisting(FIRST)
+            waitFor("share-loading")
+            scenario.onActivity { it.viewModelStore.clear() }
+            scenario.recreate()
+            waitFor("home")
+            compose.onNodeWithTag("share-import").assertDoesNotExist()
+            gate.complete(response(FIRST_ID))
+            compose.waitForIdle()
+            assertEquals(1, transcript.calls.get())
+            assertEquals(0, activeCount())
+        }
+    }
+
+    @Test fun processRecreationFromErrorExitsBlankShareRoute() {
+        ActivityScenario.launch<MainActivity>(launcher()).use { scenario ->
+            sendToExisting("invalid")
+            compose.onNodeWithText("Please enter a valid YouTube URL.").assertExists()
+            scenario.onActivity { it.viewModelStore.clear() }
+            scenario.recreate()
+            waitFor("home")
+            compose.onNodeWithTag("share-import").assertDoesNotExist()
+            assertEquals(0, activeCount())
+        }
+    }
+
+    @Test fun processRecreationFromRestorePromptExitsWithoutChangingTrash() {
+        val note = save(FIRST_ID)
+        runBlocking { repository.moveToTrash(note.id, Instant.now()) }
+        ActivityScenario.launch<MainActivity>(launcher()).use { scenario ->
+            sendToExisting(FIRST)
+            compose.onNodeWithText("This video is in Trash. Restore it?").assertExists()
+            scenario.onActivity { it.viewModelStore.clear() }
+            scenario.recreate()
+            waitFor("home")
+            compose.onNodeWithTag("share-import").assertDoesNotExist()
+            assertEquals(note.id, runBlocking { repository.observeTrash().first().single().id })
+            assertEquals(0, transcript.calls.get())
+        }
+    }
+
     @Test fun restoredCompletedStateNavigatesOnceAfterActivitySavedStateRecreation() {
         val gate = transcript.block(FIRST_ID)
         ActivityScenario.launch<MainActivity>(launcher()).use { scenario ->

@@ -39,7 +39,7 @@ class AppCoordinator(
             shareImport.accept(ShareIntentParser.parse(intent))
             navigate(AppDestination.SHARE_IMPORT)
         } else {
-            shareImport.cancelImport()
+            shareImport.abandonForGeneralLaunch()
             if (navController?.currentBackStackEntry?.destination?.route == AppDestination.SHARE_IMPORT) {
                 navController?.popBackStack()
             }

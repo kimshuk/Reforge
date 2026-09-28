@@ -73,6 +73,11 @@ class ShareImportViewModel(
         finish(current.generation)
     }
 
+    fun abandonForGeneralLaunch() {
+        val current = mutableState.value as? ShareImportState.Active ?: return
+        if (current !is ShareImportState.Finished) finish(current.generation)
+    }
+
     fun acknowledgeDetailOpened(generation: Long, noteId: String) {
         val completed = mutableState.value as? ShareImportState.Completed ?: return
         if (generation != this.generation || completed.generation != generation ||

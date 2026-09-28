@@ -24,6 +24,7 @@ import com.andrewkim.reforge.sharing.ShareImportViewModel
 import com.andrewkim.reforge.ui.theme.ReforgeTheme
 
 class MainActivity : ComponentActivity() {
+    private var recoverUnfinishedShareOnStart = false
     private val shareImport: ShareImportViewModel by viewModels {
         viewModelFactory {
             initializer {
@@ -44,6 +45,7 @@ class MainActivity : ComponentActivity() {
             coldShareLaunch = savedInstanceState?.getBoolean(KEY_COLD_SHARE)
                 ?: (intent.action == Intent.ACTION_SEND),
         )
+        recoverUnfinishedShareOnStart = savedInstanceState != null
         if (savedInstanceState == null) {
             appCoordinator.acceptShare(intent)
             setIntent(neutralIntent())
@@ -68,6 +70,17 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(navController, currentEntry) {
                     if (currentEntry == null) return@LaunchedEffect
                     appCoordinator.bind(navController)
+                    if (recoverUnfinishedShareOnStart &&
+                        currentEntry?.destination?.route == AppDestination.SHARE_IMPORT &&
+                        shareImport.state.value.let { state ->
+                            state is ShareImportState.Idle || state is ShareImportState.Finished ||
+                                (state is ShareImportState.Completed && state.navigationAcknowledged)
+                        }
+                    ) {
+                        recoverUnfinishedShareOnStart = false
+                        appCoordinator.finishShare()
+                        return@LaunchedEffect
+                    }
                     lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                         shareImport.state.collect { state ->
                             if (state is ShareImportState.Completed && !state.navigationAcknowledged) {
@@ -85,6 +98,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        recoverUnfinishedShareOnStart = false
         setIntent(intent)
         appCoordinator.acceptShare(intent)
         setIntent(neutralIntent())
