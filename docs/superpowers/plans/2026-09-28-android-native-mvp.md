@@ -6,7 +6,7 @@
 
 **Architecture:** `android/`의 단일 Activity Compose 앱이 일반 실행과 `ACTION_SEND`를 한 navigation graph로 처리한다. Room repository가 iOS와 동등한 active / trashed / absent 정책을 원자적으로 보장하고, coordinator와 ViewModel이 transcript 수집·취소·늦은 응답 차단을 담당한다. 기존 FastAPI transcript와 SSE analysis 계약을 재사용하며 UI는 기본 Material 3에 한정한다.
 
-**Tech Stack:** Android Gradle Plugin 9.4.0 built-in Kotlin 2.2.10, Kotlin Compose·Serialization compiler plugins 2.2.10, Gradle 9.6.0, JDK 17, compile/target SDK 37, min SDK 26, Compose BOM 2026.09.00, Navigation Compose 2.10.2, Lifecycle 2.11.0, Room 2.8.5 + KSP 2.3.10, Retrofit 3.0.0, OkHttp 5.3.0, Coil 3.6.3, Kotlin Coroutines, Kotlin Serialization, JUnit, kotlinx-coroutines-test, MockWebServer, Room in-memory tests, Compose UI tests
+**Tech Stack:** Android Gradle Plugin 9.4.0 built-in Kotlin with KGP runtime override 2.4.10, Kotlin Compose·Serialization compiler plugins 2.4.10, Gradle 9.6.0, JDK 17, compile/target SDK 37, min SDK 26, Compose BOM 2026.09.00, Navigation Compose 2.10.2, Lifecycle 2.11.0, Room 2.8.5 + KSP 2.3.10, Retrofit 3.0.0, OkHttp 5.3.0, Coil 3.6.3, Kotlin Coroutines, Kotlin Serialization, JUnit, kotlinx-coroutines-test, MockWebServer, Room in-memory tests, Compose UI tests
 
 **Spec:** `docs/superpowers/specs/2026-09-28-android-native-mvp-design.md`
 
@@ -74,7 +74,7 @@
 
 - [ ] **Step 1: Scaffold the Gradle project**
 
-Create a one-module Kotlin DSL project with pinned versions from `Tech Stack`, Room schema export to `android/app/schemas`, Java 17, `minSdk=26`, `compileSdk=37`, `targetSdk=37`, application ID `com.andrewkim.reforge`, test dependencies, and the complete Gradle wrapper 9.6.0 including its JAR. Use AGP 9.4 built-in Kotlin; do not apply `org.jetbrains.kotlin.android`. Apply Compose and Serialization compiler plugins at built-in Kotlin version 2.2.10 and KSP 2.3.10. Add only `google()` and `mavenCentral()` repositories.
+Create a one-module Kotlin DSL project with pinned versions from `Tech Stack`, Room schema export to `android/app/schemas`, Java 17, `minSdk=26`, `compileSdk=37`, `targetSdk=37`, application ID `com.andrewkim.reforge`, test dependencies, and the complete Gradle wrapper 9.6.0 including its JAR. Use AGP 9.4 built-in Kotlin; do not apply `org.jetbrains.kotlin.android`. Override AGP's default KGP runtime through the top-level buildscript classpath to 2.4.10 so pinned libraries' Kotlin 2.4 metadata is readable; apply Compose and Serialization compiler plugins 2.4.10 and KSP 2.3.10. Add only `google()` and `mavenCentral()` repositories.
 
 - [ ] **Step 2: Add build configuration and manifest boundaries**
 
