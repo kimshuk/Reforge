@@ -98,8 +98,20 @@ untracked `local.properties` for the SDK path.
 
 The Debug build defaults to `http://10.0.2.2:3000`, the Android emulator alias for a backend
 running on the development computer. Start the backend on port 3000 before testing a new
-YouTube share or Home analysis. A real device needs a backend address reachable from that
-device; pass it as a Gradle property for the local build, for example:
+YouTube share or Home analysis. If Docker Desktop port forwarding does not work through
+`10.0.2.2`, start exactly one emulator and use the local runner. It verifies backend health,
+sets up `adb reverse`, builds with the emulator loopback URL, installs the app, and launches it:
+
+```bash
+cd android
+./scripts/run-local-emulator.sh
+```
+
+The reverse mapping lasts until the emulator stops. It affects only this local Debug build;
+the committed Debug default remains `10.0.2.2`, and Release configuration is unchanged.
+
+A real device needs a backend address reachable from that device; pass it as a Gradle property
+for the local build, for example:
 
 ```bash
 cd android
