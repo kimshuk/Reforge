@@ -153,7 +153,9 @@ class ShareLifecycleTest {
     }
 
     private fun waitFor(tag: String) = waitUntil {
-        compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+        compose.onAllNodesWithTag(tag)
+            .fetchSemanticsNodes(atLeastOneRootRequired = false)
+            .isNotEmpty()
     }
 
     private fun waitUntil(condition: () -> Boolean) = compose.waitUntil(10_000, condition)
