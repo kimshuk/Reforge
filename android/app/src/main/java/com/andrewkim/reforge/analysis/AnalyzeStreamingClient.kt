@@ -1,6 +1,7 @@
 package com.andrewkim.reforge.analysis
 
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
@@ -17,7 +18,9 @@ import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.BufferedSink
 
 @Serializable
 data class AnalyzeProgressUpdate(val stage: String, val message: String)
@@ -52,9 +55,21 @@ private data class StreamErrorPayload(
 
 class AnalyzeStreamingClient(
     private val baseUrl: HttpUrl,
-    private val client: OkHttpClient = OkHttpClient(),
+    client: OkHttpClient = OkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true; encodeDefaults = true },
 ) {
+    // Analysis can pause between SSE events. Cancellation, rather than a read or call deadline,
+    // controls the lifetime. A one-shot body also blocks OkHttp's HTTP 408/503 POST replay.
+    private val streamingClient = client.newBuilder()
+        .readTimeout(0, TimeUnit.MILLISECONDS)
+        .callTimeout(0, TimeUnit.MILLISECONDS)
+        .retryOnConnectionFailure(false)
+        .followRedirects(false)
+        .followSslRedirects(false)
+        .authenticator(okhttp3.Authenticator.NONE)
+        .proxyAuthenticator(okhttp3.Authenticator.NONE)
+        .build()
+
     suspend fun analyze(
         request: AnalyzeRequest,
         onProgress: (AnalyzeProgressUpdate) -> Unit = {},
@@ -63,9 +78,9 @@ class AnalyzeStreamingClient(
             .addQueryParameter("stream", "progress").build()
         val httpRequest = Request.Builder().url(endpoint)
             .header("Accept", "text/event-stream")
-            .post(json.encodeToString(request).toRequestBody("application/json".toMediaType()))
+            .post(oneShotBody(json.encodeToString(request)))
             .build()
-        val call = client.newCall(httpRequest)
+        val call = streamingClient.newCall(httpRequest)
         val cancellationWatcher = launch(start = CoroutineStart.UNDISPATCHED) {
             try {
                 awaitCancellation()
@@ -145,6 +160,16 @@ class AnalyzeStreamingClient(
         } finally {
             cancellationWatcher.cancel()
             call.cancel()
+        }
+    }
+
+    private fun oneShotBody(payload: String): RequestBody {
+        val body = payload.toRequestBody("application/json".toMediaType())
+        return object : RequestBody() {
+            override fun contentType() = body.contentType()
+            override fun contentLength() = body.contentLength()
+            override fun writeTo(sink: BufferedSink) = body.writeTo(sink)
+            override fun isOneShot() = true
         }
     }
 

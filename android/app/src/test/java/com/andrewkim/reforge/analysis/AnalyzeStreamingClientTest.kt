@@ -118,6 +118,69 @@ class AnalyzeStreamingClientTest {
         assertEquals(1, server.requestCount)
     }
 
+    @Test fun streamingWaitOutlivesInjectedShortReadAndCallTimeouts() = runBlocking {
+        server.enqueue(stream("event: result\ndata: $MODERN\n\n")
+            .setBodyDelay(350, TimeUnit.MILLISECONDS))
+        val shortTimeoutClient = okhttp3.OkHttpClient.Builder()
+            .readTimeout(100, TimeUnit.MILLISECONDS)
+            .callTimeout(150, TimeUnit.MILLISECONDS)
+            .build()
+
+        val result = client(shortTimeoutClient).analyze(request)
+
+        assertEquals("transcript-1", result.transcriptId)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun retryableHttp408DoesNotReplayAnalysisPost() {
+        server.enqueue(MockResponse().setResponseCode(408).addHeader("Retry-After", "0")
+            .setBody("""{"error":{"code":"REQUEST_TIMEOUT","message":"Waited"}}"""))
+        server.enqueue(stream("event: result\ndata: $MODERN\n\n"))
+
+        val error = assertThrows(AnalyzeApiError.Backend::class.java) {
+            runBlocking { client().analyze(request) }
+        }
+
+        assertEquals(408, error.statusCode)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun retryableHttp503DoesNotReplayAnalysisPost() {
+        server.enqueue(MockResponse().setResponseCode(503).addHeader("Retry-After", "0")
+            .setBody("""{"error":{"code":"UNAVAILABLE","message":"Busy"}}"""))
+        server.enqueue(stream("event: result\ndata: $MODERN\n\n"))
+
+        val error = assertThrows(AnalyzeApiError.Backend::class.java) {
+            runBlocking { client().analyze(request) }
+        }
+
+        assertEquals(503, error.statusCode)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun redirectDoesNotSendAnalysisToSecondEndpoint() {
+        server.enqueue(MockResponse().setResponseCode(307).addHeader("Location", "/other/analyze"))
+        server.enqueue(stream("event: result\ndata: $MODERN\n\n"))
+
+        val error = assertThrows(AnalyzeApiError.Http::class.java) {
+            runBlocking { client().analyze(request) }
+        }
+
+        assertEquals(307, error.statusCode)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun droppedConnectionDoesNotReconnectAndReplayAnalysisPost() {
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
+        server.enqueue(stream("event: result\ndata: $MODERN\n\n"))
+
+        assertThrows(AnalyzeApiError.Transport::class.java) {
+            runBlocking { client().analyze(request) }
+        }
+
+        assertEquals(1, server.requestCount)
+    }
+
     @Test fun cancellationClosesUnderlyingHttpCall() = runBlocking {
         server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
         val http = okhttp3.OkHttpClient()
