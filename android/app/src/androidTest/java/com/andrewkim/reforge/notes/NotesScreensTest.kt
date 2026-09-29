@@ -1,6 +1,9 @@
 package com.andrewkim.reforge.notes
 
 import android.content.Intent
+import android.content.ActivityNotFoundException
+import android.content.ContextWrapper
+import androidx.activity.compose.setContent
 import androidx.room.Room
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -12,22 +15,30 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import com.andrewkim.reforge.AppContainer
 import com.andrewkim.reforge.MainActivity
 import com.andrewkim.reforge.ReforgeApplication
+import com.andrewkim.reforge.openYoutubeUrl
 import com.andrewkim.reforge.navigation.AnalysisInputSnapshot
 import com.andrewkim.reforge.navigation.AppDestination
+import com.andrewkim.reforge.navigation.ReforgeNavHost
 import com.andrewkim.reforge.sharing.ShareIngesting
 import com.andrewkim.reforge.sharing.ShareIngestionResult
+import com.andrewkim.reforge.sharing.ShareImportState
 import com.andrewkim.reforge.sharing.SharedTextResult
+import com.andrewkim.reforge.ui.theme.ReforgeTheme
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -83,7 +94,7 @@ class NotesScreensTest {
         }
     }
 
-    @Test fun detailFieldsAndAnalysisSnapshotSurviveConcurrentDelete() {
+    @Test fun detailFieldsAndAnalysisSnapshot() {
         val note = save("dQw4w9WgXcQ", "Displayed title", Instant.now())
         ActivityScenario.launch<MainActivity>(launcher()).use { scenario ->
             compose.onNodeWithText("My Notes").performClick()
@@ -99,9 +110,40 @@ class NotesScreensTest {
                 assertEquals(AnalysisInputSnapshot(note.title, note.canonicalUrl), it.appCoordinator.analysisInput.value)
                 assertEquals(AppDestination.HOME, it.appCoordinator.currentRoute())
             }
-            runBlocking { repository.deletePermanently(note.id) }
-            scenario.onActivity {
-                assertEquals(AnalysisInputSnapshot(note.title, note.canonicalUrl), it.appCoordinator.analysisInput.value)
+        }
+    }
+
+    @Test fun analyzeSnapshotSurvivesMoveAtDispatchBoundary() =
+        assertAnalyzeSnapshotAtDispatch { note -> repository.moveToTrash(note.id, Instant.now()) }
+
+    @Test fun analyzeSnapshotSurvivesDeleteAtDispatchBoundary() =
+        assertAnalyzeSnapshotAtDispatch { note -> repository.deletePermanently(note.id) }
+
+    @Test fun missingUrlHandlerKeepsDetailAndOtherFailuresPropagate() {
+        val note = save("dQw4w9WgXcQ", "External link", Instant.now())
+        ActivityScenario.launch<MainActivity>(launcher()).use { scenario ->
+            waitFor("home")
+            scenario.onActivity { it.appCoordinator.openNote(note.id) }
+            waitFor("detail-title")
+            scenario.onActivity { activity ->
+                val noHandler = object : ContextWrapper(activity) {
+                    override fun startActivity(intent: Intent) {
+                        throw ActivityNotFoundException("No URL handler")
+                    }
+                }
+                openYoutubeUrl(noHandler, note.canonicalUrl)
+                assertEquals(AppDestination.NOTE_PATTERN, activity.appCoordinator.currentRoute())
+                val unexpectedFailure = object : ContextWrapper(activity) {
+                    override fun startActivity(intent: Intent) {
+                        throw IllegalStateException("Unexpected failure")
+                    }
+                }
+                try {
+                    openYoutubeUrl(unexpectedFailure, note.canonicalUrl)
+                    fail("Unexpected failures must propagate")
+                } catch (expected: IllegalStateException) {
+                    assertEquals("Unexpected failure", expected.message)
+                }
             }
         }
     }
@@ -222,6 +264,55 @@ class NotesScreensTest {
     }
 
     private fun rowTop(tag: String) = compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.top
+    private fun assertAnalyzeSnapshotAtDispatch(mutate: suspend (ContentNote) -> Boolean) {
+        val note = save("dQw4w9WgXcQ", "Boundary title", Instant.now())
+        val delivered = AtomicReference<AnalysisInputSnapshot?>(null)
+        val nav = AtomicReference<NavHostController>()
+        val rowMissingWhenDelivered = AtomicReference<Boolean>()
+        ActivityScenario.launch<MainActivity>(launcher()).use { scenario ->
+            waitFor("home")
+            scenario.onActivity { activity ->
+                activity.setContent {
+                    ReforgeTheme {
+                        val controller = rememberNavController()
+                        nav.set(controller)
+                        ReforgeNavHost(
+                            navController = controller,
+                            shareState = ShareImportState.Idle,
+                            repository = repository,
+                            onSelectHome = { controller.navigate(AppDestination.HOME_GRAPH) },
+                            onSelectNotes = { controller.navigate(AppDestination.NOTES_GRAPH) },
+                            onAnalyzeNote = { snapshot ->
+                                // Mutate synchronously inside the screen callback, before delivery to Home.
+                                runBlocking { assertTrue(mutate(note)) }
+                                rowMissingWhenDelivered.set(runBlocking {
+                                    repository.observeActive().first().none { it.id == note.id }
+                                })
+                                activity.appCoordinator.openHomeForAnalysis(snapshot)
+                                delivered.set(activity.appCoordinator.analysisInput.value)
+                                controller.navigate(AppDestination.HOME_GRAPH)
+                            },
+                            onOpenYoutube = {},
+                            onBackShare = {},
+                            onConfirmRestore = {},
+                            onCancelRestore = {},
+                        )
+                    }
+                }
+            }
+            waitFor("home")
+            scenario.onActivity {
+                nav.get().navigate(AppDestination.NOTES_GRAPH)
+                nav.get().navigate(AppDestination.note(note.id))
+            }
+            waitFor("detail-title")
+            compose.onNodeWithText("Analyze").performClick()
+            compose.waitUntil(5_000) { delivered.get() != null }
+            assertEquals(true, rowMissingWhenDelivered.get())
+            assertEquals(AnalysisInputSnapshot(note.title, note.canonicalUrl), delivered.get())
+            scenario.onActivity { assertEquals(AppDestination.HOME, nav.get().currentDestination?.route) }
+        }
+    }
     private fun waitFor(tag: String) {
         compose.waitUntil(10_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
     }

@@ -1,6 +1,8 @@
 package com.andrewkim.reforge
 
 import android.content.Intent
+import android.content.ActivityNotFoundException
+import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -63,7 +65,7 @@ class MainActivity : ComponentActivity() {
                     onSelectHome = { appCoordinator.selectTab(AppDestination.HOME_GRAPH) },
                     onSelectNotes = { appCoordinator.selectTab(AppDestination.NOTES_GRAPH) },
                     onAnalyzeNote = appCoordinator::openHomeForAnalysis,
-                    onOpenYoutube = { url -> startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
+                    onOpenYoutube = { url -> openYoutubeUrl(this, url) },
                     onBackShare = appCoordinator::finishShare,
                     onConfirmRestore = shareImport::confirmRestore,
                     onCancelRestore = {
@@ -118,4 +120,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun neutralIntent() = Intent(Intent.ACTION_MAIN).setClass(this, MainActivity::class.java)
+}
+
+internal fun openYoutubeUrl(context: Context, url: String) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    } catch (_: ActivityNotFoundException) {
+        // Stay on the note detail when no application can handle the URL.
+    }
 }
