@@ -51,4 +51,10 @@ jobs:
           pre-emulator-launch-script: |
             grep '^target=' "$ANDROID_AVD_HOME/test.ini"
             grep -qx 'target=android-36' "$ANDROID_AVD_HOME/test.ini"
-          script: cd android && ./gradlew connectedDebugAndroidTest --max-workers=1
+          script: |
+            cd android
+            if ! ./gradlew connectedDebugAndroidTest --max-workers=1; then
+              find app/build/outputs/androidTest-results/connected/debug \
+                -name 'TEST-*.xml' -exec cat {} \;
+              exit 1
+            fi
