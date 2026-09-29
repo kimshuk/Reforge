@@ -2,14 +2,20 @@ name: CI
 
 on:
   push:
+    branches:
+      - master
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   android:
-    name: Android API 37
+    name: Android SDK 37 / emulator API 36
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -35,14 +41,14 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - name: Start ADB server
         run: adb start-server
-      - name: Instrumented tests on one API 37 emulator
+      - name: Instrumented tests on one API 36 emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: '37.0'
+          api-level: 36
           target: google_apis
           arch: x86_64
           disable-animations: true
           pre-emulator-launch-script: |
             grep '^target=' "$ANDROID_AVD_HOME/test.ini"
-            grep -qx 'target=android-37.0' "$ANDROID_AVD_HOME/test.ini"
+            grep -qx 'target=android-36' "$ANDROID_AVD_HOME/test.ini"
           script: cd android && ./gradlew connectedDebugAndroidTest --max-workers=1
