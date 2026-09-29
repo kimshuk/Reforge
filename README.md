@@ -5,7 +5,6 @@ This repository contains the Reforge FastAPI backend and native iOS and Android 
 ## Repository layout
 
 - `backend-fastapi/`: FastAPI service for transcript ingestion and clipping-oriented analysis
-- `backend-nest/`: Legacy NestJS implementation retained during migration validation
 - `ios/`: Native iOS app project (`NoteApp.xcodeproj`)
 - `android/`: Native Android app project (Gradle Kotlin DSL)
 
@@ -18,7 +17,7 @@ docker compose up
 ```
 
 This starts `backend-fastapi`, Postgres, and Redis. Docker Compose reads
-`backend-fastapi/.env`, with `backend-nest/.env` retained as a temporary migration fallback.
+`backend-fastapi/.env` for backend configuration.
 
 Requirements:
 
