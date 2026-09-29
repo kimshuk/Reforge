@@ -79,12 +79,9 @@ class MainActivity : ComponentActivity() {
                     onSelectNotes = { appCoordinator.selectTab(AppDestination.NOTES_GRAPH) },
                     onAnalyzeNote = appCoordinator::openHomeForAnalysis,
                     onOpenYoutube = { url -> openYoutubeUrl(this, url) },
-                    onBackShare = appCoordinator::finishShare,
+                    onBackShare = ::finishShare,
                     onConfirmRestore = shareImport::confirmRestore,
-                    onCancelRestore = {
-                        shareImport.cancelRestore()
-                        appCoordinator.finishShare()
-                    },
+                    onCancelRestore = ::finishShare,
                 )
                 LaunchedEffect(pendingAnalysis) {
                     pendingAnalysis?.let { snapshot ->
@@ -102,8 +99,7 @@ class MainActivity : ComponentActivity() {
                                 (state is ShareImportState.Idle || state is ShareImportState.Finished ||
                                     (state is ShareImportState.Completed && state.navigationAcknowledged))
                             ) {
-                                recoverUnfinishedShareOnStart = false
-                                appCoordinator.finishShare()
+                                finishShare()
                             } else if (state is ShareImportState.Completed && !state.navigationAcknowledged) {
                                 recoverUnfinishedShareOnStart = false
                                 appCoordinator.completeShare(state)
@@ -129,6 +125,12 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putBoolean(KEY_COLD_SHARE, appCoordinator.isColdShareLaunch)
         super.onSaveInstanceState(outState)
+    }
+
+    private fun finishShare() {
+        // Disarm recovery before cancelImport publishes Finished to the collector.
+        recoverUnfinishedShareOnStart = false
+        appCoordinator.finishShare()
     }
 
     private companion object {

@@ -11,6 +11,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -36,6 +37,7 @@ import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -264,6 +266,74 @@ class ShareNavigationTest {
             scenario.onActivity { assertEquals(AppDestination.NOTE_PATTERN, it.appCoordinator.currentRoute()) }
             waitFor("note-detail")
             assertEquals(1, activeCount())
+        }
+    }
+
+    @Test fun recreatedWarmLoadingBackReturnsOnceToOriginDetail() {
+        val origin = save(SECOND_ID)
+        val gate = transcript.block(FIRST_ID)
+        ActivityScenario.launch<MainActivity>(launcher()).use { scenario ->
+            waitFor("home")
+            scenario.onActivity { it.appCoordinator.openNote(origin.id) }
+            waitFor("note-detail")
+            sendToExisting(FIRST)
+            waitFor("share-loading")
+            compose.waitUntil(5_000) { transcript.calls.get() == 1 }
+            scenario.recreate()
+            waitFor("share-loading")
+
+            scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+            waitFor("note-detail")
+            compose.waitForIdle()
+            scenario.onActivity {
+                assertFalse(it.isFinishing)
+                assertEquals(AppDestination.NOTE_PATTERN, it.appCoordinator.currentRoute())
+                assertEquals(origin.id, it.appCoordinator.currentNoteId())
+            }
+            gate.complete(response(FIRST_ID))
+            compose.waitForIdle()
+            scenario.onActivity {
+                assertFalse(it.isFinishing)
+                assertEquals(origin.id, it.appCoordinator.currentNoteId())
+            }
+            assertEquals(listOf(origin), runBlocking { repository.observeActive().first() })
+            assertEquals(1, transcript.calls.get())
+        }
+    }
+
+    @Test fun recreatedWarmRestoreCancelReturnsOnceToOriginDetailWithoutMutation() {
+        val origin = save(SECOND_ID)
+        val trashed = save(FIRST_ID)
+        runBlocking { repository.moveToTrash(trashed.id, Instant.now()) }
+        val trashBefore = runBlocking { repository.observeTrash().first() }
+        ActivityScenario.launch<MainActivity>(launcher()).use { scenario ->
+            waitFor("home")
+            scenario.onActivity { it.appCoordinator.openNote(origin.id) }
+            waitFor("note-detail")
+            sendToExisting(FIRST)
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText("This video is in Trash. Restore it?").fetchSemanticsNodes().isNotEmpty()
+            }
+            scenario.recreate()
+            compose.onNodeWithText("This video is in Trash. Restore it?").assertExists()
+
+            compose.onNodeWithText("Cancel").performClick()
+            waitFor("note-detail")
+            compose.waitForIdle()
+            scenario.onActivity {
+                assertFalse(it.isFinishing)
+                assertEquals(AppDestination.NOTE_PATTERN, it.appCoordinator.currentRoute())
+                assertEquals(origin.id, it.appCoordinator.currentNoteId())
+            }
+            assertEquals(listOf(origin), runBlocking { repository.observeActive().first() })
+            assertEquals(trashBefore, runBlocking { repository.observeTrash().first() })
+            assertEquals(0, transcript.calls.get())
+            scenario.recreate()
+            waitFor("note-detail")
+            scenario.onActivity {
+                assertFalse(it.isFinishing)
+                assertEquals(origin.id, it.appCoordinator.currentNoteId())
+            }
         }
     }
 
