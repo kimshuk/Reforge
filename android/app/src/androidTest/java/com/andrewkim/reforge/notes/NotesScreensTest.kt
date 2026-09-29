@@ -102,6 +102,7 @@ class NotesScreensTest {
         val note = save("dQw4w9WgXcQ", "Displayed title", Instant.now())
         ActivityScenario.launch<MainActivity>(launcher()).use { scenario ->
             compose.onNodeWithText("My Notes").performClick()
+            waitFor("note-row-${note.id}")
             compose.onNodeWithText("Displayed title").performClick()
             waitFor("note-detail")
             compose.onNodeWithTag("note-thumbnail").assertExists()
