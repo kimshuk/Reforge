@@ -1,12 +1,13 @@
 # Reforge
 
-This repository contains the Reforge FastAPI backend and the native iOS client for NoteApp.
+This repository contains the Reforge FastAPI backend and native iOS and Android clients for NoteApp.
 
 ## Repository layout
 
 - `backend-fastapi/`: FastAPI service for transcript ingestion and clipping-oriented analysis
 - `backend-nest/`: Legacy NestJS implementation retained during migration validation
 - `ios/`: Native iOS app project (`NoteApp.xcodeproj`)
+- `android/`: Native Android app project (Gradle Kotlin DSL)
 
 ## Backend
 
@@ -87,3 +88,52 @@ xcodebuild test -project ios/NoteApp.xcodeproj -scheme NoteApp -destination 'pla
 
 - Project-specific ignore rules are kept in each service and client directory.
 - Virtual environments, dependency directories, and local `.env` files are intentionally ignored.
+
+## Android app
+
+Open the `android/` directory as the project in Android Studio. The application ID is
+`com.andrewkim.reforge`. The app supports Android 8.0 (API 26) and later; compile and target
+SDK are API 37. Use JDK 17 and install Android SDK Platform 37. Android Studio creates its own
+untracked `local.properties` for the SDK path.
+
+The Debug build defaults to `http://10.0.2.2:3000`, the Android emulator alias for a backend
+running on the development computer. Start the backend on port 3000 before testing a new
+YouTube share or Home analysis. A real device needs a backend address reachable from that
+device; pass it as a Gradle property for the local build, for example:
+
+```bash
+cd android
+./gradlew assembleDebug -PREFORGE_BACKEND_BASE_URL=http://YOUR_REACHABLE_HOST:3000
+```
+
+Replace `YOUR_REACHABLE_HOST` locally with a host that the device can reach. Do not commit a
+developer address or local configuration. Release assembly and bundling require an explicitly
+provided HTTPS backend URL; omission or HTTP fails the build. A Release build also needs the
+normal signing and distribution setup outside this repository.
+
+Run local checks from `android/`:
+
+```bash
+./gradlew clean testDebugUnitTest lintDebug assembleDebug
+./gradlew connectedDebugAndroidTest
+```
+
+The connected test command needs one running API 37 emulator or compatible device. CI starts
+one API 37 emulator and runs the same instrumented suite without sharding or parallel devices.
+
+Manual share checklist on an emulator or a real device:
+
+1. Launch Reforge normally; confirm Home and My Notes open independently.
+2. Share a YouTube URL from another app. Confirm Reforge opens, shows progress, saves one note,
+   and opens its detail without starting analysis.
+3. Share the same URL again. Confirm the existing detail opens with no duplicate note.
+4. Move the note to Trash and share again. Cancel once and confirm no change; repeat and Restore,
+   confirming the original note and transcript return.
+5. Share invalid text and text containing two different YouTube videos. Confirm the error and
+   that Back returns to the originating task without creating a note.
+6. Send another share while the first is loading, then rotate during loading. Confirm only the
+   latest share completes and one detail opens.
+7. Switch Home and My Notes, use Analyze from a note detail, and confirm the captured note
+   input starts analysis. Return to each tab and confirm its prior destination.
+8. Restart the app and confirm active and trashed notes persist. Return the app to foreground
+   after an expired Trash item reaches 30 days; confirm it is removed.

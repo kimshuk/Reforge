@@ -41,3 +41,12 @@ pnpm-debug.log*
 
 # Local feature worktrees
 .worktrees/
+
+# Android local state and generated outputs (Room schemas remain tracked)
+android/.gradle/
+android/.kotlin/
+android/local.properties
+android/**/build/
+android/.idea/
+android/*.iml
+android/**/*.iml
