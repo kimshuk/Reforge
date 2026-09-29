@@ -95,20 +95,17 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(navController, currentEntry) {
                     if (currentEntry == null) return@LaunchedEffect
                     appCoordinator.bind(navController)
-                    if (recoverUnfinishedShareOnStart &&
-                        currentEntry?.destination?.route == AppDestination.SHARE_IMPORT &&
-                        shareImport.state.value.let { state ->
-                            state is ShareImportState.Idle || state is ShareImportState.Finished ||
-                                (state is ShareImportState.Completed && state.navigationAcknowledged)
-                        }
-                    ) {
-                        recoverUnfinishedShareOnStart = false
-                        appCoordinator.finishShare()
-                        return@LaunchedEffect
-                    }
                     lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                         shareImport.state.collect { state ->
-                            if (state is ShareImportState.Completed && !state.navigationAcknowledged) {
+                            if (recoverUnfinishedShareOnStart &&
+                                currentEntry?.destination?.route == AppDestination.SHARE_IMPORT &&
+                                (state is ShareImportState.Idle || state is ShareImportState.Finished ||
+                                    (state is ShareImportState.Completed && state.navigationAcknowledged))
+                            ) {
+                                recoverUnfinishedShareOnStart = false
+                                appCoordinator.finishShare()
+                            } else if (state is ShareImportState.Completed && !state.navigationAcknowledged) {
+                                recoverUnfinishedShareOnStart = false
                                 appCoordinator.completeShare(state)
                             }
                         }
@@ -145,6 +142,6 @@ internal fun openYoutubeUrl(context: Context, url: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     } catch (_: ActivityNotFoundException) {
-        // Stay on the note detail when no application can handle the URL.
+        // Keep the current screen when no application can handle the URL.
     }
 }

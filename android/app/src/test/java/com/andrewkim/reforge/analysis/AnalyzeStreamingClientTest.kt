@@ -145,6 +145,18 @@ class AnalyzeStreamingClientTest {
         assertEquals(1, server.requestCount)
     }
 
+    @Test fun stalledStreamHitsWholeRequestDeadlineWithoutReplay() {
+        server.enqueue(stream("event: started\ndata: {\"stage\":\"started\",\"message\":\"Accepted\"}\n\n")
+            .setBodyDelay(5, TimeUnit.SECONDS))
+        val http = okhttp3.OkHttpClient()
+        val client = AnalyzeStreamingClient(server.url("/v1/"), http, requestTimeoutMillis = 200)
+        assertThrows(AnalyzeApiError.TimedOut::class.java) {
+            runBlocking { client.analyze(request) }
+        }
+        assertEquals(1, server.requestCount)
+        assertEquals(0, http.dispatcher.runningCallsCount())
+    }
+
     @Test fun retryableHttp503DoesNotReplayAnalysisPost() {
         server.enqueue(MockResponse().setResponseCode(503).addHeader("Retry-After", "0")
             .setBody("""{"error":{"code":"UNAVAILABLE","message":"Busy"}}"""))

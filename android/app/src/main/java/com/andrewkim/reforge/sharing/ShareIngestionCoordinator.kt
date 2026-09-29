@@ -34,6 +34,7 @@ sealed class ShareIngestionFailure : Exception() {
 interface ShareIngesting {
     suspend fun ingest(input: SharedTextResult.Valid): ShareIngestionResult
     suspend fun restore(noteId: String): ShareIngestionResult
+    suspend fun findCommittedNoteId(sourceKey: String): String?
 }
 
 class ShareIngestionCoordinator(
@@ -42,6 +43,9 @@ class ShareIngestionCoordinator(
     private val titleResolver: ShareTitleResolving,
     private val now: () -> Instant = Instant::now,
 ) : ShareIngesting {
+    override suspend fun findCommittedNoteId(sourceKey: String): String? =
+        (repository.prepareForShare(sourceKey) as? ShareNotePreparation.Active)?.note?.id
+
     override suspend fun ingest(input: SharedTextResult.Valid): ShareIngestionResult {
         currentCoroutineContext().ensureActive()
         val identity = YouTubeVideoIdentity.parse(input.sourceUrl).getOrNull()

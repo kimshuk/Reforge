@@ -31,7 +31,7 @@ val validateReleaseBackendUrl = tasks.register("validateReleaseBackendUrl") {
         val valid = runCatching { URI(value) }.getOrNull()?.let {
             it.scheme.equals("https", ignoreCase = true) &&
                 !it.host.isNullOrBlank() &&
-                it.port <= 65535 &&
+                (it.port == -1 || it.port in 1..65535) &&
                 !value.contains("$(") &&
                 !value.contains("${'$'}{") &&
                 it.rawUserInfo == null &&

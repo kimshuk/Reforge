@@ -7,7 +7,9 @@ import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.BufferedSink
 import retrofit2.Retrofit
 
 interface YoutubeTranscriptFetching {
@@ -24,6 +26,11 @@ class YoutubeTranscriptService(
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(false)
+        .followRedirects(false)
+        .followSslRedirects(false)
+        .authenticator(okhttp3.Authenticator.NONE)
+        .proxyAuthenticator(okhttp3.Authenticator.NONE)
         .build()
     val callTimeoutMillis: Int = timedClient.callTimeoutMillis
     private val api = Retrofit.Builder().baseUrl(baseUrl).client(timedClient)
@@ -32,7 +39,13 @@ class YoutubeTranscriptService(
     override suspend fun fetch(canonicalUrl: HttpUrl, title: String?): YoutubeTranscriptResponse {
         val body = json.encodeToString(YoutubeTranscriptRequest(canonicalUrl.toString(), title))
             .toRequestBody("application/json".toMediaType())
-        val response = api.transcript(body)
+        val singleAttemptBody = object : RequestBody() {
+            override fun contentType() = body.contentType()
+            override fun contentLength() = body.contentLength()
+            override fun writeTo(sink: BufferedSink) = body.writeTo(sink)
+            override fun isOneShot() = true
+        }
+        val response = api.transcript(singleAttemptBody)
         val raw = if (response.isSuccessful) response.body()?.use { it.string() }
             else response.errorBody()?.use { it.string() }
         if (!response.isSuccessful) {

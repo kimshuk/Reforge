@@ -196,6 +196,64 @@ class ShareImportViewModelTest {
         assertEquals(ShareImportState.Error(1, "Please enter a valid YouTube URL."), invalid.state.value)
     }
 
+    @Test fun preCompletionSnapshotRecoversCommittedNoteWithoutReplayingImport() = runTest(dispatcher) {
+        val ingestor = FakeIngestor()
+        val completion = CompletableDeferred<ShareIngestionResult>()
+        ingestor.ingestBlock = { completion.await() }
+        val handle = SavedStateHandle()
+        val first = ShareImportViewModel(ingestor, handle)
+        first.accept(input)
+        testScheduler.runCurrent()
+        val stoppedSnapshot = SavedStateHandle(handle.keys().associateWith { handle.get<Any>(it) })
+        completion.complete(ShareIngestionResult.Saved("committed"))
+        advanceUntilIdle()
+        ingestor.findCommittedBlock = {
+            assertEquals(input.identity.sourceKey, it)
+            "committed"
+        }
+
+        val fresh = ShareImportViewModel(ingestor, stoppedSnapshot)
+        assertEquals(ShareImportState.Loading(1), fresh.state.value)
+        advanceUntilIdle()
+
+        assertEquals(ShareImportState.Completed(1, "committed"), fresh.state.value)
+        assertEquals(1, ingestor.ingestCalls)
+        assertEquals(0, ingestor.restoreCalls)
+    }
+
+    @Test fun restoredPendingImportWithoutCommittedNoteFinishesWithoutReplay() = runTest(dispatcher) {
+        val ingestor = FakeIngestor()
+        ingestor.ingestBlock = { CompletableDeferred<ShareIngestionResult>().await() }
+        val handle = SavedStateHandle()
+        val first = ShareImportViewModel(ingestor, handle)
+        first.accept(input)
+        testScheduler.runCurrent()
+        val stoppedSnapshot = SavedStateHandle(handle.keys().associateWith { handle.get<Any>(it) })
+        first.cancelImport()
+        val fresh = ShareImportViewModel(ingestor, stoppedSnapshot)
+        advanceUntilIdle()
+        assertEquals(ShareImportState.Finished(1), fresh.state.value)
+        assertEquals(1, ingestor.ingestCalls)
+        assertEquals(0, ingestor.restoreCalls)
+    }
+
+    @Test fun lateRestoredLookupCannotReplaceNewInputCompletion() = runTest(dispatcher) {
+        val ingestor = FakeIngestor()
+        val lookup = CompletableDeferred<String?>()
+        ingestor.findCommittedBlock = { withContext(NonCancellable) { lookup.await() } }
+        val handle = SavedStateHandle(mapOf(
+            "share_import_generation" to 1L,
+            "share_import_pending_source_key" to input.identity.sourceKey,
+        ))
+        val restored = ShareImportViewModel(ingestor, handle)
+        testScheduler.runCurrent()
+        restored.accept(other)
+        testScheduler.runCurrent()
+        lookup.complete("old")
+        advanceUntilIdle()
+        assertEquals(ShareImportState.Completed(2, "saved"), restored.state.value)
+    }
+
     private class FakeIngestor : ShareIngesting {
         var ingestBlock: suspend (SharedTextResult.Valid) -> ShareIngestionResult = {
             ShareIngestionResult.Saved("saved")
@@ -204,7 +262,13 @@ class ShareImportViewModelTest {
             ShareIngestionResult.AlreadySaved(it)
         }
         var restoreCalls = 0
-        override suspend fun ingest(input: SharedTextResult.Valid) = ingestBlock(input)
+        var ingestCalls = 0
+        var findCommittedBlock: suspend (String) -> String? = { null }
+        override suspend fun findCommittedNoteId(sourceKey: String) = findCommittedBlock(sourceKey)
+        override suspend fun ingest(input: SharedTextResult.Valid): ShareIngestionResult {
+            ingestCalls++
+            return ingestBlock(input)
+        }
         override suspend fun restore(noteId: String): ShareIngestionResult {
             restoreCalls++
             return restoreBlock(noteId)

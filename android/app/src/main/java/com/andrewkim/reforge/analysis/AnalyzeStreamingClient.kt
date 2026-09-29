@@ -1,6 +1,7 @@
 package com.andrewkim.reforge.analysis
 
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +37,7 @@ sealed class AnalyzeApiError(message: String) : Exception(message) {
     data class Http(val statusCode: Int) : AnalyzeApiError("Analysis HTTP error ($statusCode)")
     data class InvalidResponse(val event: String?) : AnalyzeApiError("Invalid analysis response")
     data object MissingResult : AnalyzeApiError("Analysis stream ended without a result")
+    data object TimedOut : AnalyzeApiError("Analysis request timed out")
     data class Transport(val failure: IOException) : AnalyzeApiError("Analysis connection failed")
 }
 
@@ -57,12 +59,15 @@ class AnalyzeStreamingClient(
     private val baseUrl: HttpUrl,
     client: OkHttpClient = OkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true; encodeDefaults = true },
+    requestTimeoutMillis: Long = TimeUnit.MINUTES.toMillis(5),
 ) {
-    // Analysis can pause between SSE events. Cancellation, rather than a read or call deadline,
-    // controls the lifetime. A one-shot body also blocks OkHttp's HTTP 408/503 POST replay.
+    init { require(requestTimeoutMillis > 0) }
+
+    // Long gaps between SSE events are allowed within the whole-request deadline.
+    // A one-shot body also blocks OkHttp's HTTP 408/503 POST replay.
     private val streamingClient = client.newBuilder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
-        .callTimeout(0, TimeUnit.MILLISECONDS)
+        .callTimeout(requestTimeoutMillis, TimeUnit.MILLISECONDS)
         .retryOnConnectionFailure(false)
         .followRedirects(false)
         .followSslRedirects(false)
@@ -156,6 +161,7 @@ class AnalyzeStreamingClient(
             }
         } catch (error: IOException) {
             currentCoroutineContext().ensureActive()
+            if (error is InterruptedIOException) throw AnalyzeApiError.TimedOut
             throw AnalyzeApiError.Transport(error)
         } finally {
             cancellationWatcher.cancel()

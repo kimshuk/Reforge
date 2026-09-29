@@ -104,6 +104,10 @@ class HomeViewModel(
     override fun analyze() {
         val current = mutableState.value
         if (current.isLoading) return
+        current.unavailableReason?.let {
+            mutableState.value = current.copy(errorMessage = it.userMessage)
+            return
+        }
         val title = current.title.trim()
         val url = current.url.trim()
         if (title.isEmpty()) {
@@ -116,10 +120,6 @@ class HomeViewModel(
         }
         if (YouTubeVideoIdentity.parse(url).isFailure) {
             mutableState.value = current.copy(errorMessage = "URL is not a YouTube link.")
-            return
-        }
-        current.unavailableReason?.let {
-            mutableState.value = current.copy(errorMessage = it.userMessage)
             return
         }
         availabilityJob?.cancel()
@@ -215,10 +215,12 @@ internal fun analysisErrorMessage(error: Exception): String = when (error) {
         "OPENAI_ANALYZE_FAILED", "OPENAI_ANALYZE_INCOMPLETE", "OPENAI_ANALYZE_INVALID_JSON",
         "OPENAI_ANALYZE_SOURCE_MISMATCH", "OPENAI_ANALYZE_EMPTY" ->
             "Analysis failed on the backend. Please try again."
-        else -> error.backendMessage.ifEmpty { "Request failed with code ${error.code}." }
+        // Current LLM codes cover multiple providers; diagnostics are never user copy.
+        else -> "Analysis failed on the backend. Please try again."
     }
     is AnalyzeApiError.Http -> "Server error (${error.statusCode})."
     is AnalyzeApiError.Transport -> "Analysis connection failed"
+    AnalyzeApiError.TimedOut -> "Analysis failed on the backend. Please try again."
     AnalyzeApiError.MissingResult -> "Server finished without returning analysis data."
     is AnalyzeApiError.InvalidResponse -> "Could not decode server response."
     else -> "Invalid response from server."

@@ -22,13 +22,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.andrewkim.reforge.openYoutubeUrl
 
 interface HomeEvents {
     fun setUrl(value: String)
@@ -45,7 +48,7 @@ fun HomeScreen(
     state: HomeState,
     events: HomeEvents,
 ) {
-    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
     Box(Modifier.fillMaxSize().testTag("home")) {
         Column(Modifier.fillMaxSize()) {
             Column(
@@ -114,16 +117,19 @@ fun HomeScreen(
                                 Column(Modifier.testTag("selected-$categoryIndex-$keywordIndex")) {
                                     Row(verticalAlignment = Alignment.Top) {
                                         Text("- ${keyword.term}: $levelText", Modifier.weight(1f))
-                                        TextButton(onClick = { uriHandler.openUri(keyword.source.ref) }) {
+                                        TextButton(onClick = { openYoutubeUrl(context, keyword.source.ref) }) {
                                             Text(timestampLabel(keyword.source.ref))
                                         }
                                         if (level < 3) TextButton(onClick = { events.advanceKeyword(key) }) {
                                             Text("expand")
                                         }
-                                        TextButton(onClick = { events.removeKeyword(key) }) { Text("×") }
+                                        TextButton(
+                                            onClick = { events.removeKeyword(key) },
+                                            modifier = Modifier.semantics { contentDescription = "Remove ${keyword.term}" },
+                                        ) { Text("×") }
                                     }
                                     keyword.externalSourcesForLevel(level).forEach { source ->
-                                        TextButton(onClick = { uriHandler.openUri(source.url) }) {
+                                        TextButton(onClick = { openYoutubeUrl(context, source.url) }) {
                                             Text(source.title)
                                         }
                                     }

@@ -142,7 +142,69 @@ class HomeViewModelTest {
         vm.analyze()
         runCurrent()
         assertEquals(0, analyzes)
-        assertEquals("Please enter a title.", vm.state.value.errorMessage)
+        assertEquals(VideoUnavailableReason.NOT_FOUND_OR_REMOVED.userMessage, vm.state.value.errorMessage)
+    }
+
+    @Test fun everyTypedUnavailableReasonSurvivesAnalyzeWithEmptyTitle() = runTest(dispatcher) {
+        for (reason in VideoUnavailableReason.entries) {
+            var analyzes = 0
+            val vm = HomeViewModel(
+                YouTubeAvailabilityChecking { YouTubeAvailability.Unavailable(reason) },
+                AnalysisRunning { _, _ -> analyzes++; emptyResult() },
+            )
+            vm.setUrl(url)
+            advanceTimeBy(500)
+            runCurrent()
+            assertEquals("", vm.state.value.title)
+            vm.analyze()
+            runCurrent()
+            assertEquals(reason.userMessage, vm.state.value.errorMessage)
+            assertEquals(0, analyzes)
+        }
+    }
+
+    @Test fun timeoutLeavesHomeEditableWithExistingAnalysisFailureCopy() = runTest(dispatcher) {
+        var requests = 0
+        val vm = HomeViewModel(
+            YouTubeAvailabilityChecking { YouTubeAvailability.Available("Title") },
+            AnalysisRunning { _, _ -> requests++; throw AnalyzeApiError.TimedOut },
+        )
+        vm.applySnapshotAndAnalyze(AnalysisInputSnapshot("Title", url))
+        runCurrent()
+        assertFalse(vm.state.value.isLoading)
+        assertEquals("Analysis failed on the backend. Please try again.", vm.state.value.errorMessage)
+        assertEquals("", vm.state.value.loadingStage)
+        assertEquals("", vm.state.value.loadingStatusMessage)
+        assertNull(vm.state.value.result)
+        assertEquals(1, requests)
+        vm.setTitle("Edited")
+        assertEquals("Edited", vm.state.value.title)
+        assertEquals(1, requests)
+    }
+
+    @Test fun currentLlmCodesAndUnknownMessagesNeverExposeProviderDiagnostics() {
+        val currentCodes = listOf(
+            "LLM_AUTH_ERROR", "LLM_QUOTA_OR_RATE_LIMIT", "LLM_CONTEXT_LENGTH_EXCEEDED", "LLM_REQUEST_FAILED",
+            "LLM_PROVIDER_NOT_CONFIGURED", "LLM_RESPONSE_INCOMPLETE", "LLM_EMPTY_OUTPUT",
+            "LLM_TOPIC_CHUNKS_INVALID_JSON", "LLM_TOPIC_CHUNKS_EMPTY", "LLM_TOPIC_CHUNKS_INVALID_BOUNDARY",
+            "LLM_CLIPPINGS_INVALID_JSON", "LLM_CLIPPINGS_INVALID_SOURCE_REF", "LLM_CATEGORY_GROUPING_INVALID_JSON",
+            "LLM_ENRICHMENT_PLAN_INVALID_JSON", "LLM_ENRICHMENT_SYNTHESIS_INVALID_JSON",
+            "LLM_ENRICHMENT_REVIEW_INVALID_JSON", "LLM_WEB_SEARCH_INVALID_RESPONSE",
+            "INVALID_LLM_PROVIDER", "INVALID_LLM_MODEL", "INVALID_LLM_TEMPERATURE", "INVALID_LLM_MAX_OUTPUT_TOKENS",
+            "UNKNOWN_BACKEND_CODE", "https://provider.example/private?api_key=secret",
+        )
+        for (code in currentCodes) {
+            val message = analysisErrorMessage(AnalyzeApiError.Backend(
+                502, code, "Provider https://provider.example/private?api_key=secret; stack trace: internal diagnostic",
+            ))
+            assertEquals(code, "Analysis failed on the backend. Please try again.", message)
+            assertFalse(message.contains("https://"))
+            assertFalse(message.contains("secret"))
+            assertFalse(message.contains("diagnostic"))
+            assertFalse(message.contains(code))
+        }
+        assertEquals("Backend OpenAI configuration is invalid.",
+            analysisErrorMessage(AnalyzeApiError.Backend(401, "OPENAI_AUTH_ERROR", "secret")))
     }
 
     @Test fun snapshotClearsOldStateAndStartsOnceWithoutAvailabilityLookup() = runTest(dispatcher) {

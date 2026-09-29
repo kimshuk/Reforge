@@ -18,6 +18,26 @@ class ShareImportViewModel(
     private val mutableState = MutableStateFlow(restoredState())
     val state = mutableState.asStateFlow()
 
+    init {
+        if (mutableState.value is ShareImportState.Loading) {
+            val current = generation
+            val sourceKey = requireNotNull(savedStateHandle.get<String>(KEY_PENDING_SOURCE_KEY))
+            job = viewModelScope.launch {
+                try {
+                    val noteId = ingestor.findCommittedNoteId(sourceKey)
+                    if (canUpdate(current)) {
+                        if (noteId != null) publish(ShareImportState.Completed(current, noteId))
+                        else publish(ShareImportState.Finished(current))
+                    }
+                } catch (_: CancellationException) {
+                    // A newer input or explicit exit owns the restored route.
+                } catch (_: Exception) {
+                    if (canUpdate(current)) publish(ShareImportState.Finished(current))
+                }
+            }
+        }
+    }
+
     fun accept(input: SharedTextResult) {
         job?.cancel()
         generation += 1
@@ -28,6 +48,8 @@ class ShareImportViewModel(
             mutableState.value = ShareImportState.Error(current, INVALID_URL_COPY)
             return
         }
+        // The Activity may save its Bundle before a stopped import commits to Room.
+        savedStateHandle[KEY_PENDING_SOURCE_KEY] = input.identity.sourceKey
         mutableState.value = ShareImportState.Loading(current)
         job = viewModelScope.launch {
             try {
@@ -97,7 +119,10 @@ class ShareImportViewModel(
     }
 
     private fun setError(generation: Long, message: String) {
-        if (canUpdate(generation)) mutableState.value = ShareImportState.Error(generation, message)
+        if (canUpdate(generation)) {
+            savedStateHandle.remove<String>(KEY_PENDING_SOURCE_KEY)
+            mutableState.value = ShareImportState.Error(generation, message)
+        }
     }
 
     private fun canUpdate(generation: Long): Boolean =
@@ -112,6 +137,7 @@ class ShareImportViewModel(
     }
 
     private fun publish(outcome: ShareImportState.Active) {
+        savedStateHandle.remove<String>(KEY_PENDING_SOURCE_KEY)
         when (outcome) {
             is ShareImportState.Completed -> {
                 savedStateHandle[KEY_OUTCOME] = OUTCOME_COMPLETED
@@ -133,10 +159,12 @@ class ShareImportViewModel(
             ShareImportState.Completed(generation, it, savedStateHandle[KEY_ACKNOWLEDGED] ?: false)
         } ?: ShareImportState.Idle
         OUTCOME_FINISHED -> ShareImportState.Finished(generation)
-        else -> ShareImportState.Idle
+        else -> if (savedStateHandle.contains(KEY_PENDING_SOURCE_KEY)) ShareImportState.Loading(generation)
+            else ShareImportState.Idle
     }
 
     private fun clearPersistedOutcome() {
+        savedStateHandle.remove<String>(KEY_PENDING_SOURCE_KEY)
         savedStateHandle.remove<String>(KEY_OUTCOME)
         savedStateHandle.remove<String>(KEY_NOTE_ID)
         savedStateHandle.remove<Boolean>(KEY_ACKNOWLEDGED)
@@ -151,6 +179,7 @@ class ShareImportViewModel(
 
     private companion object {
         const val KEY_GENERATION = "share_import_generation"
+        const val KEY_PENDING_SOURCE_KEY = "share_import_pending_source_key"
         const val KEY_OUTCOME = "share_import_outcome"
         const val KEY_NOTE_ID = "share_import_note_id"
         const val KEY_ACKNOWLEDGED = "share_import_navigation_acknowledged"

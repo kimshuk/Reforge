@@ -245,6 +245,7 @@ class NotesScreensTest {
         app.container = AppContainer(app, repository, object : ShareIngesting {
             override suspend fun ingest(input: SharedTextResult.Valid) = ShareIngestionResult.AlreadySaved(note.id)
             override suspend fun restore(noteId: String) = ShareIngestionResult.AlreadySaved(noteId)
+            override suspend fun findCommittedNoteId(sourceKey: String) = note.id
         })
         val activity = InstrumentationRegistry.getInstrumentation().startActivitySync(
             Intent(app, MainActivity::class.java).apply {

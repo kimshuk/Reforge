@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Parcel
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModelProvider
 import androidx.room.Room
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -35,6 +36,7 @@ import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -180,6 +182,74 @@ class ShareNavigationTest {
         assertEquals(true, (acknowledged.state.value as ShareImportState.Completed).navigationAcknowledged)
         assertEquals(1, activeCount())
         assertEquals(0, transcript.calls.get())
+    }
+
+    @Test fun bundleCapturedBeforeCommitRecoversCompletedNoteInFreshViewModel() {
+        val gate = transcript.block(FIRST_ID)
+        val handle = SavedStateHandle()
+        val first = ShareImportViewModel(app.container.ingestor, handle)
+        first.accept(ShareIntentParser.parse(share(FIRST)))
+        compose.waitUntil(5_000) { transcript.calls.get() == 1 }
+        assertTrue(first.state.value is ShareImportState.Loading)
+        val stoppedSnapshot = parcelRoundTrip(handle)
+
+        gate.complete(response(FIRST_ID))
+        compose.waitUntil(5_000) { first.state.value is ShareImportState.Completed }
+        val committed = runBlocking { repository.observeActive().first().single() }
+        val fresh = ShareImportViewModel(app.container.ingestor, stoppedSnapshot)
+        compose.waitUntil(5_000) { fresh.state.value is ShareImportState.Completed }
+
+        assertEquals(ShareImportState.Completed(1, committed.id), fresh.state.value)
+        assertEquals(1, activeCount())
+        assertEquals(1, transcript.calls.get())
+    }
+
+    @Test fun activityRestoresPreCommitBundleWithFreshViewModelAndOpensCommittedDetailOnce() {
+        val gate = transcript.block(FIRST_ID)
+        ActivityScenario.launch<MainActivity>(launcher()).use { scenario ->
+            sendToExisting(FIRST)
+            waitFor("share-loading")
+            lateinit var stoppedActivity: MainActivity
+            lateinit var oldViewModel: ShareImportViewModel
+            lateinit var preCommitHandles: Bundle
+            scenario.onActivity { activity ->
+                stoppedActivity = activity
+                oldViewModel = ViewModelProvider(activity)[ShareImportViewModel::class.java]
+                // Save exactly the provider Bundle that Android captures before stopping.
+                preCommitHandles = parcelRoundTrip(requireNotNull(
+                    activity.savedStateRegistry.getSavedStateProvider(SAVED_STATE_HANDLES_KEY),
+                ).saveState())
+                assertTrue(oldViewModel.state.value is ShareImportState.Loading)
+            }
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+            gate.complete(response(FIRST_ID))
+            compose.waitUntil(5_000) { oldViewModel.state.value is ShareImportState.Completed }
+            val note = runBlocking { repository.observeActive().first().single() }
+
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                stoppedActivity.viewModelStore.clear()
+                // ActivityScenario normally captures a NEW Bundle on recreate. Freeze only
+                // the VM provider at the earlier OS snapshot to model process death after stop.
+                stoppedActivity.savedStateRegistry.unregisterSavedStateProvider(SAVED_STATE_HANDLES_KEY)
+                stoppedActivity.savedStateRegistry.registerSavedStateProvider(SAVED_STATE_HANDLES_KEY) {
+                    preCommitHandles
+                }
+            }
+            scenario.recreate()
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+            waitFor("note-detail")
+            scenario.onActivity { activity ->
+                assertNotSame(oldViewModel, ViewModelProvider(activity)[ShareImportViewModel::class.java])
+                assertEquals(note.id, activity.appCoordinator.currentNoteId())
+            }
+            scenario.recreate()
+            waitFor("note-detail")
+            scenario.onActivity { it.appCoordinator.selectTab(AppDestination.HOME_GRAPH) }
+            waitFor("home")
+            compose.onNodeWithTag("share-import").assertDoesNotExist()
+            assertEquals(1, activeCount())
+            assertEquals(1, transcript.calls.get())
+        }
     }
 
     @Test fun backFromWarmShareReturnsToOriginDetail() {
@@ -359,12 +429,15 @@ class ShareNavigationTest {
 
     private fun activeCount(): Int = runBlocking { repository.observeActive().first().size }
 
-    private fun parcelRoundTrip(handle: SavedStateHandle): SavedStateHandle {
+    private fun parcelRoundTrip(handle: SavedStateHandle): SavedStateHandle =
+        SavedStateHandle.createHandle(parcelRoundTrip(handle.savedStateProvider().saveState()), null)
+
+    private fun parcelRoundTrip(bundle: Bundle): Bundle {
         val parcel = Parcel.obtain()
         return try {
-            handle.savedStateProvider().saveState().writeToParcel(parcel, 0)
+            bundle.writeToParcel(parcel, 0)
             parcel.setDataPosition(0)
-            SavedStateHandle.createHandle(Bundle.CREATOR.createFromParcel(parcel), null)
+            Bundle.CREATOR.createFromParcel(parcel)
         } finally {
             parcel.recycle()
         }
@@ -408,6 +481,7 @@ class ShareNavigationTest {
     }
 
     private companion object {
+        const val SAVED_STATE_HANDLES_KEY = "androidx.lifecycle.internal.SavedStateHandlesProvider"
         const val FIRST_ID = "dQw4w9WgXcQ"
         const val SECOND_ID = "a1B2c3D4e5F"
         const val FIRST = "https://youtu.be/$FIRST_ID"

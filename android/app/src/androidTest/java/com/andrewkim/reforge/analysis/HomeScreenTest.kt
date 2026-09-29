@@ -1,14 +1,25 @@
 package com.andrewkim.reforge.analysis
 
+import android.content.ActivityNotFoundException
+import android.content.ContextWrapper
+import android.content.Intent
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performScrollTo
+import androidx.test.platform.app.InstrumentationRegistry
+import com.andrewkim.reforge.openYoutubeUrl
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 
@@ -63,6 +74,56 @@ class HomeScreenTest {
         compose.setContent { HomeScreen(state, events({ state }, { state = it }) { analyzes++ }) }
         compose.onNodeWithTag("home-url").performImeAction()
         compose.runOnIdle { assertEquals(1, analyzes) }
+    }
+
+    @Test fun missingHandlersForTimestampAndCitationKeepHomeAndOtherErrorsPropagate() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val opened = mutableListOf<String>()
+        val noHandler = object : ContextWrapper(context) {
+            override fun startActivity(intent: Intent) {
+                opened += intent.data.toString()
+                throw ActivityNotFoundException("No URL handler")
+            }
+        }
+        val key = KeywordOccurrence(0, 0)
+        var state by mutableStateOf(HomeState(
+            url = URL, title = "Title", submittedUrl = URL, result = result(),
+            selection = KeywordSelectionState().select(key).advanceLevel(key),
+        ))
+        compose.setContent {
+            CompositionLocalProvider(LocalContext provides noHandler) {
+                HomeScreen(state, events({ state }, { state = it }))
+            }
+        }
+        compose.onNodeWithText("1:01").performScrollTo().performClick()
+        compose.onNodeWithTag("home").assertExists()
+        compose.onNodeWithText("Citation two").performScrollTo().performClick()
+        compose.onNodeWithTag("home").assertExists()
+        compose.onNodeWithTag("home-error").assertDoesNotExist()
+        compose.runOnIdle {
+            assertEquals(listOf("$URL&t=61", "https://example.com/2"), opened)
+            assertEquals(2, state.selection.level(key))
+            val unexpected = object : ContextWrapper(context) {
+                override fun startActivity(intent: Intent) = throw IllegalStateException("Unexpected failure")
+            }
+            for (url in opened) {
+                val failure = assertThrows(IllegalStateException::class.java) { openYoutubeUrl(unexpected, url) }
+                assertEquals("Unexpected failure", failure.message)
+            }
+        }
+    }
+
+    @Test fun keywordRemovalHasTermSpecificSemanticLabelAndUnchangedVisibleCopy() {
+        val key = KeywordOccurrence(0, 0)
+        var state by mutableStateOf(HomeState(
+            url = URL, title = "Title", submittedUrl = URL, result = result(),
+            selection = KeywordSelectionState().select(key),
+        ))
+        compose.setContent { HomeScreen(state, events({ state }, { state = it })) }
+        compose.onNodeWithText("×").assertExists()
+        compose.onNodeWithText("Remove Term").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Remove Term").assertHasClickAction().performScrollTo().performClick()
+        compose.onNodeWithTag("selected-0-0").assertDoesNotExist()
     }
 
     private fun events(

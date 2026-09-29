@@ -36,12 +36,16 @@ class YoutubeTranscriptServiceTest {
         assertEquals(30_000, client.timedClient.connectTimeoutMillis)
         assertEquals(30_000, client.timedClient.readTimeoutMillis)
         assertEquals(30_000, client.timedClient.writeTimeoutMillis)
+        assertFalse(client.timedClient.retryOnConnectionFailure)
+        assertFalse(client.timedClient.followRedirects)
+        assertFalse(client.timedClient.followSslRedirects)
+        assertEquals(okhttp3.Authenticator.NONE, client.timedClient.authenticator)
+        assertEquals(okhttp3.Authenticator.NONE, client.timedClient.proxyAuthenticator)
         val request = server.takeRequest()
         assertEquals("POST", request.method)
         assertEquals("/v1/youtube/transcript", request.path)
         val body = request.body.readUtf8()
-        assertTrue(body.contains("\"youtubeUrl\":\"$canonical\""))
-        assertTrue(body.contains("\"title\":\"Shared title\""))
+        assertEquals("""{"youtubeUrl":"$canonical","title":"Shared title"}""", body)
         assertFalse(body.contains("analyze"))
         assertEquals(1, server.requestCount)
         assertEquals("11111111-1111-4111-8111-111111111111", response.transcriptId)
@@ -105,6 +109,56 @@ class YoutubeTranscriptServiceTest {
             runBlocking { YoutubeTranscriptService(server.url("/")).fetch(canonical, null) }
         }
         assertEquals(500, error.statusCode)
+    }
+
+    @Test fun retryableHttp408DoesNotReplayTranscriptPost() = assertNoHttpReplay(408)
+
+    @Test fun retryableHttp503DoesNotReplayTranscriptPost() = assertNoHttpReplay(503)
+
+    @Test fun redirectDoesNotReplayTranscriptPost() {
+        server.enqueue(MockResponse().setResponseCode(307).addHeader("Location", "/other/transcript"))
+        server.enqueue(MockResponse().setBody(SUCCESS))
+        val error = assertThrows(ApiError.InvalidResponse::class.java) {
+            runBlocking { YoutubeTranscriptService(server.url("/")).fetch(canonical, null) }
+        }
+        assertEquals(307, error.statusCode)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun authenticationDoesNotReplayTranscriptPost() {
+        var authentications = 0
+        val http = okhttp3.OkHttpClient.Builder().authenticator { _, response ->
+            authentications++
+            response.request.newBuilder().header("Authorization", "test credential").build()
+        }.build()
+        server.enqueue(MockResponse().setResponseCode(401).addHeader("WWW-Authenticate", "Basic"))
+        server.enqueue(MockResponse().setBody(SUCCESS))
+        val error = assertThrows(ApiError.InvalidResponse::class.java) {
+            runBlocking { YoutubeTranscriptService(server.url("/"), http).fetch(canonical, null) }
+        }
+        assertEquals(401, error.statusCode)
+        assertEquals(0, authentications)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun droppedConnectionDoesNotReconnectAndReplayTranscriptPost() {
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST))
+        server.enqueue(MockResponse().setBody(SUCCESS))
+        assertThrows(java.io.IOException::class.java) {
+            runBlocking { YoutubeTranscriptService(server.url("/")).fetch(canonical, null) }
+        }
+        assertEquals(1, server.requestCount)
+    }
+
+    private fun assertNoHttpReplay(status: Int) {
+        server.enqueue(MockResponse().setResponseCode(status).addHeader("Retry-After", "0")
+            .setBody("""{"error":{"code":"UNAVAILABLE","message":"Wait"}}"""))
+        server.enqueue(MockResponse().setBody(SUCCESS))
+        val error = assertThrows(ApiError.Backend::class.java) {
+            runBlocking { YoutubeTranscriptService(server.url("/")).fetch(canonical, null) }
+        }
+        assertEquals(status, error.statusCode)
+        assertEquals(1, server.requestCount)
     }
 
     companion object {
