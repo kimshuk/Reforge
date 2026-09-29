@@ -2,6 +2,10 @@ package com.andrewkim.reforge
 
 import android.content.Context
 import com.andrewkim.reforge.config.AppConfig
+import com.andrewkim.reforge.analysis.AnalysisRunning
+import com.andrewkim.reforge.analysis.AnalyzeStreamingClient
+import com.andrewkim.reforge.network.YouTubeAvailabilityChecking
+import com.andrewkim.reforge.network.YouTubeAvailabilityService
 import com.andrewkim.reforge.network.ShareTitleResolver
 import com.andrewkim.reforge.network.YoutubeTranscriptService
 import com.andrewkim.reforge.notes.ContentNoteRepository
@@ -14,6 +18,8 @@ class AppContainer(
     context: Context,
     repositoryOverride: ContentNoteRepository? = null,
     ingestorOverride: ShareIngesting? = null,
+    availabilityOverride: YouTubeAvailabilityChecking? = null,
+    analysisOverride: AnalysisRunning? = null,
 ) {
     private val applicationContext = context.applicationContext
     val repository: ContentNoteRepository by lazy {
@@ -27,5 +33,13 @@ class AppContainer(
             ),
             ShareTitleResolver(),
         )
+    }
+    val availability: YouTubeAvailabilityChecking by lazy {
+        availabilityOverride ?: YouTubeAvailabilityService()
+    }
+    val analysis: AnalysisRunning by lazy {
+        analysisOverride ?: AnalyzeStreamingClient(
+            AppConfig.from(BuildConfig.BACKEND_BASE_URL, BuildConfig.IS_RELEASE).backendBaseUrl,
+        ).let { client -> AnalysisRunning(client::analyze) }
     }
 }

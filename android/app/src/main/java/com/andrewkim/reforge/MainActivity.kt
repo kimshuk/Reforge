@@ -22,6 +22,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.andrewkim.reforge.navigation.AppCoordinator
 import com.andrewkim.reforge.navigation.AppDestination
 import com.andrewkim.reforge.navigation.ReforgeNavHost
+import com.andrewkim.reforge.analysis.HomeViewModel
 import com.andrewkim.reforge.sharing.ShareImportState
 import com.andrewkim.reforge.sharing.ShareImportViewModel
 import com.andrewkim.reforge.ui.theme.ReforgeTheme
@@ -35,6 +36,14 @@ class MainActivity : ComponentActivity() {
                     (application as ReforgeApplication).container.ingestor,
                     createSavedStateHandle(),
                 )
+            }
+        }
+    }
+    private val homeViewModel: HomeViewModel by viewModels {
+        viewModelFactory {
+            initializer {
+                val container = (application as ReforgeApplication).container
+                HomeViewModel(container.availability, container.analysis)
             }
         }
     }
@@ -58,9 +67,13 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val currentEntry by navController.currentBackStackEntryAsState()
                 val shareState by shareImport.state.collectAsStateWithLifecycle()
+                val homeState by homeViewModel.state.collectAsStateWithLifecycle()
+                val pendingAnalysis by appCoordinator.analysisInput.collectAsStateWithLifecycle()
                 ReforgeNavHost(
                     navController = navController,
                     shareState = shareState,
+                    homeState = homeState,
+                    homeEvents = homeViewModel,
                     repository = (application as ReforgeApplication).container.repository,
                     onSelectHome = { appCoordinator.selectTab(AppDestination.HOME_GRAPH) },
                     onSelectNotes = { appCoordinator.selectTab(AppDestination.NOTES_GRAPH) },
@@ -73,6 +86,12 @@ class MainActivity : ComponentActivity() {
                         appCoordinator.finishShare()
                     },
                 )
+                LaunchedEffect(pendingAnalysis) {
+                    pendingAnalysis?.let { snapshot ->
+                        homeViewModel.applySnapshotAndAnalyze(snapshot)
+                        appCoordinator.acknowledgeAnalysisInput(snapshot)
+                    }
+                }
                 LaunchedEffect(navController, currentEntry) {
                     if (currentEntry == null) return@LaunchedEffect
                     appCoordinator.bind(navController)

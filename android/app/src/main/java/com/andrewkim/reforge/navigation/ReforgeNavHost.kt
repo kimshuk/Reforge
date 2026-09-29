@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,6 +24,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import com.andrewkim.reforge.sharing.ShareImportScreen
+import com.andrewkim.reforge.analysis.HomeEvents
+import com.andrewkim.reforge.analysis.HomeScreen
+import com.andrewkim.reforge.analysis.HomeState
 import com.andrewkim.reforge.sharing.ShareImportState
 import com.andrewkim.reforge.notes.ContentNoteRepository
 import com.andrewkim.reforge.notes.NoteDetailScreen
@@ -38,6 +40,8 @@ import com.andrewkim.reforge.notes.TrashViewModel
 fun ReforgeNavHost(
     navController: NavHostController,
     shareState: ShareImportState,
+    homeState: HomeState,
+    homeEvents: HomeEvents,
     repository: ContentNoteRepository,
     onSelectHome: () -> Unit,
     onSelectNotes: () -> Unit,
@@ -76,7 +80,7 @@ fun ReforgeNavHost(
         ) {
             navigation(startDestination = AppDestination.HOME, route = AppDestination.HOME_GRAPH) {
                 composable(AppDestination.HOME) {
-                    Surface(modifier = Modifier.fillMaxSize().testTag("home")) { Text("Home") }
+                    HomeScreen(homeState, homeEvents)
                 }
             }
             navigation(startDestination = AppDestination.NOTES, route = AppDestination.NOTES_GRAPH) {

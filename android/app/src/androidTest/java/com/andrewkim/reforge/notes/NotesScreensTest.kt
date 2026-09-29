@@ -22,6 +22,9 @@ import com.andrewkim.reforge.MainActivity
 import com.andrewkim.reforge.ReforgeApplication
 import com.andrewkim.reforge.openYoutubeUrl
 import com.andrewkim.reforge.navigation.AnalysisInputSnapshot
+import com.andrewkim.reforge.analysis.HomeEvents
+import com.andrewkim.reforge.analysis.HomeState
+import com.andrewkim.reforge.analysis.KeywordOccurrence
 import com.andrewkim.reforge.navigation.AppDestination
 import com.andrewkim.reforge.navigation.ReforgeNavHost
 import com.andrewkim.reforge.sharing.ShareIngesting
@@ -279,6 +282,16 @@ class NotesScreensTest {
                         ReforgeNavHost(
                             navController = controller,
                             shareState = ShareImportState.Idle,
+                            homeState = HomeState(),
+                            homeEvents = object : HomeEvents {
+                                override fun setUrl(value: String) = Unit
+                                override fun setTitle(value: String) = Unit
+                                override fun analyze() = Unit
+                                override fun toggleCategory(index: Int) = Unit
+                                override fun selectKeyword(key: KeywordOccurrence) = Unit
+                                override fun advanceKeyword(key: KeywordOccurrence) = Unit
+                                override fun removeKeyword(key: KeywordOccurrence) = Unit
+                            },
                             repository = repository,
                             onSelectHome = { controller.navigate(AppDestination.HOME_GRAPH) },
                             onSelectNotes = { controller.navigate(AppDestination.NOTES_GRAPH) },

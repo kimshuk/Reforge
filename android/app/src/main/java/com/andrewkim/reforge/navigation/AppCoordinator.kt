@@ -58,6 +58,10 @@ class AppCoordinator(
         selectTab(AppDestination.HOME_GRAPH)
     }
 
+    fun acknowledgeAnalysisInput(snapshot: AnalysisInputSnapshot) {
+        if (mutableAnalysisInput.value === snapshot) mutableAnalysisInput.value = null
+    }
+
     fun selectTab(route: String) {
         val nav = navController ?: run { pendingDestination = route; return }
         nav.navigate(route) {
