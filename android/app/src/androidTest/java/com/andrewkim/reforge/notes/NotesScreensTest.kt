@@ -34,6 +34,7 @@ import com.andrewkim.reforge.sharing.SharedTextResult
 import com.andrewkim.reforge.ui.theme.ReforgeTheme
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.flow.first
@@ -195,23 +196,27 @@ class NotesScreensTest {
     @Test fun trashPurgeFailureRetriesOnNextResume() {
         val expired = save("dQw4w9WgXcQ", "Expired", Instant.now())
         runBlocking { repository.moveToTrash(expired.id, Instant.now().minus(31, ChronoUnit.DAYS)) }
+        val allowPurge = AtomicBoolean(false)
         val calls = AtomicInteger()
-        val failingOnce = object : ContentNoteRepository by repository {
+        val failingUntilRetry = object : ContentNoteRepository by repository {
             override suspend fun purgeExpired(cutoff: Instant): Int {
-                if (calls.incrementAndGet() == 1) throw IllegalStateException("temporary")
+                calls.incrementAndGet()
+                if (!allowPurge.get()) throw IllegalStateException("temporary")
                 return repository.purgeExpired(cutoff)
             }
         }
-        app.container = AppContainer(app, failingOnce)
+        app.container = AppContainer(app, failingUntilRetry)
         ActivityScenario.launch<MainActivity>(launcher()).use { scenario ->
             waitFor("home")
             compose.onNodeWithText("My Notes").performClick()
             compose.onNodeWithText("Trash").performClick()
             waitFor("trash-row-${expired.id}")
+            val callsBeforeRetry = calls.get()
+            allowPurge.set(true)
             scenario.onActivity { it.appCoordinator.selectTab(AppDestination.HOME_GRAPH) }
             waitFor("home")
             scenario.onActivity { it.appCoordinator.selectTab(AppDestination.NOTES_GRAPH) }
-            compose.waitUntil(5_000) { calls.get() >= 2 }
+            compose.waitUntil(5_000) { calls.get() > callsBeforeRetry }
             compose.onNodeWithText("Trash is empty.").assertExists()
         }
     }
