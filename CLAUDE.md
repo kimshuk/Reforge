@@ -11,7 +11,6 @@ Reforge is a YouTube video analysis app. Users paste a YouTube URL, the FastAPI 
 ```
 ios/             — SwiftUI iOS app (Xcode project: NoteApp.xcodeproj)
 backend-fastapi/ — Active FastAPI server
-backend-nest/    — Legacy NestJS server retained during migration validation
 ```
 
 ## Development Commands

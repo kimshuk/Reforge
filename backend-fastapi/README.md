@@ -1,6 +1,6 @@
 # Reforge FastAPI Backend
 
-This service replaces `backend-nest` while preserving the public API and PostgreSQL schema.
+This is the active API service. Its migrations preserve the established PostgreSQL schema.
 
 ## Local development
 
@@ -128,16 +128,4 @@ jq -e '
 ' /tmp/reforge-analysis.json
 ```
 
-Existing analysis runs are not backfilled. Rerun analysis to obtain semantic categories. The NestJS rollback service remains available but returns its legacy response shape.
-
-## Rollback
-
-The baseline migration preserves the legacy Nest table names, columns, indexes, and UUID defaults. To switch the local stack back:
-
-```bash
-docker compose stop backend-fastapi
-docker compose --profile rollback up -d backend-nest
-curl http://localhost:3000/health
-```
-
-To return to FastAPI, stop `backend-nest` and run `docker compose up -d backend-fastapi`.
+Existing analysis runs are not backfilled. Rerun analysis to obtain semantic categories.

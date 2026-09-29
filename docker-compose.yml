@@ -7,35 +7,10 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgres://reforge:reforge@postgres:5432/reforge}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     env_file:
-      # Keep the Nest env as a migration fallback for existing provider keys.
-      - path: ./backend-nest/.env
-        required: false
       - path: ./backend-fastapi/.env
         required: false
     ports:
       - '3000:3000'
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  backend-nest:
-    profiles: [rollback]
-    build:
-      context: ./backend-nest
-    command: npm run dev
-    environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://reforge:reforge@postgres:5432/reforge}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
-    env_file:
-      - path: ./backend-nest/.env
-        required: false
-    ports:
-      - '3000:3000'
-    volumes:
-      - ./backend-nest:/app
-      - backend_nest_node_modules:/app/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,6 +46,5 @@ services:
       retries: 10
 
 volumes:
-  backend_nest_node_modules:
   postgres_data:
   redis_data:
