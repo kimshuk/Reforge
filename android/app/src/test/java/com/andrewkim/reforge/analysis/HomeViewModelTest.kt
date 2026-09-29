@@ -13,7 +13,10 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.test.resetMain
-import okhttp3.HttpUrl
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -47,6 +50,52 @@ class HomeViewModelTest {
         assertEquals(listOf(url), calls)
         assertEquals(VideoUnavailableReason.RATE_LIMITED, vm.state.value.unavailableReason)
         assertEquals(VideoUnavailableReason.RATE_LIMITED.userMessage, vm.state.value.errorMessage)
+    }
+
+    @Test fun clearingThenReenteringSameUrlRefetchesAfterFullDebounce() = runTest(dispatcher) {
+        var calls = 0
+        val vm = HomeViewModel(YouTubeAvailabilityChecking {
+            calls++
+            YouTubeAvailability.Available("Title $calls")
+        }, AnalysisRunning { _, _ -> emptyResult() })
+        vm.setUrl(url)
+        advanceTimeBy(500)
+        runCurrent()
+        assertEquals("Title 1", vm.state.value.title)
+        vm.setUrl("")
+        assertEquals("", vm.state.value.title)
+        vm.setUrl(url)
+        advanceTimeBy(499)
+        runCurrent()
+        assertEquals(1, calls)
+        assertEquals("", vm.state.value.title)
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(2, calls)
+        assertEquals("Title 2", vm.state.value.title)
+    }
+
+    @Test fun returningToPriorUrlWhileOtherDebouncePendingRefetches() = runTest(dispatcher) {
+        val calls = mutableListOf<String>()
+        val vm = HomeViewModel(YouTubeAvailabilityChecking {
+            calls += it.toString()
+            YouTubeAvailability.Available("Title ${calls.size}")
+        }, AnalysisRunning { _, _ -> emptyResult() })
+        vm.setUrl(url)
+        advanceTimeBy(500)
+        runCurrent()
+        assertEquals("Title 1", vm.state.value.title)
+        vm.setUrl("https://youtu.be/aaaaaaaaaaa")
+        advanceTimeBy(250)
+        vm.setUrl(url)
+        advanceTimeBy(499)
+        runCurrent()
+        assertEquals(listOf(url), calls)
+        assertEquals("", vm.state.value.title)
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(listOf(url, url), calls)
+        assertEquals("Title 2", vm.state.value.title)
     }
 
     @Test fun availabilityTransportFailureDoesNotBlockAnalysis() = runTest(dispatcher) {
@@ -161,6 +210,57 @@ class HomeViewModelTest {
         vm.removeKeyword(first)
         assertFalse(vm.state.value.selection.isSelected(first))
         assertTrue(vm.state.value.selection.isSelected(second))
+    }
+
+    @Test fun selectingExistingKeywordPreservesExpandedLevel() {
+        val key = KeywordOccurrence(0, 0)
+        val levelTwo = KeywordSelectionState().select(key).advanceLevel(key)
+        assertEquals(2, levelTwo.select(key).level(key))
+        val levelThree = levelTwo.advanceLevel(key)
+        assertEquals(3, levelThree.select(key).level(key))
+    }
+
+    @Test fun staleCallbacksCannotWinEvenWhenFakesIgnoreCancellation() = runTest(dispatcher) {
+        val checks = mutableListOf<Continuation<YouTubeAvailability>>()
+        val analyses = mutableListOf<Continuation<AnalyzeResponse>>()
+        val vm = HomeViewModel(
+            YouTubeAvailabilityChecking { suspendCoroutine { checks += it } },
+            AnalysisRunning { _, _ -> suspendCoroutine { analyses += it } },
+        )
+        vm.setUrl("https://youtu.be/aaaaaaaaaaa")
+        advanceTimeBy(500)
+        runCurrent()
+        vm.setUrl(url)
+        checks[0].resume(YouTubeAvailability.Available("Stale title"))
+        runCurrent()
+        assertEquals("", vm.state.value.title)
+        advanceTimeBy(500)
+        runCurrent()
+        checks[1].resume(YouTubeAvailability.Available("Current title"))
+        runCurrent()
+        assertEquals("Current title", vm.state.value.title)
+
+        vm.applySnapshotAndAnalyze(AnalysisInputSnapshot("First", url))
+        runCurrent()
+        vm.applySnapshotAndAnalyze(AnalysisInputSnapshot("Second", url))
+        runCurrent()
+        analyses[0].resume(emptyResult())
+        runCurrent()
+        assertNull(vm.state.value.result)
+        assertTrue(vm.state.value.isLoading)
+        analyses[1].resume(emptyResult())
+        runCurrent()
+
+        vm.applySnapshotAndAnalyze(AnalysisInputSnapshot("Third", url))
+        runCurrent()
+        vm.applySnapshotAndAnalyze(AnalysisInputSnapshot("Fourth", url))
+        runCurrent()
+        analyses[2].resumeWithException(IllegalStateException("Stale error"))
+        runCurrent()
+        assertEquals("", vm.state.value.errorMessage)
+        assertTrue(vm.state.value.isLoading)
+        analyses[3].resume(emptyResult())
+        runCurrent()
     }
 
     private fun emptyResult() = AnalyzeResponse("transcript", "youtube", emptyList(), 60, "dQw4w9WgXcQ")

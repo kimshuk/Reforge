@@ -8,7 +8,8 @@ data class KeywordSelectionState(
 ) {
     fun isSelected(key: KeywordOccurrence): Boolean = key in levels
     fun level(key: KeywordOccurrence): Int = levels[key] ?: 1
-    fun select(key: KeywordOccurrence): KeywordSelectionState = copy(levels = levels + (key to 1))
+    fun select(key: KeywordOccurrence): KeywordSelectionState =
+        if (key in levels) this else copy(levels = levels + (key to 1))
     fun advanceLevel(key: KeywordOccurrence): KeywordSelectionState =
         if (key in levels) copy(levels = levels + (key to (level(key) + 1).coerceAtMost(3))) else this
     fun remove(key: KeywordOccurrence): KeywordSelectionState = copy(levels = levels - key)

@@ -26,7 +26,6 @@ class HomeViewModel(
     val state = mutableState.asStateFlow()
     private var availabilityJob: Job? = null
     private var analysisJob: Job? = null
-    private var lastAutoFilledUrl = ""
     private var titleRevision = 0L
 
     override fun setUrl(value: String) {
@@ -37,7 +36,7 @@ class HomeViewModel(
         val identity = YouTubeVideoIdentity.parse(trimmed).getOrNull()
         mutableState.value = mutableState.value.copy(
             url = value,
-            title = if (identity == null || trimmed != lastAutoFilledUrl) "" else old.title,
+            title = "",
             isLoading = false,
             loadingStage = "",
             loadingStatusMessage = "",
@@ -48,7 +47,7 @@ class HomeViewModel(
             expandedCategoryIndex = null,
             selection = KeywordSelectionState(),
         )
-        if (identity == null || trimmed == lastAutoFilledUrl) return
+        if (identity == null) return
         val generation = mutableState.value.inputGeneration
         val requestedTitleRevision = titleRevision
         availabilityJob = viewModelScope.launch {
@@ -57,14 +56,12 @@ class HomeViewModel(
                 when (val checked = availability.check(identity.canonicalUrl)) {
                     is YouTubeAvailability.Available -> if (isCurrent(generation, value)) {
                         val autoFill = titleRevision == requestedTitleRevision
-                        if (autoFill) lastAutoFilledUrl = trimmed
                         mutableState.value = mutableState.value.copy(
                             title = if (autoFill) checked.title else mutableState.value.title,
                             unavailableReason = null, errorMessage = "",
                         )
                     }
                     is YouTubeAvailability.Unavailable -> if (isCurrent(generation, value)) {
-                        lastAutoFilledUrl = ""
                         mutableState.value = mutableState.value.copy(
                             title = "", unavailableReason = checked.reason,
                             errorMessage = checked.reason.userMessage,
@@ -96,7 +93,6 @@ class HomeViewModel(
         invalidate()
         titleRevision++
         val generation = mutableState.value.inputGeneration
-        lastAutoFilledUrl = snapshot.canonicalUrl
         mutableState.value = HomeState(
             url = snapshot.canonicalUrl,
             title = snapshot.title,
