@@ -115,6 +115,9 @@ def test_still_rejects_english_brief_with_fewer_than_five_words() -> None:
     "simple",
     [
         "The U.S. market changes quickly in this example.",
+        "U.S.-China diplomatic communications mean leaders talk to manage their relationship.",
+        "Reducing exposure to U.S. Treasuries means Chinese banks hold fewer government bonds.",
+        "The U.S. Treasury issues government bonds to fund public spending.",
         "The value increases from 1.5 to 2.0 in this example.",
         "An e.g. marker can appear inside one valid sentence.",
     ],
@@ -129,6 +132,8 @@ def test_accepts_single_sentences_with_internal_periods(simple: str) -> None:
     "value",
     [
         "The speaker cites the U.S. The market falls.",
+        "The speaker cites the U.S. Treasury. The market falls.",
+        "U.S.-China talks continue. The market falls.",
         "The speaker lists several risks, etc. The market falls.",
     ],
 )
