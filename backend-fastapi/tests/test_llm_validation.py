@@ -7,6 +7,7 @@ from app.config import Settings
 from app.errors import AppError
 from app.llm import (
     LlmClient,
+    normalize_candidate_sentences,
     sentence_count,
     validate_candidate,
     validate_category_grouping,
@@ -386,3 +387,116 @@ async def test_maps_failed_openai_response_to_request_failed() -> None:
             )
 
     assert raised.value.code == "LLM_REQUEST_FAILED"
+
+
+def test_sentence_arrays_preserve_public_string_fields() -> None:
+    candidate = {
+        **GOOD,
+        "contextualExplanation": [
+            "The speaker says competitors are pushing prices down.",
+            "The team therefore needs a clearer response.",
+        ],
+        "detailedExplanation": [
+            "The speaker claims competitors are pushing prices down.",
+            "Buyers compare the options mentioned in the chunk directly.",
+            "That mechanism makes the current approach harder to defend.",
+            "The team therefore needs a clearer pricing response.",
+        ],
+    }
+    normalized = normalize_candidate_sentences([candidate])
+    assert validate_candidate(normalized[0], 0, ["S001", "S002"]) == GOOD
+    assert isinstance(candidate["contextualExplanation"], list)
+
+
+@pytest.mark.parametrize("items", [
+    ["Only one sentence."],
+    ["First sentence. Hidden second sentence.", "Third sentence."],
+    ["", "Another sentence."],
+    [None, "Another sentence."],
+    ["x" * 421, "Another sentence."],
+])
+def test_rejects_invalid_sentence_arrays(items) -> None:
+    with pytest.raises(AppError):
+        normalize_candidate_sentences([{**GOOD, "contextualExplanation": items}])
+
+
+@pytest.mark.asyncio
+async def test_generation_normalizes_structured_sentence_arrays(monkeypatch) -> None:
+    llm = LlmClient(Settings())
+    async def generate(_system, _user, _options, schema):
+        properties = schema["schema"]["properties"]["candidateClippings"]["items"]["properties"]
+        assert properties["contextualExplanation"]["minItems"] == 2
+        assert properties["detailedExplanation"]["minItems"] == 3
+        return json.dumps({"candidateClippings": [{
+            **GOOD,
+            "contextualExplanation": ["The speaker says competitors are pushing prices down.", "The team therefore needs a clearer response."],
+            "detailedExplanation": ["The speaker claims competitors are pushing prices down.", "Buyers compare the options mentioned in the chunk directly.", "That mechanism makes the current approach harder to defend.", "The team therefore needs a clearer pricing response."],
+        }]})
+    monkeypatch.setattr(llm, "_generate", generate)
+    assert await llm.generate_candidate_clippings(
+        "Pricing", "Pricing pressure", "S001 | 00:00 | Prices drop.\nS002 | 00:05 | Team responds.", "en", {}
+    ) == [GOOD]
+
+
+@pytest.mark.parametrize("value", [
+    "In the U.S., seasonal factors cause companies to raise wages or prices.",
+    "The speaker describes the U.S.: inflation affects markets.",
+    "The speaker describes the U.S.; inflation affects markets.",
+])
+def test_abbreviation_followed_by_continuation_punctuation_is_not_a_boundary(value):
+    assert sentence_count(value) == 1
+
+
+def test_sentence_array_accepts_abbreviation_followed_by_comma() -> None:
+    candidate = {**GOOD, "contextualExplanation": [
+        "In the U.S., competitive pressure makes product prices difficult to maintain.",
+        "The speaker connects that pressure to the team needing a clearer response.",
+    ]}
+    normalized = normalize_candidate_sentences([candidate])
+    assert validate_candidate(normalized[0], 0, ["S001", "S002"])
+
+
+@pytest.mark.asyncio
+async def test_category_grouping_repairs_missing_occurrence_ids(monkeypatch) -> None:
+    llm = LlmClient(Settings())
+    calls = []
+    responses = [
+        {"categories": [{"title": "Pricing", "keywordIds": ["K001"]}]},
+        {"categories": [{"title": "Pricing", "keywordIds": ["K001", "K002"]}]},
+    ]
+    async def generate(_system, user, _options, _schema):
+        calls.append(user)
+        return json.dumps(responses.pop(0))
+    monkeypatch.setattr(llm, "_generate", generate)
+    result = await llm.generate_keyword_categories([{"keywordId": "K001"}, {"keywordId": "K002"}], "en", {})
+    assert result[0]["keywordIds"] == ["K001", "K002"]
+    assert len(calls) == 2
+    assert 'Required IDs: ["K001", "K002"]' in calls[1]
+
+
+@pytest.mark.asyncio
+async def test_category_grouping_stops_after_three_invalid_responses(monkeypatch) -> None:
+    llm = LlmClient(Settings())
+    calls = 0
+    async def generate(*_args):
+        nonlocal calls
+        calls += 1
+        return json.dumps({"categories": []})
+    monkeypatch.setattr(llm, "_generate", generate)
+    with pytest.raises(AppError):
+        await llm.generate_keyword_categories([{"keywordId": "K001"}], "en", {})
+    assert calls == 3
+
+
+@pytest.mark.asyncio
+async def test_category_grouping_does_not_retry_provider_errors(monkeypatch) -> None:
+    llm = LlmClient(Settings())
+    calls = 0
+    async def generate(*_args):
+        nonlocal calls
+        calls += 1
+        raise AppError(502, "LLM_QUOTA_OR_RATE_LIMIT", "Rate limit")
+    monkeypatch.setattr(llm, "_generate", generate)
+    with pytest.raises(AppError, match="Rate limit"):
+        await llm.generate_keyword_categories([{"keywordId": "K001"}], "en", {})
+    assert calls == 1

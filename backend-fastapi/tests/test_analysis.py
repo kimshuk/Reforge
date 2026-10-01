@@ -1,3 +1,4 @@
+import asyncio
 from uuid import UUID, uuid4
 
 import pytest
@@ -512,3 +513,65 @@ async def test_analyze_returns_semantic_categories_with_distinct_contextual_occu
     assert grouping_events[-1]["discardedOccurrenceCount"] == 2
     assert any(payload["stage"] == "enriching_explanations" for _, payload in events)
     assert store.completed is True
+
+
+@pytest.mark.asyncio
+async def test_topic_extraction_runs_at_most_three_calls_and_preserves_order() -> None:
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    class ConcurrentLlm(ServiceLlm):
+        active = 0
+        peak = 0
+        async def generate_topic_chunks(self, *_args):
+            return [{"startSegmentId": f"S{i+1:03}", "endSegmentId": f"S{i+1:03}", "title": str(i), "summary": "Grounded topic", "signalLevel": "high"} for i in range(6)]
+        async def generate_candidate_clippings(self, title, *_args):
+            self.active += 1
+            self.peak = max(self.peak, self.active)
+            if self.active == 3:
+                entered.set()
+            await release.wait()
+            await asyncio.sleep(0)
+            self.active -= 1
+            label = f"S{int(title)+1:03}"
+            return [candidate(label, label, title=f"Concept {title}")]
+        async def generate_keyword_categories(self, occurrences, *_args):
+            return [{"title": "Concepts", "keywordIds": [o["keywordId"] for o in occurrences]}]
+    store = ServiceStore([segment(i) for i in range(6)])
+    llm = ConcurrentLlm()
+    task = asyncio.create_task(FixedTranscriptAnalyzeService(store, llm, Settings(), RecordingEnricher()).analyze({"type": "youtube", "youtubeUrl": "https://youtu.be/video123"}))
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        assert llm.active == 3
+        release.set()
+        await asyncio.wait_for(task, 1)
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+    assert llm.peak == 3
+    assert [c.title for c in store.saved_clippings] == [f"Concept {i}" for i in range(6)]
+
+
+@pytest.mark.asyncio
+async def test_topic_failure_cancels_pending_provider_calls() -> None:
+    pending = asyncio.Event()
+    cancelled = asyncio.Event()
+    class FailureLlm(ServiceLlm):
+        async def generate_candidate_clippings(self, title, *_args):
+            if title == "Introduction":
+                await pending.wait()
+                raise AppError(502, "LLM_REQUEST_FAILED", "Provider failed")
+            pending.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+    class FailureStore(ServiceStore):
+        async def mark_failed(self, *_args):
+            pass
+    store = FailureStore([segment(i) for i in range(6)])
+    with pytest.raises(AppError, match="Provider failed"):
+        await asyncio.wait_for(FixedTranscriptAnalyzeService(store, FailureLlm(), Settings(), RecordingEnricher()).analyze({"type": "youtube", "youtubeUrl": "https://youtu.be/video123"}), 1)
+    assert cancelled.is_set()
+    assert not store.saved_clippings

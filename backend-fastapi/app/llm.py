@@ -150,7 +150,7 @@ class LlmClient:
                         "LLM_CLIPPINGS_INVALID_JSON",
                         "Invalid candidate clipping list",
                     )
-                return validate_candidates(candidates, labels)
+                return validate_candidates(normalize_candidate_sentences(candidates), labels)
             except AppError as error:
                 retryable = error.code in {
                     "LLM_CLIPPINGS_INVALID_JSON",
@@ -181,11 +181,25 @@ class LlmClient:
         system, user = category_grouping_prompt(
             json.dumps(occurrences, ensure_ascii=False), target_language
         )
-        raw = await self._generate(system, user, options, CATEGORY_GROUPING_SCHEMA)
-        return validate_category_grouping(
-            parse_json_object(raw, "LLM_CATEGORY_GROUPING_INVALID_JSON"),
-            occurrence_ids,
-        )
+        request_user = user
+        for attempt in range(3):
+            raw = await self._generate(system, request_user, options, CATEGORY_GROUPING_SCHEMA)
+            try:
+                return validate_category_grouping(
+                    parse_json_object(raw, "LLM_CATEGORY_GROUPING_INVALID_JSON"),
+                    occurrence_ids,
+                )
+            except AppError as error:
+                if attempt == 2 or error.code != "LLM_CATEGORY_GROUPING_INVALID_JSON":
+                    raise
+                request_user = (
+                    f"{user}\n\nCorrection required: {error.message}\n"
+                    "Return a complete replacement JSON response. Assign every provided "
+                    "keywordId exactly once across all categories. Do not invent, omit, "
+                    "duplicate, or rename IDs.\n"
+                    f"Required IDs: {json.dumps(occurrence_ids)}\nPrevious response:\n{raw}"
+                )
+        raise AssertionError("category grouping retry loop exhausted")
 
     async def plan_explanation_enrichment(
         self,
@@ -366,6 +380,40 @@ class LlmClient:
             env_name = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY", "claude": "ANTHROPIC_API_KEY"}[provider]
             raise AppError(500, "LLM_PROVIDER_NOT_CONFIGURED", f"{env_name} is required for provider '{provider}'")
         return key
+
+
+def normalize_candidate_sentences(candidates: list[Any]) -> list[Any]:
+    normalized = []
+    for index, candidate in enumerate(candidates):
+        if not isinstance(candidate, dict):
+            normalized.append(candidate)
+            continue
+        candidate = dict(candidate)
+        for field, minimum, maximum, limit in (
+            ("contextualExplanation", 2, 3, 420),
+            ("detailedExplanation", 3, 5, 700),
+        ):
+            value = candidate.get(field)
+            # Preserve compatibility with providers returning the previous string form.
+            if not isinstance(value, list):
+                continue
+            if not minimum <= len(value) <= maximum or any(
+                not isinstance(item, str) or not item.strip() or sentence_count(item) != 1
+                for item in value
+            ):
+                raise AppError(
+                    502, "LLM_CLIPPINGS_INVALID_JSON",
+                    f"Candidate {index}: {field} must contain {minimum}-{maximum} single-sentence items",
+                )
+            joined = " ".join(item.strip() for item in value)
+            if len(joined) > limit:
+                raise AppError(
+                    502, "LLM_CLIPPINGS_INVALID_JSON",
+                    f"Candidate {index}: joined {field} exceeds {limit} characters",
+                )
+            candidate[field] = joined
+        normalized.append(candidate)
+    return normalized
 
 
 def validate_candidate(value: Any, index: int, chunk_labels: list[str]) -> dict[str, Any]:
