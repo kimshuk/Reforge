@@ -25,6 +25,14 @@ Treating every explanation validation failure as model noncompliance hid a deter
 - Final verification used the actual Android Analyze flow for the same video: the backend recorded completion in 59 seconds and the device displayed result categories. The earlier isolated successful run took 243 seconds. These are measured runs, not a guarantee for every video.
 - With the corrected validator, an isolated full-video run using `gpt-4.1-mini` completed with 12 categories and 33 keywords. The original model still produced a genuine length violation. After explicit cost approval, the local backend model was changed and its active settings and health verified. Repository model defaults were not changed.
 
+## Joined-length follow-up (2026-10-10)
+
+A later real Android submission reached the backend but failed with `joined contextualExplanation exceeds 420 characters`. The sentence-array schema bounded each contextual sentence at 420 characters and each detailed sentence at 700, while normalization bounded the entire joined explanation. Structural sentence counts alone therefore did not enforce the public length contract: schema-valid arrays could reach 1,262 or 3,504 characters.
+
+`app/prompts.py` now reserves joining spaces and budgets each item against the maximum sentence count: `(420 - 2) // 3` and `(700 - 4) // 5`, both 139 characters. The prompt states that item budget explicitly. The public 420/700 limits, sentence counts, semantic validation, bounded correction attempts, and model remain unchanged; text is not truncated. `tests/test_llm_validation.py` covers maximum-size arrays and correction feedback for a joined-length overflow. Both boundary tests fail against the previous schema limits and pass against the corrected schema.
+
+Verification: backend pytest passed 194 tests with one skipped test; Ruff passed. After rebuilding the Docker service, the same video `DGd5nbYiAis` was submitted from Android. The persisted run completed in approximately 25 seconds with seven categories and 24 keywords; maximum contextual/detailed lengths were 267/551 characters. Category selection, keyword selection, and expanded contextual explanation were visible on the device. This verifies one actual run, not universal model reliability.
+
 ## Prevention
 
 Keep the approved simple 1 / contextual 2–3 / detailed 3–5 sentence contract. Compare actual generated text with validator behavior; distinguish deterministic false rejections from genuine model violations. Docker Compose does not mount the backend source, so rebuild the image for code changes and recreate the service for environment changes. Model changes that increase API costs require explicit approval. Do not treat a single isolated model success as proof that the phone flow is fixed; verify the real HTTP final event and actual device result. Keep correction retries bounded and preserve all occurrence IDs instead of dropping unassigned keywords.

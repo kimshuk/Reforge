@@ -500,3 +500,42 @@ async def test_category_grouping_does_not_retry_provider_errors(monkeypatch) -> 
     with pytest.raises(AppError, match="Rate limit"):
         await llm.generate_keyword_categories([{"keywordId": "K001"}], "en", {})
     assert calls == 1
+
+
+@pytest.mark.parametrize(("field", "limit"), [
+    ("contextualExplanation", 420),
+    ("detailedExplanation", 700),
+])
+def test_largest_schema_sentence_arrays_fit_joined_character_limit(field, limit) -> None:
+    from app.prompts import CANDIDATE_CLIPPING_SCHEMA
+
+    properties = CANDIDATE_CLIPPING_SCHEMA["schema"]["properties"]["candidateClippings"]["items"]["properties"]
+    schema = properties[field]
+    # Exercise the maximum sentence count AND item length, including joining spaces.
+    sentence = "A" + "b" * (schema["items"]["maxLength"] - 2) + "."
+    items = [sentence] * schema["maxItems"]
+    joined = " ".join(items)
+    assert len(joined) <= limit
+    normalized = normalize_candidate_sentences([{**GOOD, field: items}])
+    assert normalized[0][field] == joined
+
+
+@pytest.mark.asyncio
+async def test_generation_repairs_joined_character_overflow(monkeypatch) -> None:
+    llm = LlmClient(Settings())
+    responses = [
+        {**GOOD, "contextualExplanation": ["A" + "b" * 208 + ".", "C" + "d" * 208 + "."]},
+        GOOD,
+    ]
+    users = []
+
+    async def generate(_system, user, _options, _schema):
+        users.append(user)
+        return json.dumps({"candidateClippings": [responses.pop(0)]})
+
+    monkeypatch.setattr(llm, "_generate", generate)
+    assert await llm.generate_candidate_clippings(
+        "Pricing", "Pricing pressure", "S001 | 00:00 | Prices drop.\nS002 | 00:05 | Team responds.", "en", {}
+    ) == [GOOD]
+    assert len(users) == 2
+    assert "joined contextualExplanation exceeds 420 characters" in users[1]
