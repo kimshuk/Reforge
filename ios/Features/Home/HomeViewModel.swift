@@ -25,7 +25,6 @@ final class HomeViewModel: ObservableObject {
     private var autoFillTask: Task<Void, Never>?
     private var lastAutoFilledURL: String = ""
     private var submittedURL: String = ""
-    private var submittedTitle: String = ""
 
     var shouldShowTitleArea: Bool {
         if analysisResult != nil { return true }
@@ -44,26 +43,9 @@ final class HomeViewModel: ObservableObject {
         return URL(string: "https://img.youtube.com/vi/\(videoID)/hqdefault.jpg")
     }
 
-    var titleDisplayText: String {
-        let trimmed = titleInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Loading title..." : trimmed
-    }
-
     init(analyzeService: AnalyzeService, youtubeTitleService: YouTubeTitleService) {
         self.analyzeService = analyzeService
         self.youtubeTitleService = youtubeTitleService
-    }
-
-    func validateYoutubeLink() {
-        let trimmed = youtubeLink.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard let url = URL(string: trimmed), let host = url.host else {
-            errorMessage = "Please enter a valid URL."
-            return
-        }
-
-        let isYoutubeHost = host.contains("youtube.com") || host.contains("youtu.be")
-        errorMessage = isYoutubeHost ? "" : "URL is not a YouTube link."
     }
 
     func handleYouTubeLinkChange() {
@@ -114,7 +96,6 @@ final class HomeViewModel: ObservableObject {
         videoUnavailableReason = nil
         lastAutoFilledURL = note.canonicalURL.absoluteString
         submittedURL = ""
-        submittedTitle = ""
     }
 
     func analyze() async {
@@ -148,7 +129,6 @@ final class HomeViewModel: ObservableObject {
         errorMessage = ""
         analysisResult = nil
         submittedURL = trimmedURL
-        submittedTitle = trimmedTitle
 
         do {
             let target = self

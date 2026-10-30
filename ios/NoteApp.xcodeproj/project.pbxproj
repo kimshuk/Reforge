@@ -64,7 +64,6 @@
 		E9C385442F5C1000000F0758 /* AnalyzeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C385482F5C1000000F0758 /* AnalyzeModels.swift */; };
 		E9C385452F5C1000000F0758 /* AnalyzeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C385492F5C1000000F0758 /* AnalyzeService.swift */; };
 		E9C385462F5C1000000F0758 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C3854A2F5C1000000F0758 /* AppConfig.swift */; };
-		E9C385472F5C1000000F0758 /* AnalyzeResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C3854B2F5C1000000F0758 /* AnalyzeResultView.swift */; };
 		E9C3854C2F5C1000000F0758 /* YouTubeOEmbedService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C3854D2F5C1000000F0758 /* YouTubeOEmbedService.swift */; };
 /* End PBXBuildFile section */
 
@@ -150,7 +149,6 @@
 		E9C385482F5C1000000F0758 /* AnalyzeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeModels.swift; sourceTree = "<group>"; };
 		E9C385492F5C1000000F0758 /* AnalyzeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeService.swift; sourceTree = "<group>"; };
 		E9C3854A2F5C1000000F0758 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
-		E9C3854B2F5C1000000F0758 /* AnalyzeResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeResultView.swift; sourceTree = "<group>"; };
 		E9C3854D2F5C1000000F0758 /* YouTubeOEmbedService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeOEmbedService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -296,7 +294,6 @@
 		E9C385382F5BD550000F0758 /* Home */ = {
 			isa = PBXGroup;
 			children = (
-				E9C3854B2F5C1000000F0758 /* AnalyzeResultView.swift */,
 				E9C3853E2F5BD8AE000F0758 /* HomeView.swift */,
 				E9C385402F5BDF3E000F0758 /* HomeViewModel.swift */,
 			);
@@ -572,7 +569,6 @@
 				B60000000000000000000013 /* ShareExtensionViewModel.swift in Sources */,
 				B70000000000000000000001 /* PendingNoteRouter.swift in Sources */,
 				B70000000000000000000009 /* AppCoordinator.swift in Sources */,
-				E9C385472F5C1000000F0758 /* AnalyzeResultView.swift in Sources */,
 				E9C385462F5C1000000F0758 /* AppConfig.swift in Sources */,
 				E9C385452F5C1000000F0758 /* AnalyzeService.swift in Sources */,
 				E9C385442F5C1000000F0758 /* AnalyzeModels.swift in Sources */,

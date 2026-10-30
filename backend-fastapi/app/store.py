@@ -159,11 +159,6 @@ class TranscriptStore:
         await self.db.commit()
         return chunks
 
-    async def save_clippings(self, clippings: list[CandidateClipping]) -> list[CandidateClipping]:
-        self.db.add_all(clippings)
-        await self.db.commit()
-        return clippings
-
     async def save_category_graph(
         self,
         run_id: UUID,
