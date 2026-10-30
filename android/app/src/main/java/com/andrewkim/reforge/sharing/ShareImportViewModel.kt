@@ -81,14 +81,6 @@ class ShareImportViewModel(
         }
     }
 
-    fun cancelRestore() {
-        when (val current = mutableState.value) {
-            is ShareImportState.AwaitingRestore -> finish(current.generation)
-            is ShareImportState.Loading -> if (current.restoringNoteId != null) finish(current.generation)
-            else -> Unit
-        }
-    }
-
     fun cancelImport() {
         val current = mutableState.value as? ShareImportState.Active ?: return
         if (current is ShareImportState.Completed || current is ShareImportState.Finished) return
