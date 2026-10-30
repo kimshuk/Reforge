@@ -391,7 +391,7 @@
 
   ```bash
   xcodebuild test -project ios/NoteApp.xcodeproj -scheme NoteApp -destination 'platform=iOS Simulator,id=27BE906F-3031-4204-970C-4D62383904EA'
-  (cd backend-fastapi && PYTHONPATH=. /Users/jeezoo/Code/Projects/Reforge/Reforge/backend-fastapi/.venv/bin/python -m pytest -q -p no:cacheprovider)
+  (cd backend-fastapi && PYTHONPATH=. /Users/jeezoo/Code/Reforge/backend-fastapi/.venv/bin/python -m pytest -q -p no:cacheprovider)
   ```
 
   Expected: 기존 기준선 41개보다 늘어난 iOS 전체 테스트 PASS, backend `169 passed, 1 skipped` 유지.
