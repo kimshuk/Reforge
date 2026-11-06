@@ -518,7 +518,7 @@ class ShareNavigationTest {
             sourceKey = "youtube:$videoId", sourceType = "youtube", videoId = videoId,
             sourceUrl = "https://youtu.be/$videoId",
             canonicalUrl = "https://www.youtube.com/watch?v=$videoId",
-            title = "Title", transcriptId = "transcript-$videoId", transcriptText = "Text",
+            title = "Title", transcriptText = "Text",
             transcriptLanguageCode = "en", transcriptIsGenerated = false, createdAt = Instant.now(),
         )
         repository.saveOrReuse(draft).let { (it as com.andrewkim.reforge.notes.SaveNoteOutcome.Saved).note }
@@ -557,7 +557,7 @@ class ShareNavigationTest {
         const val FIRST = "https://youtu.be/$FIRST_ID"
         const val SECOND = "https://youtu.be/$SECOND_ID"
         fun response(id: String) = YoutubeTranscriptResponse(
-            transcriptId = "transcript-$id", videoId = id,
+            videoId = id,
             canonicalYoutubeUrl = "https://www.youtube.com/watch?v=$id",
             transcriptText = "Text", languageCode = "en", language = "English", isGenerated = false,
         )

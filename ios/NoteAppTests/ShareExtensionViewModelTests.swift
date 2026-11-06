@@ -153,7 +153,6 @@ final class ShareExtensionViewModelTests: XCTestCase {
             sourceURL: validInput.url,
             canonicalURL: URL(string: "https://www.youtube.com/watch?v=dQw4w9WgXcQ")!,
             title: "Original title",
-            transcriptId: "11111111-1111-4111-8111-111111111111",
             transcriptText: transcriptText,
             transcriptLanguageCode: "en",
             transcriptIsGenerated: false,

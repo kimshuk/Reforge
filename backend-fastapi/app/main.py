@@ -152,12 +152,8 @@ async def get_transcript(transcript_id: str, db: AsyncSession = Depends(get_db))
 @app.post("/youtube/transcript", response_model=YoutubeTranscriptResponse)
 async def ingest_youtube_transcript(
     body: YoutubeTranscriptRequest,
-    db: AsyncSession = Depends(get_db),
 ) -> YoutubeTranscriptResponse:
-    return await YoutubeTranscriptIngestionService(TranscriptStore(db)).ingest(
-        body.youtubeUrl,
-        body.title,
-    )
+    return await YoutubeTranscriptIngestionService().ingest(body.youtubeUrl)
 
 
 @app.post(

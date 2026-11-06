@@ -285,6 +285,33 @@ final class ContentNoteRepositoryTests: XCTestCase {
         XCTAssertEqual(try fixture.repository.pendingRouteSnapshot().noteID, draft.id)
     }
 
+    func testOpeningStoreWrittenWithTranscriptIdKeepsExistingNote() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let storeURL = directory.appendingPathComponent("store.sqlite")
+        let noteID = UUID()
+
+        do {
+            let schema = Schema([LegacyNoteStore.ContentNote.self, PendingNoteRoute.self])
+            let container = try ModelContainer(
+                for: schema,
+                configurations: [
+                    ModelConfiguration("ReforgeSharedContent", schema: schema, url: storeURL, allowsSave: true)
+                ]
+            )
+            let context = ModelContext(container)
+            context.insert(LegacyNoteStore.ContentNote(id: noteID))
+            try context.save()
+        }
+
+        let reopened = try SharedModelContainer.make(at: storeURL)
+        let notes = try ModelContext(reopened).fetch(FetchDescriptor<ContentNote>())
+        XCTAssertEqual(notes.map(\.id), [noteID])
+        XCTAssertEqual(notes.first?.transcriptText, "Saved transcript")
+    }
+
     func testRestoreAndEnqueueRouteSaveFailureLeavesTrashedNoteAndNoRoute() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.directory) }
@@ -473,7 +500,6 @@ final class ContentNoteRepositoryTests: XCTestCase {
             sourceURL: sourceURL,
             canonicalURL: URL(string: "https://www.youtube.com/watch?v=\(videoID)")!,
             title: title,
-            transcriptId: "11111111-1111-4111-8111-111111111111",
             transcriptText: transcriptText,
             transcriptLanguageCode: "en",
             transcriptIsGenerated: false,
@@ -492,5 +518,28 @@ final class ContentNoteRepositoryTests: XCTestCase {
         XCTAssertEqual(stored.title, draft.title, file: file, line: line)
         XCTAssertEqual(stored.transcriptText, draft.transcriptText, file: file, line: line)
         XCTAssertEqual(stored.createdAt, draft.createdAt, file: file, line: line)
+    }
+}
+
+enum LegacyNoteStore {
+    @Model
+    final class ContentNote {
+        var id: UUID
+        var sourceKey = "youtube:dQw4w9WgXcQ"
+        var sourceType = "youtube"
+        var videoId = "dQw4w9WgXcQ"
+        var sourceURL = URL(string: "https://youtu.be/dQw4w9WgXcQ")!
+        var canonicalURL = URL(string: "https://www.youtube.com/watch?v=dQw4w9WgXcQ")!
+        var title = "Saved title"
+        var transcriptId = "11111111-1111-4111-8111-111111111111"
+        var transcriptText = "Saved transcript"
+        var transcriptLanguageCode: String? = "en"
+        var transcriptIsGenerated: Bool? = false
+        var createdAt = Date(timeIntervalSince1970: 1_000)
+        var trashedAt: Date?
+
+        init(id: UUID) {
+            self.id = id
+        }
     }
 }

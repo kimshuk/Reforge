@@ -86,7 +86,6 @@ final class ShareIngestionCoordinator {
             sourceURL: input.url,
             canonicalURL: identity.canonicalURL,
             title: resolvedTitle ?? identity.canonicalURL.absoluteString,
-            transcriptId: transcript.transcriptId,
             transcriptText: transcript.transcriptText,
             transcriptLanguageCode: transcript.languageCode,
             transcriptIsGenerated: transcript.isGenerated,

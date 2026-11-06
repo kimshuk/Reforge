@@ -84,7 +84,6 @@ class ShareIngestionCoordinator(
             sourceUrl = input.sourceUrl,
             canonicalUrl = identity.canonicalUrl.toString(),
             title = sharedTitle ?: metadataTitle ?: identity.canonicalUrl.toString(),
-            transcriptId = transcript.transcriptId,
             transcriptText = transcript.transcriptText,
             transcriptLanguageCode = transcript.languageCode,
             transcriptIsGenerated = transcript.isGenerated,

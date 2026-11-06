@@ -342,7 +342,7 @@ class NotesScreensTest {
             sourceKey = "youtube:$videoId", sourceType = "youtube", videoId = videoId,
             sourceUrl = "https://youtu.be/$videoId",
             canonicalUrl = "https://www.youtube.com/watch?v=$videoId",
-            title = title, transcriptId = "transcript-$videoId", transcriptText = "Full transcript $title",
+            title = title, transcriptText = "Full transcript $title",
             transcriptLanguageCode = "en", transcriptIsGenerated = false, createdAt = at,
         )) as SaveNoteOutcome.Saved).note
     }

@@ -47,7 +47,7 @@ class AnalyzeService:
             llm, OpenAIWebSearchClient(settings), settings
         )
         self.youtube_ingestion = youtube_ingestion or YoutubeTranscriptIngestionService(
-            store, fetch_youtube_transcript
+            fetch_youtube_transcript
         )
 
     async def analyze(

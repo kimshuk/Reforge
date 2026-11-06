@@ -48,13 +48,19 @@ class YoutubeTranscriptServiceTest {
         assertEquals("""{"youtubeUrl":"$canonical","title":"Shared title"}""", body)
         assertFalse(body.contains("analyze"))
         assertEquals(1, server.requestCount)
-        assertEquals("11111111-1111-4111-8111-111111111111", response.transcriptId)
         assertEquals("dQw4w9WgXcQ", response.videoId)
         assertEquals(canonical.toString(), response.canonicalYoutubeUrl)
         assertEquals("Transcript text", response.transcriptText)
         assertEquals("en", response.languageCode)
         assertEquals("English", response.language)
         assertEquals(false, response.isGenerated)
+    }
+
+    @Test fun responseFromOlderBackendWithTranscriptIdStillDecodes() = runBlocking {
+        val older = SUCCESS.replaceFirst("{", """{"transcriptId":"11111111-1111-4111-8111-111111111111",""")
+        server.enqueue(MockResponse().setResponseCode(200).setBody(older))
+        val response = YoutubeTranscriptService(server.url("/v1/")).fetch(canonical, null)
+        assertEquals("dQw4w9WgXcQ", response.videoId)
     }
 
     @Test fun backendErrorCodeAndMessageArePreserved() {
@@ -162,6 +168,6 @@ class YoutubeTranscriptServiceTest {
     }
 
     companion object {
-        private const val SUCCESS = """{"transcriptId":"11111111-1111-4111-8111-111111111111","videoId":"dQw4w9WgXcQ","canonicalYoutubeUrl":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","transcriptText":"Transcript text","languageCode":"en","language":"English","isGenerated":false}"""
+        private const val SUCCESS = """{"videoId":"dQw4w9WgXcQ","canonicalYoutubeUrl":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","transcriptText":"Transcript text","languageCode":"en","language":"English","isGenerated":false}"""
     }
 }

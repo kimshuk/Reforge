@@ -39,7 +39,6 @@ def test_transcript_openapi_documents_request_and_response() -> None:
 
 def transcript_response(text: str) -> YoutubeTranscriptResponse:
     return YoutubeTranscriptResponse(
-        transcriptId="11111111-1111-4111-8111-111111111111",
         videoId="dQw4w9WgXcQ",
         canonicalYoutubeUrl="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
         transcriptText=text,
@@ -51,10 +50,7 @@ def transcript_response(text: str) -> YoutubeTranscriptResponse:
 
 def install_transcript_service(monkeypatch, result):
     class StubTranscriptService:
-        def __init__(self, _store) -> None:
-            pass
-
-        async def ingest(self, _youtube_url, _title):
+        async def ingest(self, _youtube_url):
             if isinstance(result, Exception):
                 raise result
             return result

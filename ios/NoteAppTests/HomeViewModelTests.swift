@@ -93,7 +93,7 @@ final class HomeViewModelTests: XCTestCase {
             id: UUID(), sourceKey: "youtube:dQw4w9WgXcQ", sourceType: "youtube",
             videoId: "dQw4w9WgXcQ", sourceURL: URL(string: "https://youtu.be/dQw4w9WgXcQ")!,
             canonicalURL: URL(string: "https://www.youtube.com/watch?v=dQw4w9WgXcQ")!,
-            title: "Shared title", transcriptId: "id", transcriptText: "text",
+            title: "Shared title", transcriptText: "text",
             transcriptLanguageCode: "en", transcriptIsGenerated: false, createdAt: Date()
         )
     }

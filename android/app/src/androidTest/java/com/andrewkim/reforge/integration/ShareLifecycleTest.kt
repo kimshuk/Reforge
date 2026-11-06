@@ -71,7 +71,7 @@ class ShareLifecycleTest {
                 override suspend fun fetch(canonicalUrl: HttpUrl, title: String?): YoutubeTranscriptResponse {
                     transcriptCalls.incrementAndGet()
                     return YoutubeTranscriptResponse(
-                        transcriptId = "transcript-$VIDEO_ID", videoId = VIDEO_ID,
+                        videoId = VIDEO_ID,
                         canonicalYoutubeUrl = CANONICAL_URL, transcriptText = "Transcript",
                         languageCode = "en", language = "English", isGenerated = false,
                     )
@@ -145,7 +145,7 @@ class ShareLifecycleTest {
         val note = repository.saveOrReuse(ContentNoteDraft(
             sourceKey = "youtube:$videoId", sourceType = "youtube", videoId = videoId,
             sourceUrl = "https://youtu.be/$videoId", canonicalUrl = "https://www.youtube.com/watch?v=$videoId",
-            title = "Title", transcriptId = "transcript-$videoId", transcriptText = "Transcript",
+            title = "Title", transcriptText = "Transcript",
             transcriptLanguageCode = "en", transcriptIsGenerated = false, createdAt = now,
         )) as com.andrewkim.reforge.notes.SaveNoteOutcome.Saved
         repository.moveToTrash(note.note.id, Instant.now().minus(Duration.ofDays(31)))

@@ -9,7 +9,6 @@ struct ContentNoteDraft: Equatable, Sendable {
     let sourceURL: URL
     let canonicalURL: URL
     let title: String
-    let transcriptId: String
     let transcriptText: String
     let transcriptLanguageCode: String?
     let transcriptIsGenerated: Bool?
@@ -24,7 +23,6 @@ struct StoredContentNote: Equatable, Sendable {
     let sourceURL: URL
     let canonicalURL: URL
     let title: String
-    let transcriptId: String
     let transcriptText: String
     let transcriptLanguageCode: String?
     let transcriptIsGenerated: Bool?
@@ -39,7 +37,6 @@ struct StoredContentNote: Equatable, Sendable {
         sourceURL: URL,
         canonicalURL: URL,
         title: String,
-        transcriptId: String,
         transcriptText: String,
         transcriptLanguageCode: String?,
         transcriptIsGenerated: Bool?,
@@ -53,7 +50,6 @@ struct StoredContentNote: Equatable, Sendable {
         self.sourceURL = sourceURL
         self.canonicalURL = canonicalURL
         self.title = title
-        self.transcriptId = transcriptId
         self.transcriptText = transcriptText
         self.transcriptLanguageCode = transcriptLanguageCode
         self.transcriptIsGenerated = transcriptIsGenerated
@@ -83,7 +79,6 @@ final class ContentNote {
     var sourceURL: URL
     var canonicalURL: URL
     var title: String
-    var transcriptId: String
     var transcriptText: String
     var transcriptLanguageCode: String?
     var transcriptIsGenerated: Bool?
@@ -98,7 +93,6 @@ final class ContentNote {
         sourceURL = draft.sourceURL
         canonicalURL = draft.canonicalURL
         title = draft.title
-        transcriptId = draft.transcriptId
         transcriptText = draft.transcriptText
         transcriptLanguageCode = draft.transcriptLanguageCode
         transcriptIsGenerated = draft.transcriptIsGenerated
@@ -115,7 +109,6 @@ final class ContentNote {
             sourceURL: sourceURL,
             canonicalURL: canonicalURL,
             title: title,
-            transcriptId: transcriptId,
             transcriptText: transcriptText,
             transcriptLanguageCode: transcriptLanguageCode,
             transcriptIsGenerated: transcriptIsGenerated,

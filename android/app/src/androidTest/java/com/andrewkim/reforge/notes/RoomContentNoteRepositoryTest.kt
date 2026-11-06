@@ -50,7 +50,6 @@ class RoomContentNoteRepositoryTest {
         sourceUrl = sourceUrl,
         canonicalUrl = "https://www.youtube.com/watch?v=$videoId",
         title = "Original title",
-        transcriptId = "transcript-$videoId",
         transcriptText = transcriptText,
         transcriptLanguageCode = "ko",
         transcriptIsGenerated = false,
@@ -71,7 +70,6 @@ class RoomContentNoteRepositoryTest {
         assertEquals(input.sourceUrl, note.sourceUrl)
         assertEquals(input.canonicalUrl, note.canonicalUrl)
         assertEquals(input.title, note.title)
-        assertEquals(input.transcriptId, note.transcriptId)
         assertEquals(input.transcriptText, note.transcriptText)
         assertEquals(input.transcriptLanguageCode, note.transcriptLanguageCode)
         assertEquals(input.transcriptIsGenerated, note.transcriptIsGenerated)
