@@ -1,122 +1,457 @@
-{
-  "transcriptId": "7f70d23c-222e-4213-8223-9cd304a9e001",
-  "sourceType": "youtube",
-  "categories": [
+[
+  {
+    "transcriptId": "7f70d23c-222e-4213-8223-9cd304a9e001",
+    "sourceType": "youtube",
+    "categories": [
       {
-          "title": "AI Leadership Strategies",
-          "keywords": [
-              {
-                  "term": "AI 활용법",
-                  "brief": "AI usage methods for leaders.",
-                  "level1": "Methods for leaders to use AI effectively.",
-                  "level2": "Discusses how leaders should adapt AI tools for their teams.",
-                  "level3": "Leaders need to customize AI tools and prompts to fit their unique team dynamics and goals.",
-                  "source": {
-                      "type": "youtube",
-                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=0s"
-                  }
-              },
-              {
-                  "term": "AI 리더십",
-                  "brief": "Leadership in the age of AI.",
-                  "level1": "The role of leadership in AI integration.",
-                  "level2": "Explores how leaders can guide their teams in AI adoption.",
-                  "level3": "Effective leadership in AI involves understanding technology and fostering collaboration among team members.",
-                  "source": {
-                      "type": "youtube",
-                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=0s"
-                  }
-              },
-              {
-                  "term": "AI 에이전트",
-                  "brief": "The rise of AI agents.",
-                  "level1": "AI agents are becoming a focal point in technology.",
-                  "level2": "The discussion highlights the shift towards AI agents in various applications.",
-                  "level3": "AI agents are now central to discussions about future technology, emphasizing their potential in automating tasks.",
-                  "source": {
-                      "type": "youtube",
-                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=545s"
-                  }
-              }
-          ]
+        "title": "AI Leadership Strategies",
+        "keywords": [
+          {
+            "term": "AI 활용법",
+            "brief": "AI usage methods for leaders.",
+            "level1": "Methods for leaders to use AI effectively.",
+            "level2": "Discusses how leaders should adapt AI tools for their teams.",
+            "level3": "Leaders need to customize AI tools and prompts to fit their unique team dynamics and goals.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=0s"
+            }
+          },
+          {
+            "term": "AI 리더십",
+            "brief": "Leadership in the age of AI.",
+            "level1": "The role of leadership in AI integration.",
+            "level2": "Explores how leaders can guide their teams in AI adoption.",
+            "level3": "Effective leadership in AI involves understanding technology and fostering collaboration among team members.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=0s"
+            }
+          },
+          {
+            "term": "AI 에이전트",
+            "brief": "The rise of AI agents.",
+            "level1": "AI agents are becoming a focal point in technology.",
+            "level2": "The discussion highlights the shift towards AI agents in various applications.",
+            "level3": "AI agents are now central to discussions about future technology, emphasizing their potential in automating tasks.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=545s"
+            }
+          }
+        ]
       },
       {
-          "title": "Investment Trends in AI",
-          "keywords": [
-              {
-                  "term": "AI 투자",
-                  "brief": "Investment strategies in AI.",
-                  "level1": "Current trends in AI investment.",
-                  "level2": "Focus on how venture capital is shifting towards AI startups.",
-                  "level3": "Investors are increasingly looking at AI startups, recognizing the potential for significant returns in this evolving market.",
-                  "source": {
-                      "type": "youtube",
-                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=127s"
-                  }
-              },
-              {
-                  "term": "스타트업 투자",
-                  "brief": "Investing in startups.",
-                  "level1": "Challenges and opportunities in startup investment.",
-                  "level2": "Highlights the competitive landscape for startup funding.",
-                  "level3": "Investors face challenges in identifying promising startups amidst a crowded market, especially in AI.",
-                  "source": {
-                      "type": "youtube",
-                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=607s"
-                  }
-              },
-              {
-                  "term": "VC 생태계",
-                  "brief": "Venture capital ecosystem differences.",
-                  "level1": "Comparing VC ecosystems in Korea and Silicon Valley.",
-                  "level2": "Discusses the structural differences in venture capital between regions.",
-                  "level3": "The VC ecosystem in Silicon Valley is more evolved, allowing for greater risk-taking and potential rewards compared to Korea.",
-                  "source": {
-                      "type": "youtube",
-                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=736s"
-                  }
-              }
-          ]
+        "title": "Investment Trends in AI",
+        "keywords": [
+          {
+            "term": "AI 투자",
+            "brief": "Investment strategies in AI.",
+            "level1": "Current trends in AI investment.",
+            "level2": "Focus on how venture capital is shifting towards AI startups.",
+            "level3": "Investors are increasingly looking at AI startups, recognizing the potential for significant returns in this evolving market.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=127s"
+            }
+          },
+          {
+            "term": "스타트업 투자",
+            "brief": "Investing in startups.",
+            "level1": "Challenges and opportunities in startup investment.",
+            "level2": "Highlights the competitive landscape for startup funding.",
+            "level3": "Investors face challenges in identifying promising startups amidst a crowded market, especially in AI.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=607s"
+            }
+          },
+          {
+            "term": "VC 생태계",
+            "brief": "Venture capital ecosystem differences.",
+            "level1": "Comparing VC ecosystems in Korea and Silicon Valley.",
+            "level2": "Discusses the structural differences in venture capital between regions.",
+            "level3": "The VC ecosystem in Silicon Valley is more evolved, allowing for greater risk-taking and potential rewards compared to Korea.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=736s"
+            }
+          }
+        ]
       },
       {
-          "title": "Challenges for Korean Startups",
-          "keywords": [
-              {
-                  "term": "한국 스타트업",
-                  "brief": "Challenges faced by Korean startups.",
-                  "level1": "Common pitfalls for Korean startups in global markets.",
-                  "level2": "Explores reasons why many Korean startups struggle abroad.",
-                  "level3": "Korean startups often face cultural and operational challenges when entering the U.S. market, impacting their success.",
-                  "source": {
-                      "type": "youtube",
-                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=799s"
-                  }
-              },
-              {
-                  "term": "글로벌 진출",
-                  "brief": "Global expansion strategies.",
-                  "level1": "Strategies for successful global market entry.",
-                  "level2": "Discusses the importance of understanding foreign markets.",
-                  "level3": "Startups must adapt their products and strategies to fit the cultural and operational norms of the markets they enter.",
-                  "source": {
-                      "type": "youtube",
-                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=896s"
-                  }
-              },
-              {
-                  "term": "실패 사례",
-                  "brief": "Common failure cases.",
-                  "level1": "Examples of failures in international expansion.",
-                  "level2": "Highlights frequent reasons for failure among Korean startups abroad.",
-                  "level3": "Many Korean startups fail internationally due to a lack of market understanding and cultural adaptation.",
-                  "source": {
-                      "type": "youtube",
-                      "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=831s"
-                  }
-              }
-          ]
+        "title": "Challenges for Korean Startups",
+        "keywords": [
+          {
+            "term": "한국 스타트업",
+            "brief": "Challenges faced by Korean startups.",
+            "level1": "Common pitfalls for Korean startups in global markets.",
+            "level2": "Explores reasons why many Korean startups struggle abroad.",
+            "level3": "Korean startups often face cultural and operational challenges when entering the U.S. market, impacting their success.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=799s"
+            }
+          },
+          {
+            "term": "글로벌 진출",
+            "brief": "Global expansion strategies.",
+            "level1": "Strategies for successful global market entry.",
+            "level2": "Discusses the importance of understanding foreign markets.",
+            "level3": "Startups must adapt their products and strategies to fit the cultural and operational norms of the markets they enter.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=896s"
+            }
+          },
+          {
+            "term": "실패 사례",
+            "brief": "Common failure cases.",
+            "level1": "Examples of failures in international expansion.",
+            "level2": "Highlights frequent reasons for failure among Korean startups abroad.",
+            "level3": "Many Korean startups fail internationally due to a lack of market understanding and cultural adaptation.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=bBsKvVq3Ako&t=831s"
+            }
+          }
+        ]
       }
-  ],
-  "expiresInSeconds": 3600,
-  "videoId": "bBsKvVq3Ako"
-}
+    ],
+    "expiresInSeconds": 3600,
+    "videoId": "bBsKvVq3Ako"
+  },
+  {
+    "transcriptId": "a268bc76-d1d4-4910-800d-c6c16f4abf8b",
+    "sourceType": "youtube",
+    "categories": [
+      {
+        "categoryId": "744f680d-7857-4cf9-a258-7d1e6c641ca6",
+        "title": "AI 관련 시장 변동성",
+        "keywords": [
+          {
+            "term": "AI 관련 시장 변동성",
+            "candidateClippingId": "dacff0f3-bc71-4a77-8722-7c6c3c98a239",
+            "brief": "AI 이슈로 시장 변동성이 증가했다.",
+            "level1": "AI 관련 문제들이 시장에 부정적인 영향을 미쳤다는 의미입니다.",
+            "level2": "이 부분에서는 AI 관련 이슈가 시장에 부정적인 영향을 미쳤다고 언급됩니다. 특히, 클로드와 코워크와 같은 AI 테마가 주가 하락에 기여했습니다.",
+            "level3": "연설자는 AI 관련 이슈가 시장에 부정적인 영향을 미쳤다고 주장합니다. 그 이유는 클로드와 코워크와 같은 AI 테마가 주가를 하락시키는 데 기여했기 때문입니다. 이로 인해 금과 은의 가격도 영향을 받았으며, 케빈 워시 의장의 지명 이후 급격한 변동성이 발생했습니다.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=9s"
+            },
+            "sources": [
+              {
+                "type": "youtube",
+                "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=9s"
+              }
+            ],
+            "level2CitationIds": [],
+            "level3CitationIds": [],
+            "externalSources": []
+          },
+          {
+            "term": "주가 하락 위험",
+            "candidateClippingId": "95683060-27f5-448e-8e5e-8e600dee7307",
+            "brief": "AI 이슈로 주가 하락 위험이 증가했다.",
+            "level1": "AI 관련 문제들이 주가 하락을 초래했습니다.",
+            "level2": "이 구간에서는 AI 관련 이슈가 주가 하락에 직접적인 영향을 미쳤다고 설명합니다. 특히, 금과 은의 가격도 영향을 받았습니다.",
+            "level3": "연설자는 AI 관련 이슈가 주가 하락을 초래했다고 주장합니다. 이는 클로드와 코워크와 같은 AI 테마가 시장에 부정적인 영향을 미쳤기 때문입니다. 이로 인해 금과 은의 가격도 상당한 영향을 받았으며, 이는 시장의 전반적인 불안정을 나타냅니다.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=13s"
+            },
+            "sources": [
+              {
+                "type": "youtube",
+                "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=13s"
+              }
+            ],
+            "level2CitationIds": [],
+            "level3CitationIds": [],
+            "externalSources": []
+          },
+          {
+            "term": "서비스 기업 대체 우려",
+            "candidateClippingId": "8633ec5c-07ff-4b75-86bb-3b6b6da5989b",
+            "brief": "AI가 서비스 기업을 대체할 가능성",
+            "level1": "에이전틱 AI가 서비스 기업을 대체할 수 있다는 걱정이 있습니다.",
+            "level2": "발표자는 에이전틱 AI가 서비스 기업들을 대체할 수 있다는 우려가 시장에서 확산되고 있다고 언급합니다. 이는 엔트로픽의 클로드 코워크와 관련이 있습니다.",
+            "level3": "특히 클로드 코워크와 같은 에이전틱 AI가 중간 서비스들을 불필요하게 만들 수 있다는 의혹이 제기되었습니다. 그러나 김단태 님의 지적에 따르면, 이러한 AI가 서비스 기업들을 대체하기 위해서는 훨씬 더 많은 자원이 필요하다고 합니다. 이는 시장의 반응이 다소 과도했음을 시사하며, 서비스 기업들이 여전히 중요한 역할을 할 수 있음을 나타냅니다.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=81s"
+            },
+            "sources": [
+              {
+                "type": "youtube",
+                "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=81s"
+              }
+            ],
+            "level2CitationIds": [],
+            "level3CitationIds": [],
+            "externalSources": []
+          },
+          {
+            "term": "시장 영향력",
+            "candidateClippingId": "981c7428-dfdc-4e0b-bed3-17036fdc8637",
+            "brief": "올해 에이전틱 AI의 시장 영향",
+            "level1": "에이전틱 AI가 올해 시장에 큰 영향을 줄 것입니다.",
+            "level2": "발표자는 에이전틱 AI가 올해 시장을 달고 놓을 것이라고 강조합니다. 이는 AI 기술의 발전과 관련이 있습니다.",
+            "level3": "에이전틱 AI의 부상이 시장에 미치는 영향은 분명하며, 이를 잘 이해하는 것이 필수적이라고 언급됩니다. 이는 AI 기술이 기업의 운영 방식에 변화를 가져올 수 있음을 시사합니다. 또한, 이러한 변화는 기업들이 경쟁력을 유지하기 위해 새로운 전략을 필요로 할 것임을 암시합니다.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=114s"
+            },
+            "sources": [
+              {
+                "type": "youtube",
+                "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=114s"
+              }
+            ],
+            "level2CitationIds": [],
+            "level3CitationIds": [],
+            "externalSources": []
+          }
+        ]
+      },
+      {
+        "categoryId": "dd8ac096-1f1d-4315-b86c-496fc97b3852",
+        "title": "에이전틱 AI",
+        "keywords": [
+          {
+            "term": "에이전틱 AI",
+            "candidateClippingId": "d21dd6a4-7871-4565-be99-c80c5e6cf03b",
+            "brief": "자율적으로 업무를 수행하는 AI",
+            "level1": "에이전틱 AI는 스스로 일을 할 수 있는 인공지능입니다.",
+            "level2": "이 부분에서 에이전틱 AI는 단순한 질문 응답을 넘어서 실제 업무를 자율적으로 수행할 수 있는 AI로 설명됩니다. 이는 시장에서의 영향력과 관련이 있습니다.",
+            "level3": "발표자는 에이전틱 AI가 기존의 B2B 소프트웨어 기업들의 영역을 침범하고 있다고 주장합니다. 특히 엔트로픽의 클로드 코워크가 비개발자를 위한 솔루션으로 주목받으면서, 소프트웨어 주식들이 하락하는 현상이 발생했습니다. 이로 인해 서비스 기업들이 대체될 가능성에 대한 의혹이 제기되었지만, 에이전틱 AI가 실제로 서비스 기업들을 대체하기 위해서는 더 많은 자원이 필요하다는 점도 지적되었습니다.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=46s"
+            },
+            "sources": [
+              {
+                "type": "youtube",
+                "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=46s"
+              }
+            ],
+            "level2CitationIds": [],
+            "level3CitationIds": [],
+            "externalSources": []
+          }
+        ]
+      },
+      {
+        "categoryId": "bc9e5423-6521-460c-b2b9-6c2cce4c42f2",
+        "title": "이란의 핵 프로그램",
+        "keywords": [
+          {
+            "term": "이란의 핵 프로그램",
+            "candidateClippingId": "592cbed5-39b1-439d-a3d7-4a87d365b38f",
+            "brief": "이란의 핵 프로그램과 군사적 긴장",
+            "level1": "이란의 핵 프로그램은 군사적 긴장을 유발하는 요소입니다.",
+            "level2": "이 chunk에서는 이란의 핵 프로그램이 군사적 위협으로 언급되며, 이로 인해 시장 반응이 발생할 수 있음을 설명합니다. 특히, 이란의 핵시설에 대한 과거의 공습 사례가 언급되어 긴장이 단순한 위협이 아닐 수 있다는 우려를 나타냅니다.",
+            "level3": "발언자는 이란의 핵 프로그램이 군사적 조치와 연결되어 있으며, 이는 시장에 영향을 미칠 수 있다고 주장합니다. 이란의 최고 지도자가 전쟁이 시작될 경우 지역 전쟁으로 번질 수 있다고 경고한 점도 강조됩니다. 이러한 긴장은 이란 내부의 반정부 시위와 맞물려 불확실성을 증대시키지만, 대화 채널이 열렸다는 점에서 긍정적인 요소로 작용할 수 있다고 설명합니다.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=204s"
+            },
+            "sources": [
+              {
+                "type": "youtube",
+                "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=204s"
+              }
+            ],
+            "level2CitationIds": [],
+            "level3CitationIds": [],
+            "externalSources": []
+          },
+          {
+            "term": "군사적 조치의 위협",
+            "candidateClippingId": "83c72308-c37e-4f10-a421-ac1afd496a62",
+            "brief": "군사적 조치의 위협이 존재",
+            "level1": "군사적 조치는 전쟁이나 갈등을 초래할 수 있는 위험입니다.",
+            "level2": "이 chunk에서는 트럼프가 이란의 핵 프로그램을 이유로 군사적 조치를 취하겠다고 위협한 상황을 설명합니다. 이러한 위협은 이란과의 긴장을 고조시키는 요소로 작용하고 있습니다.",
+            "level3": "발언자는 트럼프가 이란의 핵 프로그램과 반정부 시위를 이유로 군사적 조치를 취하겠다고 위협했다고 언급합니다. 이는 과거의 공습 사례를 통해 이러한 위협이 실제로 실행될 가능성에 대한 우려를 나타냅니다. 이란의 최고 지도자도 전쟁이 시작될 경우 지역 전쟁으로 번질 수 있다고 경고하며, 이러한 상황은 시장에 불확실성을 초래할 수 있습니다.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=206s"
+            },
+            "sources": [
+              {
+                "type": "youtube",
+                "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=206s"
+              }
+            ],
+            "level2CitationIds": [],
+            "level3CitationIds": [],
+            "externalSources": []
+          },
+          {
+            "term": "지정학적 긴장 완화",
+            "candidateClippingId": "74fe0f59-599a-4bed-94e2-08be03b9db3f",
+            "brief": "대화 채널 개설로 긴장 완화",
+            "level1": "대화 채널은 긴장을 완화하는 데 도움이 됩니다.",
+            "level2": "이 chunk에서는 이란과 미국 간의 대화 채널이 열렸다는 점이 지정학적 긴장을 완화할 수 있는 요인으로 작용할 수 있다고 설명합니다. 이는 시장의 불확실성을 줄이는 긍정적인 요소로 작용할 수 있습니다.",
+            "level3": "발언자는 이란과 미국 간의 해협상 시작이 지정학적 긴장을 완화할 수 있는 긍정적인 요소로 작용할 수 있다고 주장합니다. 대화 채널이 열렸다는 것은 불확실성을 줄이는 데 기여할 수 있으며, 이는 시장에 긍정적인 영향을 미칠 수 있습니다. 그러나 여전히 이란 내부의 반정부 시위와 같은 불확실성이 존재하므로, 상황을 주의 깊게 지켜봐야 한다고 강조합니다.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=249s"
+            },
+            "sources": [
+              {
+                "type": "youtube",
+                "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=249s"
+              }
+            ],
+            "level2CitationIds": [],
+            "level3CitationIds": [],
+            "externalSources": []
+          }
+        ]
+      },
+      {
+        "categoryId": "97021ec8-1f61-43b0-87ce-3eb95821bb1b",
+        "title": "경제적 위험",
+        "keywords": [
+          {
+            "term": "Inflation and Geopolitical Risks",
+            "candidateClippingId": "6e5f1476-4452-4453-9c81-f959e3e960ae",
+            "brief": "Inflation and geopolitical factors pose risks.",
+            "level1": "Inflation and geopolitical issues can affect market stability.",
+            "level2": "The speaker notes that while February has its seasonal trends, it is important to consider inflation and geopolitical factors when assessing risks. These elements can significantly impact market performance.",
+            "level3": "The speaker emphasizes that understanding the risks associated with inflation and geopolitical events is crucial for managing investments in February. They suggest that these specific factors should be integrated into risk management strategies, as they can influence market dynamics beyond seasonal trends. This approach helps investors make more informed decisions during potentially volatile periods.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=333s"
+            },
+            "sources": [
+              {
+                "type": "youtube",
+                "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=333s"
+              }
+            ],
+            "level2CitationIds": [],
+            "level3CitationIds": [],
+            "externalSources": []
+          },
+          {
+            "term": "연준의 정책 대응",
+            "candidateClippingId": "21cf9528-de85-4e38-baf3-ac5d35380d31",
+            "brief": "연준의 결정이 경제에 미치는 영향.",
+            "level1": "연준의 정책은 경제 성장과 고용에 중요한 영향을 미칩니다.",
+            "level2": "연사는 연준의 정책 대응이 고용 없는 성장에 어떻게 영향을 미칠지를 주목해야 한다고 말합니다. 특히, 인플레이션을 경계하면서도 고용 시장의 둔화를 원치 않는 연준의 속내가 드러나고 있습니다.",
+            "level3": "연준은 인플레이션을 경계하면서도 고용 시장의 추가 둔화를 원치 않는다는 속내를 드러내고 있습니다. 이는 고용 없는 성장 상황에서 연준의 정책 결정이 경제에 미치는 영향이 크다는 것을 의미합니다. 따라서 연준의 정책 대응을 주의 깊게 지켜보아야 한다고 강조합니다.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=464s"
+            },
+            "sources": [
+              {
+                "type": "youtube",
+                "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=464s"
+              }
+            ],
+            "level2CitationIds": [],
+            "level3CitationIds": [],
+            "externalSources": []
+          }
+        ]
+      },
+      {
+        "categoryId": "f5533f8d-7939-4eec-9d55-c52d91356c8d",
+        "title": "고용 없는 성장",
+        "keywords": [
+          {
+            "term": "고용 없는 성장",
+            "candidateClippingId": "167fdbe5-c310-4f1b-a6cf-c81a79f97755",
+            "brief": "경제 성장에 고용 증가가 없다.",
+            "level1": "고용 없는 성장은 경제가 성장하지만 일자리가 늘지 않는 현상입니다.",
+            "level2": "이 구간에서 연사는 고용 없는 성장에 대한 우려를 언급하며, AI의 영향이 점진적으로 나타나고 있다고 설명합니다. 현재 고용 시장의 급격한 둔화는 아직 이르다고 보며, 연준의 정책 대응을 주목해야 한다고 강조합니다.",
+            "level3": "연사는 고용 없는 성장에 대한 우려가 부각되고 있으며, AI의 영향이 IT 및 사무직 중심으로 점진적으로 나타나고 있다고 주장합니다. 그러나 전체 고용 시장이 급격한 둔화 국면에 진입했다고 보기는 이르다고 설명합니다. 연준은 인플레이션을 경계하면서도 고용 시장의 추가 둔화를 원치 않는 속내를 드러내고 있어, 이와 관련된 정책 대응을 지켜볼 필요가 있다고 강조합니다.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=454s"
+            },
+            "sources": [
+              {
+                "type": "youtube",
+                "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=454s"
+              },
+              {
+                "type": "youtube",
+                "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=464s"
+              }
+            ],
+            "level2CitationIds": [],
+            "level3CitationIds": [],
+            "externalSources": []
+          }
+        ]
+      },
+      {
+        "categoryId": "7f43823c-b9a2-4c07-aaf9-ac189d7c0ae0",
+        "title": "케빈 워시 의장",
+        "keywords": [
+          {
+            "term": "케빈 워시 의장",
+            "candidateClippingId": "f060e06e-bddd-4f20-9b08-256e3818798e",
+            "brief": "케빈 워시 의장에 대한 논의",
+            "level1": "케빈 워시는 중요한 정책 결정자입니다.",
+            "level2": "이 부분에서는 케빈 워시 의장에 대한 상세한 분석이 이루어집니다. 그의 정책 방향에 대한 논의가 이어질 것임을 암시합니다.",
+            "level3": "발표자는 케빈 워시 의장에 대해 더 깊이 다룰 것이라고 언급합니다. 이는 그의 정책 방향이 중요하다는 점을 강조하며, 청중에게 그의 결정이 어떤 영향을 미칠 수 있는지를 설명할 것으로 보입니다. 이 논의는 정책 결정 과정에서 그의 역할을 이해하는 데 중요한 기초가 될 것입니다.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=530s"
+            },
+            "sources": [
+              {
+                "type": "youtube",
+                "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=530s"
+              }
+            ],
+            "level2CitationIds": [],
+            "level3CitationIds": [],
+            "externalSources": []
+          }
+        ]
+      },
+      {
+        "categoryId": "98176ce2-c44e-47ae-a1c3-908d9c9e48b2",
+        "title": "시장 트렌드",
+        "keywords": [
+          {
+            "term": "February Market Trends",
+            "candidateClippingId": "d035c879-f126-4ae6-805a-49f2717fe758",
+            "brief": "February typically sees poor market performance.",
+            "level1": "February is usually a bad month for stock market inflows.",
+            "level2": "In this chunk, the speaker highlights that February is not favorable for stock market inflows. They mention that historically, the average monthly return in February is negative.",
+            "level3": "The speaker claims that February has a low probability of positive returns, with only a 52% chance of rising compared to other months. They provide data showing that the market peaks around February 13 and declines towards the end of the month. This trend suggests that investors should be cautious during this period, considering seasonal patterns alongside other factors like inflation and geopolitical risks.",
+            "source": {
+              "type": "youtube",
+              "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=303s"
+            },
+            "sources": [
+              {
+                "type": "youtube",
+                "ref": "https://www.youtube.com/watch?v=DGd5nbYiAis&t=303s"
+              }
+            ],
+            "level2CitationIds": [],
+            "level3CitationIds": [],
+            "externalSources": []
+          }
+        ]
+      }
+    ],
+    "expiresInSeconds": 1800,
+    "llm": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "temperature": 0.2,
+      "maxOutputTokens": 3000
+    },
+    "videoId": "DGd5nbYiAis"
+  }
+]
