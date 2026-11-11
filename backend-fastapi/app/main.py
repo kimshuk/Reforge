@@ -4,6 +4,7 @@ import logging
 from contextlib import asynccontextmanager, suppress
 from uuid import UUID
 
+import anyio
 import httpx
 import redis.asyncio as redis
 from fastapi import Depends, FastAPI, Header, Query, Request
@@ -221,7 +222,9 @@ async def analyze(
         finally:
             if not task.done():
                 task.cancel()
-            with suppress(asyncio.CancelledError):
+            # After a disconnect this code runs in a cancelled scope. Without the shield,
+            # awaiting the task cancels it again and kills mark_failed mid-write.
+            with anyio.CancelScope(shield=True), suppress(asyncio.CancelledError):
                 await task
 
     return StreamingResponse(
