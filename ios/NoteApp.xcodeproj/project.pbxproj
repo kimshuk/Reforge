@@ -37,6 +37,8 @@
 		C2000000000000000000000E /* ContentNoteDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2000000000000000000000F /* ContentNoteDetailView.swift */; };
 		C20000000000000000000010 /* TrashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000011 /* TrashView.swift */; };
 		A10000000000000000000001 /* AnalyzeModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* AnalyzeModelsTests.swift */; };
+		D10000000000000000000001 /* AnalyzeServiceErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000002 /* AnalyzeServiceErrorTests.swift */; };
+		D10000000000000000000003 /* AnalyzeServiceStreamTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000004 /* AnalyzeServiceStreamTests.swift */; };
 		B30000000000000000000011 /* YouTubeVideoIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000001 /* YouTubeVideoIdentity.swift */; };
 		B30000000000000000000012 /* YouTubeVideoIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000002 /* YouTubeVideoIdentityTests.swift */; };
 		B30000000000000000000013 /* YouTubeTranscriptService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000004 /* YouTubeTranscriptService.swift */; };
@@ -119,6 +121,8 @@
 		C2000000000000000000000F /* ContentNoteDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentNoteDetailView.swift; sourceTree = "<group>"; };
 		C20000000000000000000011 /* TrashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashView.swift; sourceTree = "<group>"; };
 		A10000000000000000000002 /* AnalyzeModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeModelsTests.swift; sourceTree = "<group>"; };
+		D10000000000000000000002 /* AnalyzeServiceErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeServiceErrorTests.swift; sourceTree = "<group>"; };
+		D10000000000000000000004 /* AnalyzeServiceStreamTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeServiceStreamTests.swift; sourceTree = "<group>"; };
 		B30000000000000000000001 /* YouTubeVideoIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeVideoIdentity.swift; sourceTree = "<group>"; };
 		B30000000000000000000002 /* YouTubeVideoIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeVideoIdentityTests.swift; sourceTree = "<group>"; };
 		B30000000000000000000004 /* YouTubeTranscriptService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeTranscriptService.swift; sourceTree = "<group>"; };
@@ -363,6 +367,8 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000002 /* AnalyzeModelsTests.swift */,
+				D10000000000000000000002 /* AnalyzeServiceErrorTests.swift */,
+				D10000000000000000000004 /* AnalyzeServiceStreamTests.swift */,
 				B30000000000000000000002 /* YouTubeVideoIdentityTests.swift */,
 				B30000000000000000000005 /* YouTubeTranscriptServiceTests.swift */,
 				B30000000000000000000006 /* AppConfigTests.swift */,
@@ -537,6 +543,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000001 /* AnalyzeModelsTests.swift in Sources */,
+				D10000000000000000000001 /* AnalyzeServiceErrorTests.swift in Sources */,
+				D10000000000000000000003 /* AnalyzeServiceStreamTests.swift in Sources */,
 				B30000000000000000000012 /* YouTubeVideoIdentityTests.swift in Sources */,
 				B30000000000000000000014 /* YouTubeTranscriptServiceTests.swift in Sources */,
 				B30000000000000000000015 /* AppConfigTests.swift in Sources */,

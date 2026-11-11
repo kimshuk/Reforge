@@ -4,39 +4,10 @@ struct AnalyzeErrorResponse: Decodable {
     let code: String
     let message: String
     let videoId: String?
-    let details: [String: JSONValue]?
 }
 
 private struct AnalyzeErrorEnvelope: Decodable {
     let error: AnalyzeErrorResponse
-}
-
-enum JSONValue: Decodable {
-    case string(String)
-    case number(Double)
-    case bool(Bool)
-    case object([String: JSONValue])
-    case array([JSONValue])
-    case null
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if container.decodeNil() {
-            self = .null
-        } else if let value = try? container.decode(String.self) {
-            self = .string(value)
-        } else if let value = try? container.decode(Double.self) {
-            self = .number(value)
-        } else if let value = try? container.decode(Bool.self) {
-            self = .bool(value)
-        } else if let value = try? container.decode([String: JSONValue].self) {
-            self = .object(value)
-        } else if let value = try? container.decode([JSONValue].self) {
-            self = .array(value)
-        } else {
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid JSON value.")
-        }
-    }
 }
 
 protocol AnalyzeService {
@@ -63,27 +34,28 @@ enum AnalyzeServiceError: Error, LocalizedError {
             return "Invalid response from server."
         case .backendError(let code, let message, _):
             switch code {
-            case "YOUTUBE_VIDEO_UNAVAILABLE":
-                return "This YouTube video is unavailable (private, hidden, or removed)."
-            case "YOUTUBE_URL_INVALID", "INVALID_YOUTUBE_URL":
+            case "INVALID_YOUTUBE_URL":
                 return "Invalid YouTube URL. Please check and try again."
             case "TRANSCRIPT_UNAVAILABLE":
                 return "The video is available, but transcript is not available."
-            case "TRANSCRIPT_PROVIDER_RATE_LIMITED", "OPENAI_QUOTA_OR_RATE_LIMIT":
-                return "Transcript provider is rate-limiting requests. Please try again."
-            case "TRANSCRIPT_PROVIDER_ERROR", "TRANSCRIPT_FETCH_FAILED":
+            case "TRANSCRIPT_FETCH_FAILED":
                 return "Transcript provider failed. Please try again."
-            case "PYTHON_DEPENDENCY_MISSING":
-                return "Backend transcript dependency is missing."
-            case "PYTHON_RUNTIME_ERROR":
-                return "Backend could not start the transcript fetcher."
-            case "TRANSCRIPT_PARSE_FAILED":
+            case "INVALID_TRANSCRIPT":
                 return "Backend returned an invalid transcript response."
-            case "OPENAI_API_KEY_MISSING", "OPENAI_AUTH_ERROR":
-                return "Backend OpenAI configuration is invalid."
-            case "OPENAI_BAD_REQUEST", "OPENAI_CONTEXT_LENGTH_EXCEEDED", "OPENAI_INVALID_SOURCE_REF",
-                 "OPENAI_ANALYZE_FAILED", "OPENAI_ANALYZE_INCOMPLETE", "OPENAI_ANALYZE_INVALID_JSON",
-                 "OPENAI_ANALYZE_SOURCE_MISMATCH", "OPENAI_ANALYZE_EMPTY":
+            case "EMPTY_TRANSCRIPT":
+                return "This video has an empty transcript."
+            case "SHORT_TRANSCRIPT":
+                return "This video is too short to analyze."
+            case "LLM_QUOTA_OR_RATE_LIMIT":
+                return "The analysis service is busy. Please try again shortly."
+            case "LLM_CONTEXT_LENGTH_EXCEEDED":
+                return "This video is too long to analyze."
+            case "LLM_AUTH_ERROR", "LLM_PROVIDER_NOT_CONFIGURED":
+                return "The analysis service isn't available right now."
+            case "INVALID_CATEGORY_GRAPH":
+                return "Analysis failed on the backend. Please try again."
+            // LLM_* messages can carry raw provider responses, so never show them.
+            case _ where code.hasPrefix("LLM_"):
                 return "Analysis failed on the backend. Please try again."
             default:
                 return message.isEmpty ? "Request failed with code \(code)." : message
@@ -167,54 +139,26 @@ struct URLSessionAnalyzeService: AnalyzeService {
             }
         }
 
-        let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type")?.lowercased() ?? ""
-        if !contentType.contains("text/event-stream") {
-            let data = try await collectData(from: bytes)
-            if let response = tryDecodeAnalyzeResponse(from: data) {
-                return response
-            }
-
-            let rawBody = String(data: data, encoding: .utf8) ?? ""
-            throw AnalyzeServiceError.serverError(
-                statusCode: httpResponse.statusCode,
-                message: rawBody.isEmpty ? "Could not decode server response." : rawBody
-            )
-        }
-
         var currentEvent = "message"
-        var currentDataLines: [String] = []
         var result: AnalyzeResponse?
 
+        // bytes.lines never yields the blank line that ends an SSE event, so dispatch on
+        // the data line instead. The backend writes exactly one data line per event.
         for try await rawLine in bytes.lines {
             let line = String(rawLine)
-
-            if line.isEmpty {
-                try handleStreamEvent(
-                    event: currentEvent,
-                    dataLines: currentDataLines,
-                    onProgress: onProgress,
-                    result: &result
-                )
-                currentEvent = "message"
-                currentDataLines.removeAll(keepingCapacity: true)
-                continue
-            }
 
             if line.hasPrefix("event:") {
                 currentEvent = String(line.dropFirst("event:".count)).trimmingCharacters(in: .whitespaces)
             } else if line.hasPrefix("data:") {
-                currentDataLines.append(
-                    String(line.dropFirst("data:".count)).trimmingCharacters(in: .whitespaces)
+                try handleStreamEvent(
+                    event: currentEvent,
+                    payload: String(line.dropFirst("data:".count)).trimmingCharacters(in: .whitespaces),
+                    onProgress: onProgress,
+                    result: &result
                 )
+                currentEvent = "message"
             }
         }
-
-        try handleStreamEvent(
-            event: currentEvent,
-            dataLines: currentDataLines,
-            onProgress: onProgress,
-            result: &result
-        )
 
         guard let result else {
             throw AnalyzeServiceError.missingStreamResult
@@ -233,12 +177,10 @@ struct URLSessionAnalyzeService: AnalyzeService {
 
     private func handleStreamEvent(
         event: String,
-        dataLines: [String],
+        payload: String,
         onProgress: @escaping @Sendable (AnalyzeProgressUpdate) -> Void,
         result: inout AnalyzeResponse?
     ) throws {
-        guard !dataLines.isEmpty else { return }
-        let payload = dataLines.joined(separator: "\n")
         let payloadData = Data(payload.utf8)
 
         switch event {
@@ -247,107 +189,13 @@ struct URLSessionAnalyzeService: AnalyzeService {
                 onProgress(update)
             }
         case "result":
-            if let decoded = tryDecodeAnalyzeResponse(from: payloadData) {
-                result = decoded
-            } else if let wrapped = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any],
-                      let nested = wrapped["data"] ?? wrapped["result"],
-                      JSONSerialization.isValidJSONObject(nested) {
-                let nestedData = try JSONSerialization.data(withJSONObject: nested)
-                result = try decode(AnalyzeResponse.self, from: nestedData)
-            } else {
-                let rawPayload = String(data: payloadData, encoding: .utf8) ?? ""
-                logDecodingFailure(rawPayload)
-                throw AnalyzeServiceError.decodingFailed(payload: rawPayload)
-            }
+            result = try decode(AnalyzeResponse.self, from: payloadData)
         case "error":
             let error = try decode(AnalyzeStreamErrorResponse.self, from: payloadData)
             throw AnalyzeServiceError.backendError(code: error.code, message: error.message, videoId: nil)
         default:
             break
         }
-    }
-
-    private func tryDecodeAnalyzeResponse(from data: Data) -> AnalyzeResponse? {
-        if let decoded = try? JSONDecoder().decode(AnalyzeResponse.self, from: data) {
-            return decoded
-        }
-
-        if let wrapped = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let nested = wrapped["data"] ?? wrapped["result"],
-           JSONSerialization.isValidJSONObject(nested),
-           let nestedData = try? JSONSerialization.data(withJSONObject: nested),
-           let decoded = try? JSONDecoder().decode(AnalyzeResponse.self, from: nestedData) {
-            return decoded
-        }
-
-        guard let text = String(data: data, encoding: .utf8) else {
-            return nil
-        }
-
-        for objectData in extractConcatenatedJsonObjects(from: text).reversed() {
-            if let decoded = try? JSONDecoder().decode(AnalyzeResponse.self, from: objectData) {
-                return decoded
-            }
-
-            if let wrapped = try? JSONSerialization.jsonObject(with: objectData) as? [String: Any],
-               let nested = wrapped["data"] ?? wrapped["result"],
-               JSONSerialization.isValidJSONObject(nested),
-               let nestedData = try? JSONSerialization.data(withJSONObject: nested),
-               let decoded = try? JSONDecoder().decode(AnalyzeResponse.self, from: nestedData) {
-                return decoded
-            }
-        }
-
-        return nil
-    }
-
-    private func extractConcatenatedJsonObjects(from text: String) -> [Data] {
-        var objects: [Data] = []
-        var braceDepth = 0
-        var startIndex: String.Index?
-        var isInsideString = false
-        var isEscaping = false
-
-        for index in text.indices {
-            let character = text[index]
-
-            if isInsideString {
-                if isEscaping {
-                    isEscaping = false
-                } else if character == "\\" {
-                    isEscaping = true
-                } else if character == "\"" {
-                    isInsideString = false
-                }
-                continue
-            }
-
-            if character == "\"" {
-                isInsideString = true
-                continue
-            }
-
-            if character == "{" {
-                if braceDepth == 0 {
-                    startIndex = index
-                }
-                braceDepth += 1
-            } else if character == "}" {
-                guard braceDepth > 0 else { continue }
-                braceDepth -= 1
-
-                if braceDepth == 0, let objectStartIndex = startIndex {
-                    let endIndex = text.index(after: index)
-                    let candidate = text[objectStartIndex..<endIndex]
-                    if let data = String(candidate).data(using: .utf8) {
-                        objects.append(data)
-                    }
-                    startIndex = nil
-                }
-            }
-        }
-
-        return objects
     }
 
     private func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
@@ -361,15 +209,7 @@ struct URLSessionAnalyzeService: AnalyzeService {
     }
 
     private func decodeBackendError(from data: Data) -> AnalyzeErrorResponse? {
-        if let direct = try? JSONDecoder().decode(AnalyzeErrorResponse.self, from: data) {
-            return direct
-        }
-
-        if let envelope = try? JSONDecoder().decode(AnalyzeErrorEnvelope.self, from: data) {
-            return envelope.error
-        }
-
-        return nil
+        (try? JSONDecoder().decode(AnalyzeErrorEnvelope.self, from: data))?.error
     }
 
     private func logDecodingFailure(_ payload: String) {
