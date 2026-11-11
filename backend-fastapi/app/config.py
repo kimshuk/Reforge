@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.2
     llm_max_output_tokens: int | None = 3000
     allow_analyze_llm_overrides: bool = False
+    web_allowed_origins: str = "http://localhost:5173"
     explanation_enrichment_enabled: bool = False
     explanation_enrichment_max_sources: int = Field(default=3, ge=1, le=3)
     explanation_enrichment_max_concurrency: int = Field(default=3, ge=1, le=8)

@@ -8,6 +8,7 @@ import anyio
 import httpx
 import redis.asyncio as redis
 from fastapi import Depends, FastAPI, Header, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -109,6 +110,15 @@ async def request_logging(request: Request, call_next):
         response.headers["x-request-id"] = request_id
     logger.info("request", extra={"method": request.method, "path": request.url.path, "status": response.status_code})
     return response
+
+
+# Added last so it is outermost and error responses from inner middleware stay readable.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[origin.strip() for origin in settings.web_allowed_origins.split(",") if origin.strip()],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
 
 
 @app.get("/health")

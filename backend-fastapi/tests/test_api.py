@@ -11,6 +11,47 @@ from app.schemas import YoutubeTranscriptResponse
 client = TestClient(app)
 
 
+WEB_ORIGIN = "http://localhost:5173"
+
+
+def test_analyze_preflight_allows_configured_web_origin() -> None:
+    response = client.options(
+        "/analyze",
+        headers={
+            "Origin": WEB_ORIGIN,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == WEB_ORIGIN
+
+
+def test_analyze_preflight_rejects_unknown_origin() -> None:
+    response = client.options(
+        "/analyze",
+        headers={
+            "Origin": "https://evil.example",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_oversized_body_error_is_readable_from_web_origin() -> None:
+    response = client.post(
+        "/analyze",
+        content=b"x" * (1024 * 1024 + 1),
+        headers={"Origin": WEB_ORIGIN, "Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 413
+    assert response.headers["access-control-allow-origin"] == WEB_ORIGIN
+
+
 def test_analyze_openapi_documents_body_and_stream_parameters() -> None:
     operation = client.get("/openapi.json").json()["paths"]["/analyze"]["post"]
 
