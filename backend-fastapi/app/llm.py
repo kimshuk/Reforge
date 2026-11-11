@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from typing import Any
 
@@ -41,6 +42,8 @@ __all__ = [
     "sentence_count",
     "validate_explanation_ladder",
 ]
+
+logger = logging.getLogger("reforge")
 
 PROVIDERS = {"openai", "gemini", "claude"}
 MAX_CANDIDATE_GENERATION_ATTEMPTS = 3
@@ -141,6 +144,7 @@ class LlmClient:
             raw = await self._generate(
                 system, request_user, options, CANDIDATE_CLIPPING_SCHEMA
             )
+            candidates = None
             try:
                 payload = parse_json_object(raw, "LLM_CLIPPINGS_INVALID_JSON")
                 candidates = payload.get("candidateClippings")
@@ -156,7 +160,13 @@ class LlmClient:
                     "LLM_CLIPPINGS_INVALID_JSON",
                     "LLM_CLIPPINGS_INVALID_SOURCE_REF",
                 }
-                if attempt == MAX_CANDIDATE_GENERATION_ATTEMPTS - 1 or not retryable:
+                if not retryable:
+                    raise
+                if attempt == MAX_CANDIDATE_GENERATION_ATTEMPTS - 1:
+                    # One imperfect keyword must not discard a whole paid analysis.
+                    valid = keep_valid_candidates(candidates, labels)
+                    if valid:
+                        return valid
                     raise
                 request_user = (
                     f"{user}\n\n"
@@ -184,14 +194,24 @@ class LlmClient:
         request_user = user
         for attempt in range(3):
             raw = await self._generate(system, request_user, options, CATEGORY_GROUPING_SCHEMA)
+            payload = None
             try:
-                return validate_category_grouping(
-                    parse_json_object(raw, "LLM_CATEGORY_GROUPING_INVALID_JSON"),
-                    occurrence_ids,
-                )
+                payload = parse_json_object(raw, "LLM_CATEGORY_GROUPING_INVALID_JSON")
+                return validate_category_grouping(payload, occurrence_ids)
             except AppError as error:
-                if attempt == 2 or error.code != "LLM_CATEGORY_GROUPING_INVALID_JSON":
+                if error.code != "LLM_CATEGORY_GROUPING_INVALID_JSON":
                     raise
+                logger.warning(
+                    "Category grouping attempt %d of %d occurrences rejected: %s",
+                    attempt + 1,
+                    len(occurrence_ids),
+                    error.message,
+                )
+                if attempt == 2:
+                    if payload is None:
+                        raise
+                    # A miscounted partition must not discard a whole paid analysis.
+                    return repair_category_assignment(payload, occurrences)
                 request_user = (
                     f"{user}\n\nCorrection required: {error.message}\n"
                     "Return a complete replacement JSON response. Assign every provided "
@@ -527,7 +547,72 @@ def validate_candidates(
     return validated
 
 
+def keep_valid_candidates(candidates: Any, chunk_labels: list[str]) -> list[dict[str, Any]]:
+    if not isinstance(candidates, list):
+        return []
+    valid: list[dict[str, Any]] = []
+    for index, candidate in enumerate(candidates):
+        try:
+            normalized = normalize_candidate_sentences([candidate])[0]
+            valid.append(validate_candidate(normalized, index, chunk_labels))
+        except AppError as error:
+            logger.warning("Dropped invalid candidate %d: %s", index, error.message)
+    return valid
+
+
 def validate_category_grouping(
+    value: Any, occurrence_ids: list[str]
+) -> list[dict[str, Any]]:
+    categories = validate_category_structure(value, occurrence_ids)
+    assigned = [item for category in categories for item in category["keywordIds"]]
+    if len(assigned) != len(occurrence_ids) or set(assigned) != set(occurrence_ids):
+        seen: set[str] = set()
+        repeated = {item for item in assigned if item in seen or seen.add(item)}
+        missing = [item for item in occurrence_ids if item not in seen]
+        duplicated = [item for item in occurrence_ids if item in repeated]
+        raise AppError(
+            502,
+            "LLM_CATEGORY_GROUPING_INVALID_JSON",
+            "Every occurrence ID must be assigned exactly once "
+            f"(missing: {', '.join(missing) or 'none'}; "
+            f"duplicated: {', '.join(duplicated) or 'none'})",
+        )
+    return categories
+
+
+def repair_category_assignment(
+    value: Any, occurrences: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    categories = validate_category_structure(
+        value, [item["keywordId"] for item in occurrences]
+    )
+    seen: set[str] = set()
+    repaired: dict[str, dict[str, Any]] = {}
+    for category in categories:
+        keyword_ids = [
+            item for item in category["keywordIds"] if not (item in seen or seen.add(item))
+        ]
+        if keyword_ids:
+            repaired[normalize_category_title(category["title"])] = {
+                "title": category["title"],
+                "keywordIds": keyword_ids,
+            }
+    for occurrence in occurrences:
+        keyword_id = occurrence["keywordId"]
+        if keyword_id not in seen:
+            title = occurrence["term"].strip()
+            category = repaired.setdefault(
+                normalize_category_title(title), {"title": title, "keywordIds": []}
+            )
+            category["keywordIds"].append(keyword_id)
+    return list(repaired.values())
+
+
+def normalize_category_title(title: str) -> str:
+    return re.sub(r"\s+", " ", title).strip().casefold()
+
+
+def validate_category_structure(
     value: Any, occurrence_ids: list[str]
 ) -> list[dict[str, Any]]:
     if not isinstance(value, dict) or set(value) != {"categories"}:
@@ -537,7 +622,6 @@ def validate_category_grouping(
         raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Categories must be non-empty")
 
     known = set(occurrence_ids)
-    assigned: list[str] = []
     normalized_titles: set[str] = set()
     cleaned_categories: list[dict[str, Any]] = []
     for index, category in enumerate(categories):
@@ -550,18 +634,14 @@ def validate_category_grouping(
             raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Category keyword IDs must be non-empty")
         if not all(isinstance(item, str) and item for item in keyword_ids):
             raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Category keyword IDs must be strings")
-        normalized_title = re.sub(r"\s+", " ", title).strip().casefold()
+        normalized_title = normalize_category_title(title)
         if normalized_title in normalized_titles:
             raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Category titles must be unique")
         normalized_titles.add(normalized_title)
         unknown = next((item for item in keyword_ids if item not in known), None)
         if unknown:
             raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", f"Category contains unknown occurrence ID: {unknown}")
-        assigned.extend(keyword_ids)
         cleaned_categories.append({"title": title.strip(), "keywordIds": keyword_ids})
-
-    if len(assigned) != len(occurrence_ids) or set(assigned) != known:
-        raise AppError(502, "LLM_CATEGORY_GROUPING_INVALID_JSON", "Every occurrence ID must be assigned exactly once")
     return cleaned_categories
 
 

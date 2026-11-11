@@ -292,6 +292,68 @@ async def test_stops_after_two_invalid_candidate_corrections(
     assert calls == 3
 
 
+async def generate_candidates_from(
+    monkeypatch: pytest.MonkeyPatch, responses: list[list[dict]]
+) -> tuple[list[dict], list[str]]:
+    users: list[str] = []
+    llm = LlmClient(Settings())
+
+    async def generate(_system: str, user: str, _options: dict, _schema: dict) -> str:
+        users.append(user)
+        return json.dumps({"candidateClippings": responses[len(users) - 1]})
+
+    monkeypatch.setattr(llm, "_generate", generate)
+    candidates = await llm.generate_candidate_clippings(
+        "Pricing",
+        "The speaker discusses competitive pricing pressure.",
+        "S001 | 00:00 | Competitors are pushing prices down.\n"
+        "S002 | 00:05 | The team needs a clearer response.",
+        "en",
+        {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.2},
+    )
+    return candidates, users
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        {**GOOD, "title": "Short Brief", "brief": "Too short"},
+        {**GOOD, "title": "Single Item", "contextualExplanation": ["Only one sentence here."]},
+        {
+            **GOOD,
+            "title": "Bad Source",
+            "sourceRefs": [{**GOOD["sourceRefs"][0], "startSegmentId": "S999"}],
+        },
+    ],
+    ids=["ladder", "normalization", "source-ref"],
+)
+async def test_final_attempt_keeps_valid_candidates_and_drops_invalid_ones(
+    monkeypatch: pytest.MonkeyPatch, invalid: dict
+) -> None:
+    candidates, users = await generate_candidates_from(
+        monkeypatch, [[invalid, GOOD]] * 3
+    )
+
+    assert len(users) == 3
+    assert [candidate["title"] for candidate in candidates] == [GOOD["title"]]
+
+
+@pytest.mark.asyncio
+async def test_earlier_attempts_retry_instead_of_dropping_candidates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invalid = {**GOOD, "title": "Repaired Later", "brief": "Too short"}
+    repaired = {**GOOD, "title": "Repaired Later"}
+
+    candidates, users = await generate_candidates_from(
+        monkeypatch, [[invalid, GOOD], [repaired, GOOD]]
+    )
+
+    assert len(users) == 2
+    assert [candidate["title"] for candidate in candidates] == ["Repaired Later", GOOD["title"]]
+
+
 @pytest.mark.asyncio
 async def test_does_not_retry_candidate_provider_errors(
     monkeypatch: pytest.MonkeyPatch,
@@ -486,6 +548,108 @@ async def test_category_grouping_stops_after_three_invalid_responses(monkeypatch
     with pytest.raises(AppError):
         await llm.generate_keyword_categories([{"keywordId": "K001"}], "en", {})
     assert calls == 3
+
+
+def grouping_occurrences(count: int) -> list[dict]:
+    return [
+        {"keywordId": f"K{index:03d}", "term": f"Term {index}"}
+        for index in range(1, count + 1)
+    ]
+
+
+def fake_grouping_llm(monkeypatch, responses: list[dict]) -> tuple[LlmClient, list[str]]:
+    llm = LlmClient(Settings())
+    calls: list[str] = []
+
+    async def generate(_system, user, _options, _schema):
+        calls.append(user)
+        return json.dumps(responses[len(calls) - 1])
+
+    monkeypatch.setattr(llm, "_generate", generate)
+    return llm, calls
+
+
+def assigned_ids(categories: list[dict]) -> list[str]:
+    return [item for category in categories for item in category["keywordIds"]]
+
+
+def test_exactly_once_error_names_missing_and_duplicated_ids() -> None:
+    with pytest.raises(AppError) as error:
+        validate_category_grouping(
+            {
+                "categories": [
+                    {"title": "Pricing", "keywordIds": ["K001", "K002"]},
+                    {"title": "Tools", "keywordIds": ["K002"]},
+                ]
+            },
+            ["K001", "K002", "K003"],
+        )
+    assert "missing: K003" in error.value.message
+    assert "duplicated: K002" in error.value.message
+
+
+@pytest.mark.asyncio
+async def test_category_grouping_correction_names_offending_ids(monkeypatch) -> None:
+    occurrences = grouping_occurrences(3)
+    llm, calls = fake_grouping_llm(
+        monkeypatch,
+        [
+            {"categories": [{"title": "Pricing", "keywordIds": ["K001", "K002"]}]},
+            {"categories": [{"title": "Pricing", "keywordIds": ["K001", "K002", "K003"]}]},
+        ],
+    )
+    await llm.generate_keyword_categories(occurrences, "en", {})
+    assert "missing: K003" in calls[1]
+
+
+@pytest.mark.asyncio
+async def test_large_grouping_survives_three_incomplete_partitions(monkeypatch) -> None:
+    occurrences = grouping_occurrences(52)
+    ids = [item["keywordId"] for item in occurrences]
+    # Same shape on every attempt: K051/K052 omitted, K001 repeated, as a model
+    # that cannot track a 52-item partition would return.
+    response = {
+        "categories": [
+            {"title": "Pricing", "keywordIds": ids[:30]},
+            {"title": "Tools", "keywordIds": ["K001", *ids[30:50]]},
+            {"title": "Only Duplicates", "keywordIds": ["K002"]},
+        ]
+    }
+    llm, calls = fake_grouping_llm(monkeypatch, [response] * 3)
+
+    result = await llm.generate_keyword_categories(occurrences, "en", {})
+
+    assert len(calls) == 3
+    assert sorted(assigned_ids(result)) == ids
+    assert validate_category_grouping({"categories": result}, ids) == result
+    assert [category["title"] for category in result] == [
+        "Pricing", "Tools", "Term 51", "Term 52",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_repaired_singleton_joins_category_with_matching_title(monkeypatch) -> None:
+    occurrences = [
+        {"keywordId": "K001", "term": "Pricing"},
+        {"keywordId": "K002", "term": " pricing "},
+        {"keywordId": "K003", "term": "Pricing"},
+    ]
+    response = {"categories": [{"title": "Pricing", "keywordIds": ["K001"]}]}
+    llm, _calls = fake_grouping_llm(monkeypatch, [response] * 3)
+
+    result = await llm.generate_keyword_categories(occurrences, "en", {})
+
+    assert result == [{"title": "Pricing", "keywordIds": ["K001", "K002", "K003"]}]
+
+
+@pytest.mark.asyncio
+async def test_final_attempt_does_not_repair_unknown_ids(monkeypatch) -> None:
+    response = {"categories": [{"title": "Pricing", "keywordIds": ["K001", "K999"]}]}
+    llm, calls = fake_grouping_llm(monkeypatch, [response] * 3)
+
+    with pytest.raises(AppError, match="unknown occurrence ID"):
+        await llm.generate_keyword_categories(grouping_occurrences(2), "en", {})
+    assert len(calls) == 3
 
 
 @pytest.mark.asyncio
