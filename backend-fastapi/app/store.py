@@ -47,7 +47,7 @@ class TranscriptStore:
             status="running",
             provider=llm["provider"],
             model=llm["model"],
-            prompt_version="contextual-occurrence-categories-v2",
+            prompt_version="contextual-occurrence-categories-v3",
             schema_version="contextual-occurrence-categories-v2",
             temperature=llm["temperature"],
             max_output_tokens=llm.get("maxOutputTokens"),
