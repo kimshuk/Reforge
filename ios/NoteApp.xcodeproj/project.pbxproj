@@ -37,6 +37,8 @@
 		C2000000000000000000000E /* ContentNoteDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2000000000000000000000F /* ContentNoteDetailView.swift */; };
 		C20000000000000000000010 /* TrashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000011 /* TrashView.swift */; };
 		A10000000000000000000001 /* AnalyzeModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* AnalyzeModelsTests.swift */; };
+		D10000000000000000000001 /* AnalyzeServiceErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000002 /* AnalyzeServiceErrorTests.swift */; };
+		D10000000000000000000003 /* AnalyzeServiceStreamTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000004 /* AnalyzeServiceStreamTests.swift */; };
 		B30000000000000000000011 /* YouTubeVideoIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000001 /* YouTubeVideoIdentity.swift */; };
 		B30000000000000000000012 /* YouTubeVideoIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000002 /* YouTubeVideoIdentityTests.swift */; };
 		B30000000000000000000013 /* YouTubeTranscriptService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30000000000000000000004 /* YouTubeTranscriptService.swift */; };
@@ -64,7 +66,6 @@
 		E9C385442F5C1000000F0758 /* AnalyzeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C385482F5C1000000F0758 /* AnalyzeModels.swift */; };
 		E9C385452F5C1000000F0758 /* AnalyzeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C385492F5C1000000F0758 /* AnalyzeService.swift */; };
 		E9C385462F5C1000000F0758 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C3854A2F5C1000000F0758 /* AppConfig.swift */; };
-		E9C385472F5C1000000F0758 /* AnalyzeResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C3854B2F5C1000000F0758 /* AnalyzeResultView.swift */; };
 		E9C3854C2F5C1000000F0758 /* YouTubeOEmbedService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9C3854D2F5C1000000F0758 /* YouTubeOEmbedService.swift */; };
 /* End PBXBuildFile section */
 
@@ -120,6 +121,8 @@
 		C2000000000000000000000F /* ContentNoteDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentNoteDetailView.swift; sourceTree = "<group>"; };
 		C20000000000000000000011 /* TrashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashView.swift; sourceTree = "<group>"; };
 		A10000000000000000000002 /* AnalyzeModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeModelsTests.swift; sourceTree = "<group>"; };
+		D10000000000000000000002 /* AnalyzeServiceErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeServiceErrorTests.swift; sourceTree = "<group>"; };
+		D10000000000000000000004 /* AnalyzeServiceStreamTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeServiceStreamTests.swift; sourceTree = "<group>"; };
 		B30000000000000000000001 /* YouTubeVideoIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeVideoIdentity.swift; sourceTree = "<group>"; };
 		B30000000000000000000002 /* YouTubeVideoIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeVideoIdentityTests.swift; sourceTree = "<group>"; };
 		B30000000000000000000004 /* YouTubeTranscriptService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeTranscriptService.swift; sourceTree = "<group>"; };
@@ -150,7 +153,6 @@
 		E9C385482F5C1000000F0758 /* AnalyzeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeModels.swift; sourceTree = "<group>"; };
 		E9C385492F5C1000000F0758 /* AnalyzeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeService.swift; sourceTree = "<group>"; };
 		E9C3854A2F5C1000000F0758 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
-		E9C3854B2F5C1000000F0758 /* AnalyzeResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyzeResultView.swift; sourceTree = "<group>"; };
 		E9C3854D2F5C1000000F0758 /* YouTubeOEmbedService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeOEmbedService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -296,7 +298,6 @@
 		E9C385382F5BD550000F0758 /* Home */ = {
 			isa = PBXGroup;
 			children = (
-				E9C3854B2F5C1000000F0758 /* AnalyzeResultView.swift */,
 				E9C3853E2F5BD8AE000F0758 /* HomeView.swift */,
 				E9C385402F5BDF3E000F0758 /* HomeViewModel.swift */,
 			);
@@ -366,6 +367,8 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000002 /* AnalyzeModelsTests.swift */,
+				D10000000000000000000002 /* AnalyzeServiceErrorTests.swift */,
+				D10000000000000000000004 /* AnalyzeServiceStreamTests.swift */,
 				B30000000000000000000002 /* YouTubeVideoIdentityTests.swift */,
 				B30000000000000000000005 /* YouTubeTranscriptServiceTests.swift */,
 				B30000000000000000000006 /* AppConfigTests.swift */,
@@ -540,6 +543,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000001 /* AnalyzeModelsTests.swift in Sources */,
+				D10000000000000000000001 /* AnalyzeServiceErrorTests.swift in Sources */,
+				D10000000000000000000003 /* AnalyzeServiceStreamTests.swift in Sources */,
 				B30000000000000000000012 /* YouTubeVideoIdentityTests.swift in Sources */,
 				B30000000000000000000014 /* YouTubeTranscriptServiceTests.swift in Sources */,
 				B30000000000000000000015 /* AppConfigTests.swift in Sources */,
@@ -572,7 +577,6 @@
 				B60000000000000000000013 /* ShareExtensionViewModel.swift in Sources */,
 				B70000000000000000000001 /* PendingNoteRouter.swift in Sources */,
 				B70000000000000000000009 /* AppCoordinator.swift in Sources */,
-				E9C385472F5C1000000F0758 /* AnalyzeResultView.swift in Sources */,
 				E9C385462F5C1000000F0758 /* AppConfig.swift in Sources */,
 				E9C385452F5C1000000F0758 /* AnalyzeService.swift in Sources */,
 				E9C385442F5C1000000F0758 /* AnalyzeModels.swift in Sources */,

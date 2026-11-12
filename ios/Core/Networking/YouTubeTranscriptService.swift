@@ -6,7 +6,6 @@ struct YouTubeTranscriptRequest: Encodable, Equatable {
 }
 
 struct YouTubeTranscriptResponse: Decodable, Equatable {
-    let transcriptId: String
     let videoId: String
     let canonicalYoutubeUrl: URL
     let transcriptText: String

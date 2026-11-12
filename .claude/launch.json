@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend-fastapi",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/jeezoo/Code/Reforge/backend-fastapi && exec .venv/bin/uvicorn app.main:app --port 3001"],
+      "port": 3001
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/jeezoo/Code/Reforge/web && VITE_BACKEND_BASE_URL=http://localhost:3001 exec npm run dev -- --port 5173 --strictPort"],
+      "port": 5173
+    }
+  ]
+}

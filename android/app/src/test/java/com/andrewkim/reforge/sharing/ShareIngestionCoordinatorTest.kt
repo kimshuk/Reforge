@@ -71,7 +71,6 @@ class ShareIngestionCoordinatorTest {
         assertEquals(input.sourceUrl, draft.sourceUrl)
         assertEquals(input.identity.canonicalUrl.toString(), draft.canonicalUrl)
         assertEquals("Metadata title", draft.title)
-        assertEquals("transcript-1", draft.transcriptId)
         assertEquals("Transcript text", draft.transcriptText)
         assertEquals("en", draft.transcriptLanguageCode)
         assertEquals(true, draft.transcriptIsGenerated)
@@ -180,12 +179,12 @@ class ShareIngestionCoordinatorTest {
 
     private fun note(trashed: Boolean = false) = ContentNote(
         "existing", input.identity.sourceKey, "youtube", input.identity.videoId,
-        input.sourceUrl, input.identity.canonicalUrl.toString(), "Existing", "transcript-1",
+        input.sourceUrl, input.identity.canonicalUrl.toString(), "Existing",
         "Transcript text", "en", true, instant, if (trashed) instant else null,
     )
 
     private fun transcript() = YoutubeTranscriptResponse(
-        "transcript-1", input.identity.videoId, input.identity.canonicalUrl.toString(),
+        input.identity.videoId, input.identity.canonicalUrl.toString(),
         "Transcript text", "en", "English", true,
     )
 

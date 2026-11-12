@@ -84,6 +84,10 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
 }
 
 ksp {
@@ -104,7 +108,6 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(libs.retrofit)
     implementation(libs.okhttp)
-    implementation(libs.okhttp.logging)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.coroutines.android)
@@ -119,7 +122,6 @@ dependencies {
     androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.espresso.core)
     debugImplementation(libs.compose.ui.tooling)

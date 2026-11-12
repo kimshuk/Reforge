@@ -19,7 +19,7 @@ interface YoutubeTranscriptFetching {
 class YoutubeTranscriptService(
     baseUrl: HttpUrl,
     client: OkHttpClient = OkHttpClient(),
-    private val json: Json = Json,
+    private val json: Json = Json { ignoreUnknownKeys = true },
 ) : YoutubeTranscriptFetching {
     internal val timedClient = client.newBuilder()
         .callTimeout(30, TimeUnit.SECONDS)

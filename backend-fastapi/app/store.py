@@ -47,7 +47,7 @@ class TranscriptStore:
             status="running",
             provider=llm["provider"],
             model=llm["model"],
-            prompt_version="contextual-occurrence-categories-v2",
+            prompt_version="contextual-occurrence-categories-v3",
             schema_version="contextual-occurrence-categories-v2",
             temperature=llm["temperature"],
             max_output_tokens=llm.get("maxOutputTokens"),
@@ -158,11 +158,6 @@ class TranscriptStore:
         self.db.add_all(chunks)
         await self.db.commit()
         return chunks
-
-    async def save_clippings(self, clippings: list[CandidateClipping]) -> list[CandidateClipping]:
-        self.db.add_all(clippings)
-        await self.db.commit()
-        return clippings
 
     async def save_category_graph(
         self,

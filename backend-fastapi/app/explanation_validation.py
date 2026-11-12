@@ -108,6 +108,16 @@ def _sentence_word(count: int) -> str:
 def _protect_contextual_abbreviation(match: re.Match[str], value: str) -> str:
     token = match.group(0)
     next_text = value[match.end() :].lstrip()
-    protect_final_period = bool(next_text and next_text[0].islower())
+    # Hyphenated compounds and Treasury names continue the same sentence even
+    # when the next word is capitalized; other uppercase words may start one.
+    attached_compound = value[match.end() :].startswith("-")
+    continuation_punctuation = bool(next_text and next_text[0] in ",;:")
+    treasury_name = token == "U.S." and bool(re.match(r"Treasur(?:y|ies)\b", next_text))
+    protect_final_period = (
+        bool(next_text and next_text[0].islower())
+        or attached_compound
+        or continuation_punctuation
+        or treasury_name
+    )
     body = token[:-1].replace(".", "<DOT>")
     return body + ("<DOT>" if protect_final_period else ".")

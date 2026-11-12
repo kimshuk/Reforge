@@ -173,7 +173,7 @@ private func makeNote(
         videoId: videoID,
         sourceURL: URL(string: "https://youtu.be/\(videoID)")!,
         canonicalURL: URL(string: "https://www.youtube.com/watch?v=\(videoID)")!,
-        title: title, transcriptId: "transcript-1", transcriptText: "Full transcript",
+        title: title, transcriptText: "Full transcript",
         transcriptLanguageCode: "en", transcriptIsGenerated: true,
         createdAt: createdAt, trashedAt: trashedAt
     )
@@ -239,7 +239,7 @@ private final class MemoryNotesStore: NotesStore {
             id: note.id, sourceKey: note.sourceKey, sourceType: note.sourceType,
             videoId: note.videoId, sourceURL: note.sourceURL,
             canonicalURL: note.canonicalURL, title: note.title,
-            transcriptId: note.transcriptId, transcriptText: note.transcriptText,
+            transcriptText: note.transcriptText,
             transcriptLanguageCode: note.transcriptLanguageCode,
             transcriptIsGenerated: note.transcriptIsGenerated,
             createdAt: note.createdAt, trashedAt: trashedAt

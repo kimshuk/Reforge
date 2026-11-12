@@ -47,7 +47,7 @@ class AnalyzeService:
             llm, OpenAIWebSearchClient(settings), settings
         )
         self.youtube_ingestion = youtube_ingestion or YoutubeTranscriptIngestionService(
-            store, fetch_youtube_transcript
+            fetch_youtube_transcript
         )
 
     async def analyze(
@@ -116,15 +116,29 @@ class AnalyzeService:
             clippings: list[CandidateClipping] = []
             extracted_occurrence_count = 0
             filtered_occurrence_count = 0
-            for chunk in eligible_topic_chunks(saved_chunks):
-                chunk_segments = segments_for_range(segments, chunk.start_segment_id, chunk.end_segment_id)
-                candidates = await self.llm.generate_candidate_clippings(
-                    chunk.title,
-                    chunk.summary,
-                    format_segments(chunk_segments),
-                    source.target_language,
-                    llm_options,
-                )
+            eligible_chunks = eligible_topic_chunks(saved_chunks)
+            semaphore = asyncio.Semaphore(3)
+
+            async def extract_chunk(chunk: TopicChunk) -> list[dict[str, Any]]:
+                async with semaphore:
+                    chunk_segments = segments_for_range(
+                        segments, chunk.start_segment_id, chunk.end_segment_id
+                    )
+                    return await self.llm.generate_candidate_clippings(
+                        chunk.title, chunk.summary, format_segments(chunk_segments),
+                        source.target_language, llm_options,
+                    )
+
+            tasks = [asyncio.create_task(extract_chunk(chunk)) for chunk in eligible_chunks]
+            try:
+                chunk_candidates = await asyncio.gather(*tasks)
+            except BaseException:
+                # Stop outstanding paid provider calls when any chunk fails or cancels.
+                for task in tasks:
+                    task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+                raise
+            for chunk, candidates in zip(eligible_chunks, chunk_candidates, strict=True):
                 resolved_candidates = resolve_candidate_labels(candidates, segments)
                 extracted_occurrence_count += len(resolved_candidates)
                 for candidate in resolved_candidates:

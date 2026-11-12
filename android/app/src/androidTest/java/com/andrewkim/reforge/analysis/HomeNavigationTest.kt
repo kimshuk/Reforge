@@ -60,7 +60,7 @@ class HomeNavigationTest {
             (repository.saveOrReuse(ContentNoteDraft(
                 sourceKey = "youtube:dQw4w9WgXcQ", sourceType = "youtube", videoId = "dQw4w9WgXcQ",
                 sourceUrl = "https://youtu.be/dQw4w9WgXcQ", canonicalUrl = URL,
-                title = "Saved title", transcriptId = "transcript", transcriptText = "Text",
+                title = "Saved title", transcriptText = "Text",
                 transcriptLanguageCode = "en", transcriptIsGenerated = false, createdAt = Instant.now(),
             )) as SaveNoteOutcome.Saved).note
         }

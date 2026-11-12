@@ -11,6 +11,7 @@ Reforge is a YouTube video analysis app. Users paste a YouTube URL, the FastAPI 
 ```
 ios/             — SwiftUI iOS app (Xcode project: NoteApp.xcodeproj)
 backend-fastapi/ — Active FastAPI server
+web/             — Vite + React web client (phone-focused, single column)
 ```
 
 ## Development Commands
@@ -28,6 +29,17 @@ python3 -m venv .venv
 .venv/bin/alembic upgrade head
 .venv/bin/uvicorn app.main:app --reload --port 3000
 ```
+
+**Web:**
+```bash
+cd web
+npm install
+npm run dev    # http://localhost:5173, set VITE_BACKEND_BASE_URL to change the backend
+npm test
+npm run build
+```
+
+The backend only accepts browser requests from origins in `WEB_ALLOWED_ORIGINS`.
 
 **Full backend stack:**
 ```bash
@@ -82,7 +94,7 @@ Pipeline: request parsing → YouTube transcript fetch → transcript sanitizing
 
 Postgres is the durable source of truth for sources, transcripts, transcript segments, analysis runs, topic chunks, candidate clippings, coverage warnings, and eval runs. Redis is scoped to cache/coordination uses.
 
-Error envelope shape: `{ error: { code, message } }` — the iOS client maps specific `code` strings (e.g. `TRANSCRIPT_UNAVAILABLE`, `OPENAI_CONTEXT_LENGTH_EXCEEDED`) to user-facing messages in `AnalyzeServiceError`.
+Error envelope shape: `{ error: { code, message } }` — the iOS client maps specific `code` strings (e.g. `TRANSCRIPT_UNAVAILABLE`, `LLM_CONTEXT_LENGTH_EXCEEDED`) to user-facing messages in `AnalyzeServiceError`.
 
 ## Behavioral Guidelines
 
@@ -380,7 +392,7 @@ The "overcomplicated" examples aren't obviously wrong — they follow real desig
 
 ## Key Implementation Details
 
-- **SSE parsing** in `URLSessionAnalyzeService`: reads chunked bytes, buffers lines, parses `data:` prefixes. Handles concatenated JSON objects in a single chunk.
+- **SSE parsing** in `URLSessionAnalyzeService`: reads `bytes.lines` and dispatches each event on its `data:` line, because `bytes.lines` drops the blank line that ends an SSE event. Assumes one `data:` line per event.
 - **`PillFlowLayout`**: custom SwiftUI `Layout` protocol implementation for wrapping keyword pill views.
 - **`KeyboardObserver`**: tracks keyboard height via `UIResponder` notifications for floating UI adjustments.
 - **Streaming progress states**: `HomeViewModel.AnalysisState` enum drives UI during the fetch→sanitize→analyze pipeline.

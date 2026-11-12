@@ -4,9 +4,11 @@ import logging
 from contextlib import asynccontextmanager, suppress
 from uuid import UUID
 
+import anyio
 import httpx
 import redis.asyncio as redis
 from fastapi import Depends, FastAPI, Header, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -110,6 +112,15 @@ async def request_logging(request: Request, call_next):
     return response
 
 
+# Added last so it is outermost and error responses from inner middleware stay readable.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[origin.strip() for origin in settings.web_allowed_origins.split(",") if origin.strip()],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
+
+
 @app.get("/health")
 async def health(db: AsyncSession = Depends(get_db)) -> dict:
     checks = {"backend": True, "postgres": False, "redis": False, "python": True}
@@ -152,12 +163,8 @@ async def get_transcript(transcript_id: str, db: AsyncSession = Depends(get_db))
 @app.post("/youtube/transcript", response_model=YoutubeTranscriptResponse)
 async def ingest_youtube_transcript(
     body: YoutubeTranscriptRequest,
-    db: AsyncSession = Depends(get_db),
 ) -> YoutubeTranscriptResponse:
-    return await YoutubeTranscriptIngestionService(TranscriptStore(db)).ingest(
-        body.youtubeUrl,
-        body.title,
-    )
+    return await YoutubeTranscriptIngestionService().ingest(body.youtubeUrl)
 
 
 @app.post(
@@ -225,7 +232,9 @@ async def analyze(
         finally:
             if not task.done():
                 task.cancel()
-            with suppress(asyncio.CancelledError):
+            # After a disconnect this code runs in a cancelled scope. Without the shield,
+            # awaiting the task cancels it again and kills mark_failed mid-write.
+            with anyio.CancelScope(shield=True), suppress(asyncio.CancelledError):
                 await task
 
     return StreamingResponse(

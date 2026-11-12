@@ -187,11 +187,10 @@ iOS 앱은 현재 `POST {baseURL}/analyze?stream=progress`를 호출한다.
   - `stage`, `message`를 받아 로딩 UI를 갱신한다.
 - `result`
   - `AnalyzeResponse`로 decode한다.
-  - 응답이 `{ data: ... }` 또는 `{ result: ... }` wrapper에 들어와도 처리한다.
 - `error`
   - `AnalyzeStreamErrorResponse`로 decode한 뒤 `AnalyzeServiceError.backendError`로 변환한다.
 
-SSE가 아닌 일반 JSON 응답이 와도 `AnalyzeResponse` decode를 시도한다. 또한 여러 JSON object가 붙어서 온 경우를 대비해 문자열에서 JSON object를 추출하는 fallback도 있다.
+`bytes.lines`는 SSE event를 끝내는 빈 줄을 내보내지 않는다. 그래서 빈 줄이 아니라 `data:` 줄을 받을 때 event를 처리한다. 백엔드가 event마다 `data:` 줄을 하나만 보낸다는 전제다.
 
 ## 에러 처리
 
@@ -199,13 +198,18 @@ SSE가 아닌 일반 JSON 응답이 와도 `AnalyzeResponse` decode를 시도한
 
 중요한 code 매핑:
 
-- `YOUTUBE_VIDEO_UNAVAILABLE`: 영상 비공개/숨김/삭제
-- `YOUTUBE_URL_INVALID`, `INVALID_YOUTUBE_URL`: 잘못된 YouTube URL
+- `INVALID_YOUTUBE_URL`: 잘못된 YouTube URL
 - `TRANSCRIPT_UNAVAILABLE`: 영상은 있으나 자막 없음
-- `TRANSCRIPT_PROVIDER_RATE_LIMITED`, `OPENAI_QUOTA_OR_RATE_LIMIT`: rate limit
-- `TRANSCRIPT_PROVIDER_ERROR`, `TRANSCRIPT_FETCH_FAILED`: 자막 provider 실패
-- `PYTHON_DEPENDENCY_MISSING`, `PYTHON_RUNTIME_ERROR`: 백엔드 Python 환경 문제
-- `OPENAI_*`: 백엔드 OpenAI 분석 실패
+- `TRANSCRIPT_FETCH_FAILED`: 자막 provider 실패
+- `INVALID_TRANSCRIPT`: 자막 형식 오류
+- `EMPTY_TRANSCRIPT`: 빈 자막
+- `SHORT_TRANSCRIPT`: 분석하기에 너무 짧은 영상
+- `LLM_QUOTA_OR_RATE_LIMIT`: 분석 서비스 rate limit
+- `LLM_CONTEXT_LENGTH_EXCEEDED`: 분석하기에 너무 긴 영상
+- `LLM_AUTH_ERROR`, `LLM_PROVIDER_NOT_CONFIGURED`: 분석 서비스 사용 불가
+- `INVALID_CATEGORY_GRAPH`, 그 외 `LLM_*`: 백엔드 분석 실패. `LLM_*` message에는 provider 원문이 들어갈 수 있어 표시하지 않는다.
+
+매핑에 없는 code는 서버 message를 그대로 표시한다.
 
 YouTube oEmbed 사전 검증은 아래 HTTP 상태를 별도로 처리한다.
 

@@ -39,7 +39,6 @@ final class YouTubeTranscriptServiceTests: XCTestCase {
             title: "Shared title"
         )
 
-        XCTAssertEqual(result.transcriptId, "11111111-1111-4111-8111-111111111111")
         XCTAssertEqual(result.videoId, "dQw4w9WgXcQ")
         XCTAssertEqual(
             result.canonicalYoutubeUrl.absoluteString,
@@ -168,7 +167,6 @@ final class YouTubeTranscriptServiceTests: XCTestCase {
 
     private static let successBody = #"""
     {
-      "transcriptId":"11111111-1111-4111-8111-111111111111",
       "videoId":"dQw4w9WgXcQ",
       "canonicalYoutubeUrl":"https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       "transcriptText":"Transcript text",

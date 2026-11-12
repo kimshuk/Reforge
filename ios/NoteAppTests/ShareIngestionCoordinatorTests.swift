@@ -317,7 +317,6 @@ final class ShareIngestionCoordinatorTests: XCTestCase {
 
     private func makeResponse(videoID: String = "dQw4w9WgXcQ") -> YouTubeTranscriptResponse {
         YouTubeTranscriptResponse(
-            transcriptId: "11111111-1111-4111-8111-111111111111",
             videoId: videoID,
             canonicalYoutubeUrl: URL(string: "https://www.youtube.com/watch?v=\(videoID)")!,
             transcriptText: "Transcript text",
@@ -336,7 +335,6 @@ final class ShareIngestionCoordinatorTests: XCTestCase {
             sourceURL: URL(string: "https://youtu.be/dQw4w9WgXcQ")!,
             canonicalURL: URL(string: "https://www.youtube.com/watch?v=dQw4w9WgXcQ")!,
             title: "Original",
-            transcriptId: "11111111-1111-4111-8111-111111111111",
             transcriptText: "Original transcript",
             transcriptLanguageCode: "en",
             transcriptIsGenerated: false,
@@ -361,7 +359,6 @@ final class ShareIngestionCoordinatorTests: XCTestCase {
             sourceURL: draft.sourceURL,
             canonicalURL: draft.canonicalURL,
             title: draft.title,
-            transcriptId: draft.transcriptId,
             transcriptText: draft.transcriptText,
             transcriptLanguageCode: draft.transcriptLanguageCode,
             transcriptIsGenerated: draft.transcriptIsGenerated,
@@ -434,7 +431,6 @@ private final class RepositoryStub: ContentNotePersisting {
             sourceURL: URL(string: "https://youtu.be/dQw4w9WgXcQ")!,
             canonicalURL: URL(string: "https://www.youtube.com/watch?v=dQw4w9WgXcQ")!,
             title: "Title",
-            transcriptId: "id",
             transcriptText: "Text",
             transcriptLanguageCode: "en",
             transcriptIsGenerated: false,

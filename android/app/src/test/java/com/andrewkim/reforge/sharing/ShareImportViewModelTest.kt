@@ -108,11 +108,34 @@ class ShareImportViewModelTest {
         assertEquals(ShareImportState.Completed(1, "committed"), viewModel.state.value)
     }
 
+    @Test fun cancelImportWhileAwaitingRestoreFinishesWithoutRestoring() = runTest(dispatcher) {
+        val ingestor = FakeIngestor()
+        ingestor.ingestBlock = { ShareIngestionResult.RestoreRequired("existing") }
+        val handle = SavedStateHandle()
+        val viewModel = ShareImportViewModel(ingestor, handle)
+        viewModel.accept(input)
+        advanceUntilIdle()
+        assertEquals(ShareImportState.AwaitingRestore(1, "existing"), viewModel.state.value)
+
+        viewModel.cancelImport()
+        viewModel.confirmRestore()
+        advanceUntilIdle()
+
+        assertEquals(0, ingestor.restoreCalls)
+        assertEquals(ShareImportState.Finished(1), viewModel.state.value)
+        assertEquals(ShareImportState.Finished(1), ShareImportViewModel(ingestor, handle).state.value)
+    }
+
     @Test fun restoreIsSingleFlightAndCancelIgnoresLateCompletion() = runTest(dispatcher) {
         val ingestor = FakeIngestor()
         val restore = CompletableDeferred<ShareIngestionResult>()
         ingestor.ingestBlock = { ShareIngestionResult.RestoreRequired("existing") }
-        ingestor.restoreBlock = { restore.await() }
+        var restoreFinished = false
+        ingestor.restoreBlock = {
+            withContext(NonCancellable) {
+                restore.await().also { restoreFinished = true }
+            }
+        }
         val viewModel = ShareImportViewModel(ingestor, SavedStateHandle())
         viewModel.accept(input)
         advanceUntilIdle()
@@ -121,9 +144,11 @@ class ShareImportViewModelTest {
         viewModel.confirmRestore()
         testScheduler.runCurrent()
         assertEquals(1, ingestor.restoreCalls)
-        viewModel.cancelRestore()
+        viewModel.cancelImport()
+        assertEquals(ShareImportState.Finished(1), viewModel.state.value)
         restore.complete(ShareIngestionResult.AlreadySaved("existing"))
         advanceUntilIdle()
+        assertTrue(restoreFinished)
         assertEquals(ShareImportState.Finished(1), viewModel.state.value)
     }
 

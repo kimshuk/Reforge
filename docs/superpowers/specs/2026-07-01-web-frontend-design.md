@@ -1,13 +1,13 @@
 # Web Frontend Migration — Design
 
 **Date:** 2026-07-01
-**Status:** Approved (brainstorming) — ready for implementation planning
+**Status:** Approved (brainstorming); updated 2026-11-06 for the FastAPI backend
 
 ## Goal
 
-Build a mobile-first web frontend for Reforge that consumes the existing NestJS
-`POST /analyze` SSE endpoint. Migration away from the SwiftUI iOS client, which
-stays in the repo untouched for now. This is a **web redesign**, not a 1:1 port
+Build a mobile-first web frontend for Reforge that consumes the existing FastAPI
+`POST /analyze` SSE endpoint. The native iOS and Android clients stay in the repo
+untouched. This is a **web redesign**, not a 1:1 port
 of the iOS interaction — but it preserves the product's core features: streaming
 progress, the categories/keywords result, and keyword **curation**.
 
@@ -20,16 +20,17 @@ progress, the categories/keywords result, and keyword **curation**.
   availability pre-check; browsers can't (no CORS on YouTube's oEmbed endpoint).
   - Thumbnail derived from `videoId` directly: `https://img.youtube.com/vi/{id}/hqdefault.jpg`
     (plain `<img>`, no CORS).
-  - No title autofill — `title` is optional on the backend (`AnalyzeRequestParser.optionalTitle`).
-  - Availability handled via the backend's existing `YOUTUBE_VIDEO_UNAVAILABLE` error during analyze.
+  - No title autofill — `title` is optional on the backend (`parse_analyze_request`).
+  - Availability handled via the backend's `TRANSCRIPT_UNAVAILABLE` error during analyze.
 - **Curation:** Kept, redesigned as a bottom "My clips" tray.
-- **Layout:** Mobile-first, single column.
+- **Layout:** Mobile-first, single column. The primary audience is phones, so
+  desktop deliberately keeps the centered column with no desktop-specific layout.
 
 ## Architecture
 
 ### Repo
 
-New `web/` directory alongside `ios/` and `backend-nest/`. iOS is not deleted.
+New `web/` directory alongside `ios/`, `android/`, and `backend-fastapi/`. Native clients are not changed.
 
 ```
 web/
@@ -72,10 +73,13 @@ web/
 
 ### Backend change required
 
-Enable CORS on NestJS for the web origin (`app.enableCors(...)` in
-`backend-nest/src/main.ts`). None exists today because the iOS client is native.
-Allow the configured web origin(s); dev allows `http://localhost:5173` (Vite default).
-This is the only backend change.
+Enable CORS with FastAPI `CORSMiddleware` in `backend-fastapi/app/main.py`, added
+last so it is the outermost middleware. None exists today because the clients are
+native. `WEB_ALLOWED_ORIGINS` is a comma-separated origin list and defaults to
+`http://localhost:5173` (Vite default). This is the only backend change.
+
+CORS is not access control. `/analyze` has no auth or rate limit and each run makes
+paid LLM calls, so that must be solved before any public deployment.
 
 ## SSE contract (reference)
 
@@ -89,7 +93,7 @@ Events:
 - `result` — the full `AnalyzeResponse` JSON
 - `error` — `{ stage, statusCode, code, message }`
 
-Actual backend `progress` stage strings, in order (from `analyze.service.ts` —
+Actual backend `progress` stage strings, in order (from `backend-fastapi/app/analysis.py` —
 note the iOS `loadingStages` list was stale and must not be copied):
 
 ```
@@ -101,6 +105,9 @@ creating_segments
 chunking_topics
 validating_chunks
 extracting_clippings
+deduplicating_occurrences
+grouping_keywords
+enriching_explanations
 reviewing_coverage
 storing_analysis
 completed
@@ -116,11 +123,19 @@ clips…", `storing_analysis` → "Saving…").
 ### Response shape
 
 ```ts
-AnalyzeResponse { transcriptId, sourceType, categories, expiresInSeconds, videoId? }
-AnalyzeCategory { title, keywords }
-AnalyzeKeyword  { term, brief, level1, level2, level3, source }
+AnalyzeResponse { transcriptId, sourceType, categories, expiresInSeconds, llm, videoId? }
+AnalyzeCategory { categoryId, title, keywords }
+AnalyzeKeyword  {
+  term, candidateClippingId, brief, level1, level2, level3,
+  source, sources, level2CitationIds, level3CitationIds, externalSources
+}
 AnalyzeSource   { type, ref }   // ref is a YouTube URL with &t=<sec>s
+ExternalSource  { citationId, title, url }
 ```
+
+`candidateClippingId` is the keyword identity. Equal `term` values are valid, even
+within one category. Citation IDs resolve only against that keyword's
+`externalSources`. `categories` may be empty, which the UI shows as an empty state.
 
 ## UI / screens (mobile-first)
 
@@ -162,8 +177,9 @@ Slim progress block (not a full-screen overlay — too heavy for web):
 - Grouped by category title.
 - Each clip item: `term` + current-level text, a "more" control stepping
   level1 → level2 → level3 in place, a timestamp link, and a remove (✕).
-- Selection keyed by `${categoryTitle}::${term}`; display level defaults to 1.
-- State lives in `useClips`.
+- External source links appear only for the citation IDs of the level on screen.
+- Selection keyed by `candidateClippingId`; display level defaults to 1.
+- State lives in `useClips`, in memory only, so clips are lost on refresh in v1.
 
 ### Error state
 
@@ -178,11 +194,11 @@ Ported from iOS `AnalyzeServiceError`:
 - **Network / fetch throw** → generic "Couldn't reach the server."
 - **Stream ended without a `result`** → "Server finished without returning data."
 
-Code→message map covers the known codes: `YOUTUBE_VIDEO_UNAVAILABLE`,
-`YOUTUBE_URL_INVALID` / `INVALID_YOUTUBE_URL`, `TRANSCRIPT_UNAVAILABLE`,
-`TRANSCRIPT_PROVIDER_RATE_LIMITED`, `TRANSCRIPT_PROVIDER_ERROR` /
-`TRANSCRIPT_FETCH_FAILED`, `PYTHON_*`, `TRANSCRIPT_PARSE_FAILED`, `OPENAI_*`.
-Unknown codes fall back to the server `message` (or a generic line if empty).
+Code→message map covers the user-relevant codes: `INVALID_YOUTUBE_URL`,
+`TRANSCRIPT_UNAVAILABLE`, `TRANSCRIPT_FETCH_FAILED`, `EMPTY_TRANSCRIPT`,
+`SHORT_TRANSCRIPT`, `LLM_QUOTA_OR_RATE_LIMIT`, `LLM_CONTEXT_LENGTH_EXCEEDED`,
+`LLM_AUTH_ERROR`, and `LLM_PROVIDER_NOT_CONFIGURED`. Unknown codes fall back to the
+server `message` (or a generic line if empty).
 
 ## Config
 
@@ -202,6 +218,7 @@ Vitest (iOS had no tests, but the pure logic here is worth covering):
 ## Out of scope (v1)
 
 - Deployment/hosting setup (static build produced; where it's hosted is a later call).
-- Removing or modifying the iOS client.
+- Removing or modifying the native clients.
+- Notes library, share target, and accounts.
 - oEmbed / title autofill / pre-analyze availability check.
 - Manual (`type: "manual"`) transcript input — YouTube only for v1.

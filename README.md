@@ -105,6 +105,17 @@ cd android
 ./gradlew assembleDebug -PREFORGE_BACKEND_BASE_URL=http://YOUR_REACHABLE_HOST:3000
 ```
 
+On Android 17 (API 37) and later, local backend connections also require the
+`ACCESS_LOCAL_NETWORK` runtime permission. The Debug manifest declares this permission.
+After installing the Debug app, grant it on the connected development emulator or device:
+
+```bash
+adb shell pm grant com.andrewkim.reforge android.permission.ACCESS_LOCAL_NETWORK
+```
+
+This grant is needed only when the development device runs API 37 or later. It does not
+add a permission prompt to the app. The Release manifest does not declare this permission.
+
 Replace `YOUR_REACHABLE_HOST` locally with a host that the device can reach. Do not commit a
 developer address or local configuration. Release assembly and bundling require an explicitly
 provided HTTPS backend URL; omission or HTTP fails the build. A Release build also needs the

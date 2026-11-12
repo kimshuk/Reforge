@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reforge Backend Anatomy</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column with a sticky section index on wide screens; diagrams and tables break out wider inside their own scrollers. */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --ink: #16202b;
+  --muted: #566372;
+  --rule: #d8dee5;
+  --accent: #0b6e8a;        /* flow / pipeline */
+  --accent-soft: #e1f0f4;
+  --llm: #7a4cc2;           /* LLM calls */
+  --llm-soft: #efe8fa;
+  --db: #2f7d4f;            /* Postgres writes */
+  --db-soft: #e4f2e9;
+  --warn: #a35a00;
+  --warn-soft: #fbefdc;
+  --code-bg: #eaeef2;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f151b; --surface: #151d25; --ink: #e3e9ef; --muted: #93a1b0; --rule: #2a3542;
+    --accent: #4fb8d4; --accent-soft: #12303a; --llm: #b394ea; --llm-soft: #2a2140;
+    --db: #6cc58f; --db-soft: #17301f; --warn: #e6a458; --warn-soft: #3a2a14; --code-bg: #1c2631;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f151b; --surface: #151d25; --ink: #e3e9ef; --muted: #93a1b0; --rule: #2a3542;
+  --accent: #4fb8d4; --accent-soft: #12303a; --llm: #b394ea; --llm-soft: #2a2140;
+  --db: #6cc58f; --db-soft: #17301f; --warn: #e6a458; --warn-soft: #3a2a14; --code-bg: #1c2631;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--f-body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 80px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; font-size: 13.5px; }
+nav.toc p { font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: s; }
+nav.toc a { color: var(--muted); text-decoration: none; display: block; }
+nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); }
+main { min-width: 0; }
+header.hero { padding-bottom: 28px; border-bottom: 1px solid var(--rule); margin-bottom: 8px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(34px, 5vw, 52px); line-height: 1.05; margin: 0 0 16px; text-wrap: balance; letter-spacing: -0.01em; }
+h2 { font-family: var(--f-display); font-weight: 700; font-size: 28px; line-height: 1.2; margin: 0 0 14px; text-wrap: balance; }
+h3 { font-family: var(--f-display); font-weight: 500; font-size: 19px; margin: 28px 0 8px; }
+p, li { max-width: 68ch; }
+.lede { font-size: 18px; color: var(--muted); margin: 0; }
+section { padding-block: 44px; border-bottom: 1px solid var(--rule); }
+section:last-child { border-bottom: 0; }
+code, .mono { font-family: var(--f-mono); font-size: .86em; }
+:not(pre) > code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+pre.code { background: var(--code-bg); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-size: 13px; line-height: 1.5; margin: 14px 0; }
+a { color: var(--accent); }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 28px; }
+.fact { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; }
+.fact b { display: block; font-family: var(--f-display); font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fact span { font-size: 13px; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 10px 18px; font-size: 13px; color: var(--muted); margin: 6px 0 16px; }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.figure { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; margin: 18px 0; overflow-x: auto; }
+.figure figcaption { font-size: 13px; color: var(--muted); margin-top: 10px; }
+.figure svg { display: block; min-width: 760px; width: 100%; height: auto; }
+.figure svg text { font-family: var(--f-body); fill: var(--ink); }
+.figure svg .mono { font-family: var(--f-mono); }
+.figure svg .sub { fill: var(--muted); }
+pre.mermaid { background: transparent; margin: 0; }
+.tablewrap { overflow-x: auto; margin: 14px 0; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td.num { font-variant-numeric: tabular-nums; text-align: right; font-family: var(--f-mono); font-size: 13px; }
+/* Pipeline timeline */
+ol.pipe { list-style: none; margin: 20px 0; padding: 0; counter-reset: st; display: grid; gap: 0; }
+ol.pipe > li { counter-increment: st; position: relative; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 14px; max-width: none; padding-bottom: 22px; }
+ol.pipe > li::before { content: counter(st); width: 30px; height: 30px; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); color: var(--accent); font-family: var(--f-mono); font-size: 13px; display: grid; place-items: center; z-index: 1; }
+ol.pipe > li::after { content: ""; position: absolute; left: 14px; top: 30px; bottom: 0; width: 2px; background: var(--rule); }
+ol.pipe > li:last-child::after { display: none; }
+ol.pipe > li.llm::before { border-color: var(--llm); color: var(--llm); }
+ol.pipe > li.db::before { border-color: var(--db); color: var(--db); }
+.stage { min-width: 0; }
+.stage h4 { margin: 3px 0 4px; font-size: 16px; font-weight: 600; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.stage p { margin: 0 0 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip { font-family: var(--f-mono); font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: var(--code-bg); color: var(--muted); white-space: nowrap; }
+.chip.sse { background: var(--accent-soft); color: var(--accent); }
+.chip.llm { background: var(--llm-soft); color: var(--llm); }
+.chip.db { background: var(--db-soft); color: var(--db); }
+.chip.err { background: var(--warn-soft); color: var(--warn); }
+.callout { border-left: 3px solid var(--warn); background: var(--warn-soft); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+.callout p { margin: 0; }
+ul.findings { padding-left: 0; list-style: none; display: grid; gap: 14px; }
+ul.findings li { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 16px; max-width: none; }
+ul.findings b { display: block; margin-bottom: 2px; }
+.trace { display: grid; gap: 10px; margin: 18px 0; }
+.trace .step { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 14px; align-items: start; }
+.trace .lbl { font-family: var(--f-mono); font-size: 12px; color: var(--accent); padding-top: 12px; }
+.trace pre { margin: 0; }
+.ref { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 860px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  nav.toc { display: none; }
+  .trace .step { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .trace .lbl { padding-top: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+</style>
+
+<div class="wrap">
+<nav class="toc" aria-label="Sections">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#system">System map</a></li>
+    <li><a href="#modules">Module map</a></li>
+    <li><a href="#request">Request lifecycle</a></li>
+    <li><a href="#pipeline">The /analyze pipeline</a></li>
+    <li><a href="#trace">One keyword, end to end</a></li>
+    <li><a href="#llm">LLM layer</a></li>
+    <li><a href="#enrichment">Enrichment</a></li>
+    <li><a href="#data">Data model</a></li>
+    <li><a href="#sse">Streaming &amp; errors</a></li>
+    <li><a href="#config">Configuration</a></li>
+    <li><a href="#observations">Observations</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <p class="eyebrow">backend-fastapi · branch codex/remove-unused-code</p>
+  <h1>Reforge Backend Anatomy</h1>
+  <p class="lede">How a YouTube URL becomes timestamped keywords grouped into categories: the modules, the eleven-stage analysis pipeline, every LLM call, and what lands in Postgres along the way.</p>
+  <div class="facts">
+    <div class="fact"><b>4</b><span>HTTP endpoints</span></div>
+    <div class="fact"><b>17</b><span>modules in <code>app/</code>, ~4,700 lines</span></div>
+    <div class="fact"><b>11</b><span>Postgres tables, 3 Alembic migrations</span></div>
+    <div class="fact"><b>2 + N</b><span>LLM calls per run minimum (N = eligible topic chunks)</span></div>
+  </div>
+</header>
+
+<section id="overview">
+  <h2>Overview</h2>
+  <p>The backend is a single FastAPI process. There is no worker queue and no background job system: an analysis runs inside the HTTP request that started it, from transcript fetch to final JSON. The work is a chain of LLM calls, each one validated by Python code before its output is trusted, with Postgres recording every intermediate artifact.</p>
+  <p>The core idea is <strong>grounding</strong>. The transcript is split into numbered segments (<code>S001</code>, <code>S002</code>…). Every LLM call refers to transcript positions only through these labels, and the backend resolves those labels back to real segment rows and real timestamps. A keyword the model invents with a segment range outside its chunk is rejected, not repaired.</p>
+  <p>Stack: Python 3.12, FastAPI, SQLAlchemy 2 (async, psycopg 3), Alembic, httpx for all provider calls, <code>youtube-transcript-api</code> for captions. Docker Compose runs the API with Postgres 16 and Redis 7.</p>
+</section>
+
+<section id="system">
+  <h2>System map</h2>
+  <p>Who talks to whom. The iOS app is the only client today. Solid lines run on every analysis; dashed lines are conditional.</p>
+  <figure class="figure">
+    <svg viewBox="0 0 980 440" role="img" aria-label="System map: iOS client calls FastAPI, which calls YouTube, LLM providers, OpenAI web search, Postgres, and Redis">
+      <defs>
+        <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>
+      </defs>
+      <!-- client -->
+      <rect x="20" y="170" width="170" height="96" rx="10" fill="var(--surface)" stroke="var(--rule)" stroke-width="1.5"/>
+      <text x="105" y="205" text-anchor="middle" font-weight="600" font-size="15">iOS app</text>
+      <text x="105" y="226" text-anchor="middle" class="sub" font-size="12">SwiftUI · URLSession</text>
+      <text x="105" y="244" text-anchor="middle" class="sub mono" font-size="11">AnalyzeService</text>
+
+      <!-- backend box -->
+      <rect x="260" y="40" width="390" height="360" rx="12" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="280" y="68" font-weight="700" font-size="15" fill="var(--accent)" style="fill:var(--accent)">FastAPI process · port 3000</text>
+      <rect x="280" y="84" width="350" height="44" rx="6" fill="var(--surface)" stroke="var(--rule)"/>
+      <text x="296" y="111" font-size="13">Middleware: body limit (1 MB) → request log → error handlers</text>
+      <rect x="280" y="140" width="350" height="44" rx="6" fill="var(--surface)" stroke="var(--rule)"/>
+      <text x="296" y="167" font-size="13" class="mono">main.py  routes · SSE queue</text>
+      <rect x="280" y="196" width="350" height="56" rx="6" fill="var(--surface)" stroke="var(--accent)"/>
+      <text x="296" y="219" font-size="13" font-weight="600">AnalyzeService  <tspan class="mono" font-weight="400">analysis.py</tspan></text>
+      <text x="296" y="239" font-size="12" class="sub">orchestrates the 11 pipeline stages</text>
+      <rect x="280" y="264" width="168" height="56" rx="6" fill="var(--surface)" stroke="var(--rule)"/>
+      <text x="292" y="287" font-size="12.5" font-weight="600">Ingestion</text>
+      <text x="292" y="306" font-size="11" class="sub mono">youtube · sanitizer</text>
+      <rect x="462" y="264" width="168" height="56" rx="6" fill="var(--surface)" stroke="var(--llm)"/>
+      <text x="474" y="287" font-size="12.5" font-weight="600">LlmClient</text>
+      <text x="474" y="306" font-size="11" class="sub mono">llm · prompts · enrichment</text>
+      <rect x="280" y="332" width="350" height="50" rx="6" fill="var(--surface)" stroke="var(--db)"/>
+      <text x="296" y="355" font-size="12.5" font-weight="600">TranscriptStore  <tspan class="mono" font-weight="400" font-size="11">store.py · models.py</tspan></text>
+      <text x="296" y="372" font-size="11" class="sub">SQLAlchemy AsyncSession per request</text>
+
+      <!-- externals -->
+      <rect x="740" y="30" width="220" height="62" rx="10" fill="var(--surface)" stroke="var(--rule)" stroke-width="1.5"/>
+      <text x="850" y="56" text-anchor="middle" font-weight="600" font-size="14">YouTube captions</text>
+      <text x="850" y="76" text-anchor="middle" class="sub mono" font-size="11">youtube-transcript-api</text>
+      <rect x="740" y="112" width="220" height="80" rx="10" fill="var(--llm-soft)" stroke="var(--llm)" stroke-width="1.5"/>
+      <text x="850" y="138" text-anchor="middle" font-weight="600" font-size="14">LLM provider (one per run)</text>
+      <text x="850" y="158" text-anchor="middle" class="sub" font-size="12">OpenAI Responses (default)</text>
+      <text x="850" y="176" text-anchor="middle" class="sub" font-size="12">Gemini · Anthropic Messages</text>
+      <rect x="740" y="212" width="220" height="62" rx="10" fill="var(--llm-soft)" stroke="var(--llm)" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <text x="850" y="238" text-anchor="middle" font-weight="600" font-size="14">OpenAI web_search tool</text>
+      <text x="850" y="258" text-anchor="middle" class="sub" font-size="12">enrichment only, off by default</text>
+      <rect x="740" y="294" width="220" height="62" rx="10" fill="var(--db-soft)" stroke="var(--db)" stroke-width="1.5"/>
+      <text x="850" y="320" text-anchor="middle" font-weight="600" font-size="14">Postgres 16</text>
+      <text x="850" y="340" text-anchor="middle" class="sub" font-size="12">source of truth, 11 tables</text>
+      <rect x="740" y="372" width="220" height="50" rx="10" fill="var(--surface)" stroke="var(--rule)" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <text x="850" y="395" text-anchor="middle" font-weight="600" font-size="14">Redis 7</text>
+      <text x="850" y="412" text-anchor="middle" class="sub" font-size="11">pinged by /health only</text>
+
+      <!-- arrows -->
+      <path d="M190 206 L260 206" stroke="var(--muted)" stroke-width="1.6" fill="none" marker-end="url(#arw)"/>
+      <path d="M260 232 L190 232" stroke="var(--accent)" stroke-width="1.6" fill="none" marker-end="url(#arw)"/>
+      <text x="196" y="198" font-size="10.5" class="sub mono">POST /analyze</text>
+      <text x="196" y="250" font-size="10.5" class="sub mono" style="fill:var(--accent)">SSE events</text>
+      <path d="M448 280 C600 250 680 70 740 62" stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#arw)"/>
+      <path d="M630 290 C690 280 700 160 740 152" stroke="var(--llm)" stroke-width="1.5" fill="none" marker-end="url(#arw)"/>
+      <path d="M630 300 C700 300 700 245 740 243" stroke="var(--llm)" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#arw)"/>
+      <path d="M630 357 L740 325" stroke="var(--db)" stroke-width="1.5" fill="none" marker-end="url(#arw)"/>
+      <path d="M630 162 C700 170 690 395 740 397" stroke="var(--muted)" stroke-width="1.3" fill="none" stroke-dasharray="5 4" marker-end="url(#arw)"/>
+    </svg>
+    <figcaption>Redis is a declared dependency and a Compose service, but no code path other than <code>GET /health</code> touches it.</figcaption>
+  </figure>
+</section>
+
+<section id="modules">
+  <h2>Module map</h2>
+  <p>Seventeen files, layered roughly from HTTP at the top to the database at the bottom. Arrows mean "imports and calls".</p>
+  <figure class="figure">
+<pre class="mermaid">
+flowchart TD
+  main["main.py<br/>routes · SSE"] --> analysis["analysis.py<br/>AnalyzeService"]
+  main --> ingestion["youtube_ingestion.py"]
+  main --> store["store.py<br/>TranscriptStore"]
+  main --> mw["body_limit.py · errors.py"]
+  analysis --> schemas["schemas.py<br/>request/response models"]
+  analysis --> ingestion
+  analysis --> sanitizer["sanitizer.py"]
+  analysis --> llm["llm.py<br/>LlmClient"]
+  analysis --> enricher["explanation_enrichment.py<br/>ExplanationEnricher"]
+  analysis --> store
+  ingestion --> youtube["youtube.py<br/>fetch captions"]
+  ingestion --> sanitizer
+  llm --> prompts["prompts.py<br/>3 core schemas"]
+  llm --> eprompts["enrichment_prompts.py<br/>3 enrichment schemas"]
+  llm --> validation["explanation_validation.py<br/>ladder rules"]
+  llm --> enrichment["enrichment.py<br/>dataclasses + validators"]
+  enricher --> llm
+  enricher --> search["openai_search.py<br/>web_search"]
+  store --> models["models.py<br/>11 ORM tables"]
+  models --> database["database.py<br/>engine · session"]
+  database --> config["config.py<br/>Settings from .env"]
+</pre>
+  </figure>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>File</th><th>Lines</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><code>main.py</code></td><td class="num">235</td><td>App object, lifespan (shared <code>httpx.AsyncClient</code>), middleware, the four routes, JSON-vs-SSE switch and SSE queue.</td></tr>
+      <tr><td><code>analysis.py</code></td><td class="num">656</td><td><code>AnalyzeService.analyze()</code>, the pipeline. Also the pure helpers: label resolution, chunk building, dedup, coverage review, response assembly.</td></tr>
+      <tr><td><code>llm.py</code></td><td class="num">595</td><td>Provider dispatch (OpenAI / Gemini / Claude), one method per LLM task, output validators, retry-with-correction loops.</td></tr>
+      <tr><td><code>store.py</code></td><td class="num">290</td><td>All DB writes and reads. Upserts sources/transcripts/segments, saves chunks and warnings, saves the category graph in one transaction, marks run status.</td></tr>
+      <tr><td><code>models.py</code></td><td class="num">275</td><td>SQLAlchemy ORM models for the 11 tables. camelCase column names map to snake_case attributes.</td></tr>
+      <tr><td><code>enrichment.py</code></td><td class="num">317</td><td>Frozen dataclasses for enrichment (<code>EnrichmentContext</code>, <code>EnrichmentPlan</code>, <code>ResearchEvidence</code>, <code>OccurrenceEnrichment</code>) and validators for plan/synthesis payloads.</td></tr>
+      <tr><td><code>explanation_enrichment.py</code></td><td class="num">274</td><td><code>ExplanationEnricher</code>: plan → review → web search → synthesize → review, with fallback to transcript-only text at every step.</td></tr>
+      <tr><td><code>openai_search.py</code></td><td class="num">261</td><td>Calls OpenAI Responses with the <code>web_search</code> tool and turns <code>url_citation</code> annotations into at most 3 citations <code>C1…C3</code>.</td></tr>
+      <tr><td><code>enrichment_prompts.py</code></td><td class="num">230</td><td>System/user prompts and JSON schemas for plan, synthesis and review.</td></tr>
+      <tr><td><code>prompts.py</code></td><td class="num">225</td><td>Prompts and strict JSON schemas for topic chunking, candidate clipping, and category grouping.</td></tr>
+      <tr><td><code>schemas.py</code></td><td class="num">224</td><td>Pydantic request/response models, <code>parse_analyze_request</code> (field allowlist), BCP-47 normalization, transcript length checks.</td></tr>
+      <tr><td><code>sanitizer.py</code></td><td class="num">165</td><td>Cleans caption noise (<code>[music]</code>, <code>ㅋㅋㅋ</code>, repeated punctuation), builds <code>CleanedSegment</code>s, splits manual text into pseudo-segments.</td></tr>
+      <tr><td><code>explanation_validation.py</code></td><td class="num">123</td><td>The explanation-ladder rules and a sentence counter that knows about abbreviations (<code>e.g.</code>, <code>U.S.</code>, decimals).</td></tr>
+      <tr><td><code>youtube.py</code></td><td class="num">74</td><td>URL → 11-char video ID (watch, youtu.be, shorts), caption fetch preferring human-made tracks.</td></tr>
+      <tr><td><code>youtube_ingestion.py</code></td><td class="num">69</td><td><code>prepare()</code> (fetch + sanitize, used by /analyze) and <code>ingest()</code> (prepare + build the response, used by /youtube/transcript). Stores nothing.</td></tr>
+      <tr><td><code>errors.py</code> · <code>body_limit.py</code></td><td class="num">90</td><td><code>AppError(status, code, message)</code> and the <code>{error:{code,message}}</code> envelope; raw ASGI middleware rejecting POST bodies over 1 MB.</td></tr>
+      <tr><td><code>config.py</code> · <code>database.py</code></td><td class="num">65</td><td><code>Settings</code> (pydantic-settings, reads <code>.env</code>), async engine, <code>get_db</code> dependency.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="request">
+  <h2>Request lifecycle</h2>
+  <p>Every request passes the same outer layers before reaching a route.</p>
+  <ol>
+    <li><strong>RequestBodyLimitMiddleware</strong> (raw ASGI). Only for <code>POST /analyze</code> and <code>POST /youtube/transcript</code>: buffers the body and returns 413 once it passes 1 MB, then replays the buffered messages to the app.</li>
+    <li><strong>request_logging</strong> middleware echoes <code>x-request-id</code> back and logs method, path, status.</li>
+    <li><strong>Dependency injection.</strong> <code>get_db</code> opens one <code>AsyncSession</code> per request. For <code>/analyze</code> the route then builds the whole object graph by hand, per request:
+<pre class="code">llm      = LlmClient(settings, app.state.http_client)
+service  = AnalyzeService(
+             TranscriptStore(db),
+             llm,
+             settings,
+             ExplanationEnricher(llm, OpenAIWebSearchClient(settings, http_client), settings))
+# AnalyzeService builds its own YoutubeTranscriptIngestionService(store, fetch_youtube_transcript)</pre>
+    Every collaborator is passed in through a constructor, which is what lets the tests swap in fakes.</li>
+    <li><strong>Error handlers</strong> turn any <code>AppError</code>, validation error, HTTP error, or unexpected exception into the <code>{ "error": { "code", "message" } }</code> envelope.</li>
+  </ol>
+  <h3>The four endpoints</h3>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Route</th><th>What it does</th><th>Writes</th></tr></thead>
+    <tbody>
+      <tr><td><code>POST /analyze</code></td><td>Full pipeline. Returns JSON, or SSE when <code>Accept: text/event-stream</code> or <code>?stream=progress</code>. Body: <code>type</code> = <code>youtube</code> (with <code>youtubeUrl</code>) or <code>manual</code> (with <code>text</code>), optional <code>title</code>, <code>targetLanguage</code> (default <code>en</code>). Provider overrides are accepted only when <code>ALLOW_ANALYZE_LLM_OVERRIDES=true</code>; any other field is a 400.</td><td>All analysis tables</td></tr>
+      <tr><td><code>POST /youtube/transcript</code></td><td>Fetch a transcript for the mobile share flow, without analysis or storage. Returns video ID, canonical URL, text, caption language, and whether captions were auto-generated. The apps save the text in their local notes.</td><td>none</td></tr>
+      <tr><td><code>GET /transcript/{id}</code></td><td>Read a stored transcript. ID must be a lowercase-canonical UUID v4. Returns <code>createdAt</code> and <code>expiresAt</code> (= created + 30 min).</td><td>none</td></tr>
+      <tr><td><code>GET /health</code></td><td>Runs <code>SELECT 1</code> and a Redis <code>PING</code>; <code>ok</code> is true only when both pass.</td><td>none</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="pipeline">
+  <h2>The /analyze pipeline</h2>
+  <p>All of this is <code>AnalyzeService.analyze()</code> in <code>analysis.py:53</code>. Each step emits an SSE <code>stage</code> name (the blue chips; these are what the iOS progress UI reads) and updates a local <code>failure_stage</code>, so a failed run records exactly where it stopped.</p>
+  <div class="legend">
+    <span><i style="background:var(--accent)"></i>Python-only step</span>
+    <span><i style="background:var(--llm)"></i>Calls the LLM</span>
+    <span><i style="background:var(--db)"></i>Commits to Postgres</span>
+  </div>
+  <ol class="pipe">
+    <li class="db"><div class="stage">
+      <h4>Parse request, open a run <span class="ref">schemas.py:130 · llm.py:54</span></h4>
+      <p><code>parse_analyze_request</code> enforces the field allowlist and normalizes <code>targetLanguage</code>. <code>resolve_llm_options</code> settles provider, model (default <code>gpt-4o-mini</code> for OpenAI), temperature (0.2) and max output tokens (3000). An <code>analysis_runs</code> row is inserted with <code>status=running</code> before anything else happens.</p>
+      <div class="chips"><span class="chip sse">started</span><span class="chip db">analysis_runs</span><span class="chip err">INVALID_REQUEST · INVALID_TYPE · INVALID_TARGET_LANGUAGE</span></div>
+    </div></li>
+    <li><div class="stage">
+      <h4>Fetch and sanitize the transcript <span class="ref">youtube.py:48 · sanitizer.py:60</span></h4>
+      <p>YouTube: extract the video ID, list caption tracks, prefer a human-made one over auto-generated, fetch raw snippets (blocking call, run via <code>asyncio.to_thread</code>). The sanitizer drops noise like <code>[Music]</code> or <code>(박수)</code>, squashes <code>ㅋㅋㅋㅋ</code> and <code>!!!!</code>, sorts by start time, and numbers snippets as <code>CleanedSegment(sequence, start, end, raw_text, text)</code>. Manual text is split on sentences and newlines into pieces of at most 320 characters, each given a fake 1-second slot.</p>
+      <div class="chips"><span class="chip sse">fetching_transcript</span><span class="chip sse">sanitizing_transcript</span><span class="chip sse">transcript_ready</span><span class="chip err">INVALID_YOUTUBE_URL · TRANSCRIPT_UNAVAILABLE · TRANSCRIPT_FETCH_FAILED · SHORT_TRANSCRIPT (&lt; 80 chars)</span></div>
+    </div></li>
+    <li class="db"><div class="stage">
+      <h4>Store transcript and stable segments <span class="ref">store.py:59</span></h4>
+      <p>Upserts a <code>sources</code> row keyed on <code>(provider, externalId)</code> (the video ID, or <code>segments-v2:&lt;hash&gt;</code> for manual text), a <code>transcripts</code> row keyed on <code>(sourceId, sha256 of text)</code>, and one <code>transcript_segments</code> row per segment. Segment IDs are deterministic: <code>seg_</code> + the first 32 hex chars of sha256(hash | sequence | start | end | text). Re-analyzing the same video reuses the same rows. The run is linked to the transcript.</p>
+      <div class="chips"><span class="chip sse">creating_segments</span><span class="chip db">sources</span><span class="chip db">transcripts</span><span class="chip db">transcript_segments</span></div>
+    </div></li>
+    <li class="llm"><div class="stage">
+      <h4>Topic chunking (LLM call 1) <span class="ref">llm.py:104 · prompts.py:132</span></h4>
+      <p>All segments are rendered as <code>S001 | 00:12 | text</code> lines. The model returns only boundaries: <code>{startSegmentId, endSegmentId, title, summary, signalLevel}</code>, where <code>signalLevel</code> is <code>high</code>, <code>medium</code>, <code>low</code> or <code>off_topic</code>. No retry: a malformed answer fails the run.</p>
+      <div class="chips"><span class="chip sse">chunking_topics</span><span class="chip llm">topic_chunking schema</span><span class="chip err">LLM_TOPIC_CHUNKS_EMPTY · LLM_TOPIC_CHUNKS_INVALID_JSON</span></div>
+    </div></li>
+    <li class="db"><div class="stage">
+      <h4>Validate and repair chunk boundaries <span class="ref">analysis.py:506</span></h4>
+      <p>Labels like <code>S007</code> are mapped back to real segment IDs. <code>build_topic_chunks</code> then fixes what the model got slightly wrong, and records each fix as a <code>coverage_warnings</code> row: a reversed range is swapped; a chunk fully inside an earlier one is dropped; a partial overlap is trimmed to start at the next uncovered segment; an uncovered gap longer than 30 s or 5 segments becomes a <code>major_gap</code> warning. An unknown segment ID is not repairable and fails the run.</p>
+      <div class="chips"><span class="chip sse">validating_chunks</span><span class="chip db">topic_chunks</span><span class="chip db">coverage_warnings</span><span class="chip err">LLM_TOPIC_CHUNKS_INVALID_BOUNDARY</span></div>
+    </div></li>
+    <li class="llm"><div class="stage">
+      <h4>Candidate clipping extraction (LLM calls 2…N+1) <span class="ref">analysis.py:114 · llm.py:123</span></h4>
+      <p>Only <code>high</code> and <code>medium</code> chunks are eligible. One call per chunk, at most 3 in flight (<code>asyncio.Semaphore(3)</code>); if any chunk fails, the remaining calls are cancelled so no further paid requests run. Each call sees only its chunk's segments and returns keyword candidates with a <code>kind</code> (topic, claim, mechanism, risk, trend, entity, example, question, contradiction), the explanation ladder, a <code>signalLevel</code>, and <code>sourceRefs</code> that must point inside the chunk. Invalid output is retried up to 3 times with the validation error and the previous answer appended. The backend then rebuilds each source ref from the real segments: timestamp, YouTube link with <code>&amp;t=…s</code>, and up to 300 characters of grounded text. <code>low</code>-signal candidates are dropped here.</p>
+      <div class="chips"><span class="chip sse">extracting_clippings</span><span class="chip llm">candidate_clipping schema · ≤3 attempts</span><span class="chip err">LLM_CLIPPINGS_INVALID_JSON · LLM_CLIPPINGS_INVALID_SOURCE_REF</span></div>
+    </div></li>
+    <li><div class="stage">
+      <h4>Exact-duplicate removal <span class="ref">analysis.py:368</span></h4>
+      <p>Two candidates collapse only when the casefolded term <em>and</em> the primary source start/end segment are both identical. "Codex" at 0:46 and "Codex" at 12:10 stay as two keywords. Survivors get short temporary IDs <code>K001</code>, <code>K002</code>… for the next LLM call.</p>
+      <div class="chips"><span class="chip sse">deduplicating_occurrences</span></div>
+    </div></li>
+    <li class="llm"><div class="stage">
+      <h4>Category grouping (LLM call N+2) <span class="ref">llm.py:174 · prompts.py:195</span></h4>
+      <p>The model receives a compact list (<code>keywordId, term, kind, brief, contextualExplanation, timestamp</code>) and returns <code>{categories: [{title, keywordIds}]}</code>. The validator requires every ID exactly once, no unknown IDs, no empty categories, and unique titles of 2–80 characters. Up to 3 attempts, with the required ID list repeated in the correction prompt.</p>
+      <div class="chips"><span class="chip sse">grouping_keywords</span><span class="chip llm">keyword_category_grouping schema · ≤3 attempts</span><span class="chip err">LLM_CATEGORY_GROUPING_INVALID_JSON</span></div>
+    </div></li>
+    <li class="db"><div class="stage">
+      <h4>Coverage review <span class="ref">analysis.py:638</span></h4>
+      <p>An eligible chunk that produced zero keywords, or a broad chunk (over 180 s or over 20 segments) with fewer than 2, gets a <code>weak_candidate_extraction</code> warning. Every chunk's <code>coverageStatus</code> is set: <code>weak_candidate_extraction</code>, <code>off_topic</code>, <code>low_signal</code>, <code>represented</code> (medium) or <code>covered</code> (high).</p>
+      <div class="chips"><span class="chip sse">reviewing_coverage</span><span class="chip db">coverage_warnings</span></div>
+    </div></li>
+    <li class="llm"><div class="stage">
+      <h4>Explanation enrichment (optional) <span class="ref">explanation_enrichment.py:54</span></h4>
+      <p>Runs once per topic chunk. When <code>EXPLANATION_ENRICHMENT_ENABLED</code> is false (the default) or the provider is not OpenAI, it returns the transcript-only <code>level2</code>/<code>level3</code> unchanged and makes no calls. Details in <a href="#enrichment">Enrichment</a>.</p>
+      <div class="chips"><span class="chip sse">enriching_explanations</span><span class="chip llm">plan · review · web_search · synthesis</span></div>
+    </div></li>
+    <li class="db"><div class="stage">
+      <h4>Persist the category graph, build the response <span class="ref">store.py:162 · analysis.py:441</span></h4>
+      <p>One transaction writes <code>candidate_clippings</code>, <code>candidate_external_sources</code>, <code>candidate_external_citations</code>, <code>keyword_categories</code> and <code>keyword_category_memberships</code>, after checking again that every occurrence is assigned exactly once. Any failure rolls the whole graph back. The response is then assembled from the grouping and validated through the <code>AnalyzeResult</code> Pydantic model, the run is marked <code>completed</code>, and a <code>completed</code> event goes out.</p>
+      <div class="chips"><span class="chip sse">storing_analysis</span><span class="chip sse">completed</span><span class="chip db">5 tables, single commit</span><span class="chip err">INVALID_CATEGORY_GRAPH</span></div>
+    </div></li>
+  </ol>
+  <div class="callout"><p><strong>On failure</strong> at any step, the session is rolled back, the run row is re-attached and marked <code>failed</code> with <code>failureStage</code>, <code>errorCode</code> and <code>safeErrorMessage</code>. A client disconnect during streaming cancels the task and records <code>ANALYSIS_CANCELLED</code>. Rows committed by earlier steps (transcript, chunks, warnings) stay.</p></div>
+</section>
+
+<section id="trace">
+  <h2>One keyword, end to end</h2>
+  <p>The same piece of information as it changes shape. The term and wording here are illustrative; the shapes are the real ones.</p>
+  <div class="trace">
+    <div class="step"><div class="lbl">caption snippet</div><pre class="code">{"text": "[Music] so Codex can now run tasks on its own", "start": 46.2, "duration": 3.1}</pre></div>
+    <div class="step"><div class="lbl">CleanedSegment → row</div><pre class="code">transcript_segments: id=seg_9f2c…  sequence=17  startTime=46.2  endTime=49.3
+  rawText="[Music] so Codex can now run tasks on its own"
+  text="so Codex can now run tasks on its own"</pre></div>
+    <div class="step"><div class="lbl">LLM input line</div><pre class="code">S018 | 00:46 | so Codex can now run tasks on its own</pre></div>
+    <div class="step"><div class="lbl">topic chunk</div><pre class="code">{"startSegmentId":"S015","endSegmentId":"S031","title":"OpenAI's new agents",
+ "summary":"…","signalLevel":"high"}   → topic_chunks row, label resolved to seg_…</pre></div>
+    <div class="step"><div class="lbl">candidate (LLM)</div><pre class="code">{"kind":"entity","title":"Codex","brief":"Autonomous coding tool introduced here",
+ "simpleExplanation":"…","contextualExplanation":["…","…"],"detailedExplanation":["…","…","…"],
+ "signalLevel":"high","sourceRefs":[{"startSegmentId":"S018","endSegmentId":"S019",…}]}</pre></div>
+    <div class="step"><div class="lbl">grounded clipping</div><pre class="code">candidate_clippings: id=744fa8cf…  title="Codex"  level1/2/3=…
+  sourceRefs=[{"timestamp":"00:46","ref":"https://www.youtube.com/watch?v=…&amp;t=46s","text":"…"}]
+grouping input: {"keywordId":"K004","term":"Codex","kind":"entity",…}</pre></div>
+    <div class="step"><div class="lbl">grouping (LLM)</div><pre class="code">{"categories":[{"title":"OpenAI","keywordIds":["K002","K004","K009"]}, …]}</pre></div>
+    <div class="step"><div class="lbl">API response</div><pre class="code">{"categoryId":"d341…","title":"OpenAI","keywords":[
+  {"candidateClippingId":"744fa8cf…","term":"Codex","brief":"…","level1":"…","level2":"…","level3":"…",
+   "source":{"type":"youtube","ref":"…&amp;t=46s"},"sources":[…],
+   "level2CitationIds":[],"level3CitationIds":[],"externalSources":[]}]}</pre></div>
+  </div>
+  <p><code>K004</code> exists only in memory for the grouping call. Clients identify keywords by <code>candidateClippingId</code>, never by <code>term</code>, because the same term may legitimately appear several times.</p>
+</section>
+
+<section id="llm">
+  <h2>LLM layer</h2>
+  <p><code>LlmClient._generate</code> is the single choke point: every task builds a system/user prompt pair plus a JSON schema and dispatches by provider.</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Provider</th><th>Endpoint</th><th>How JSON is enforced</th><th>Default model</th></tr></thead>
+    <tbody>
+      <tr><td>openai</td><td><code>/v1/responses</code></td><td>Strict <code>json_schema</code> output format</td><td><code>gpt-4o-mini</code></td></tr>
+      <tr><td>gemini</td><td><code>…/models/{m}:generateContent</code></td><td><code>responseMimeType: application/json</code>, schema not sent</td><td><code>gemini-1.5-flash</code></td></tr>
+      <tr><td>claude</td><td><code>/v1/messages</code></td><td>Prompt instructions only</td><td><code>claude-3-5-haiku-latest</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Because only OpenAI gets schema enforcement, the Python validators are what actually keep the pipeline safe on every provider. <code>parse_json_object</code> strips code fences before parsing. OpenAI HTTP errors are mapped to <code>LLM_AUTH_ERROR</code>, <code>LLM_QUOTA_OR_RATE_LIMIT</code>, <code>LLM_CONTEXT_LENGTH_EXCEEDED</code> or <code>LLM_REQUEST_FAILED</code>.</p>
+  <h3>The explanation ladder</h3>
+  <p>Each keyword carries four explanations of increasing depth. <code>explanation_validation.py</code> checks them on every candidate and again on every enrichment rewrite.</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Internal name</th><th>API field</th><th>Rule</th></tr></thead>
+    <tbody>
+      <tr><td><code>brief</code></td><td><code>brief</code></td><td>5–10 words (or 5–40 non-space characters for CJK text), shorter than <code>simpleExplanation</code></td></tr>
+      <tr><td><code>simpleExplanation</code></td><td><code>level1</code></td><td>Exactly 1 sentence. Never changed by enrichment.</td></tr>
+      <tr><td><code>contextualExplanation</code></td><td><code>level2</code></td><td>2–3 sentences, longer than level1, joined length ≤ 420 characters</td></tr>
+      <tr><td><code>detailedExplanation</code></td><td><code>level3</code></td><td>3–5 sentences, longer than level2, joined length ≤ 700 characters</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Also enforced: the three levels must differ from each other, and the term must be 2–60 characters and not end like a sentence. Models may return level2/level3 as arrays of single sentences; <code>normalize_candidate_sentences</code> joins them with spaces.</p>
+  <h3>Call budget per run</h3>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Task</th><th>Calls</th><th>Retries</th></tr></thead>
+    <tbody>
+      <tr><td>Topic chunking</td><td>1</td><td>none</td></tr>
+      <tr><td>Candidate clipping</td><td>1 per high/medium chunk, 3 concurrent</td><td>up to 3 attempts each</td></tr>
+      <tr><td>Category grouping</td><td>1 (skipped if no keywords)</td><td>up to 3 attempts</td></tr>
+      <tr><td>Enrichment, if enabled</td><td>per chunk: 1 plan; per keyword: 1 review; per keyword needing research: 1 search + up to 2 × (synthesis + review)</td><td>synthesis retried once after a rejected review</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="enrichment">
+  <h2>Enrichment</h2>
+  <p>Optional stage that rewrites <code>level2</code>/<code>level3</code> with cited outside facts when the transcript alone leaves a gap. Off by default, OpenAI only. Its rule is that it can only add: every failure falls back to the transcript-only text, and it never raises out of the pipeline except on cancellation.</p>
+  <figure class="figure">
+<pre class="mermaid">
+flowchart TD
+  start(["enrich(contexts for one chunk)"]) --> gate{"enabled AND provider = openai?"}
+  gate -- no --> fb0["return transcript level2/level3"]
+  gate -- yes --> plan["LLM: plan all keywords in chunk<br/>rewritten level2/3 + needsExternalResearch"]
+  plan -- error --> fb0
+  plan --> review1["LLM: review each draft<br/>with empty evidence"]
+  review1 -- approved --> keep["use planned draft"]
+  review1 -- rejected --> fbk["keep transcript text"]
+  keep --> need{"needs research?"}
+  fbk --> need
+  need -- no --> done(["result for keyword"])
+  need -- yes --> search["OpenAI web_search<br/>at most 3 url_citation sources C1..C3"]
+  search -- error --> fb1["transcript fallback"]
+  search -- no sources --> done
+  search --> synth["LLM: synthesize level2/3<br/>with level2CitationIds / level3CitationIds"]
+  synth --> review2["LLM: review against evidence"]
+  review2 -- approved --> cited(["cited enrichment"])
+  review2 -- "rejected (2nd time)" --> fb1
+  review2 -- "rejected (1st time)" --> synth
+</pre>
+    <figcaption>Research for different keywords runs concurrently up to <code>EXPLANATION_ENRICHMENT_MAX_CONCURRENCY</code> (default 3). Chunks themselves are processed one after another.</figcaption>
+  </figure>
+  <p>Citation IDs are local to one keyword: <code>C1</code> on one keyword and <code>C1</code> on another are unrelated. The synthesis validator rejects citation IDs that are not in that keyword's evidence, any attempt to return <code>level1</code>, and any change to <code>keywordId</code>. Only sources that are actually cited are kept in <code>externalSources</code>. Transcript <code>source</code>/<code>sources</code> are never touched.</p>
+</section>
+
+<section id="data">
+  <h2>Data model</h2>
+  <p>Postgres is the durable record. Everything except the reusable source/transcript/segment layer is scoped to one <code>analysis_runs</code> row, so two analyses of the same video produce two independent sets of chunks, keywords and categories over shared segments.</p>
+  <figure class="figure">
+<pre class="mermaid">
+erDiagram
+  sources ||--o{ transcripts : "has"
+  transcripts ||--o{ transcript_segments : "split into"
+  sources |o--o{ analysis_runs : "analyzed by"
+  transcripts |o--o{ analysis_runs : "input of"
+  analysis_runs ||--o{ topic_chunks : "produces"
+  analysis_runs ||--o{ coverage_warnings : "records"
+  topic_chunks ||--o{ candidate_clippings : "yields"
+  analysis_runs ||--o{ keyword_categories : "groups into"
+  keyword_categories ||--o{ keyword_category_memberships : "contains"
+  candidate_clippings ||--|| keyword_category_memberships : "belongs to one"
+  candidate_clippings ||--o{ candidate_external_sources : "cites"
+  candidate_external_sources ||--o{ candidate_external_citations : "used at level 2 or 3"
+  sources {
+    uuid id PK
+    string provider "youtube or manual"
+    string externalId "videoId or segments-v2:hash"
+  }
+  transcripts {
+    uuid id PK
+    uuid sourceId FK
+    string transcriptHash "sha256, unique per source"
+    text transcriptText
+  }
+  transcript_segments {
+    string id PK "seg_ + 32 hex, deterministic"
+    int sequence
+    float startTime
+    float endTime
+    text rawText
+    text text
+  }
+  analysis_runs {
+    uuid id PK
+    string status "running, completed, failed"
+    string failureStage
+    string errorCode
+    string provider
+    string model
+    string promptVersion
+  }
+  topic_chunks {
+    uuid id PK
+    string startSegmentId
+    string endSegmentId
+    string signalLevel
+    string coverageStatus
+  }
+  candidate_clippings {
+    uuid id PK
+    uuid topicChunkId FK
+    string kind
+    string title "the keyword term"
+    text level1
+    text level2
+    text level3
+    jsonb sourceRefs
+  }
+  keyword_categories {
+    uuid id PK
+    int sequence
+    string title
+    string normalizedTitle "unique per run"
+  }
+  keyword_category_memberships {
+    uuid categoryId FK
+    uuid candidateClippingId FK "unique"
+    int sequence
+  }
+  candidate_external_sources {
+    uuid candidateClippingId FK
+    string citationId "C1..C3"
+    string url
+  }
+  candidate_external_citations {
+    uuid externalSourceId FK
+    int level "2 or 3"
+  }
+  coverage_warnings {
+    uuid id PK
+    string reason
+    string startSegmentId
+    string endSegmentId
+  }
+</pre>
+    <figcaption>Columns abbreviated. Most run-scoped tables also carry <code>sourceId</code>, <code>transcriptId</code> and <code>analysisRunId</code>. <code>eval_runs</code> exists in the schema but is not shown because nothing writes to it.</figcaption>
+  </figure>
+  <h3>When things get committed</h3>
+  <p>The store commits after almost every step rather than once at the end. In order: run row → source → transcript → segments → run linked to transcript → topic chunks → boundary warnings → coverage warnings → the whole category graph in one transaction → run marked completed. That is why a failed run still leaves its transcript, chunks and warnings behind for inspection, but never half a category graph. The unique constraint on <code>keyword_category_memberships.candidateClippingId</code> enforces "each keyword in exactly one category" at the database level too.</p>
+  <h3>Migrations</h3>
+  <p><code>0001_nest_schema_baseline</code> recreates the schema from the earlier NestJS backend, <code>0002_add_keyword_categories</code> adds categories and memberships, <code>0003_add_candidate_external_sources</code> adds the two citation tables. The Docker image runs <code>alembic upgrade head</code> on every start.</p>
+</section>
+
+<section id="sse">
+  <h2>Streaming and errors</h2>
+  <p>The SSE path decouples the pipeline from the HTTP response with an <code>asyncio.Queue</code>. The pipeline never knows it is streaming; it only calls <code>emit(event, payload)</code>.</p>
+  <figure class="figure">
+<pre class="mermaid">
+sequenceDiagram
+  participant C as iOS client
+  participant R as /analyze route
+  participant Q as asyncio.Queue
+  participant T as run() task
+  participant S as AnalyzeService
+  C->>R: POST /analyze (Accept: text/event-stream)
+  R->>T: create_task(run()) when stream() starts
+  T->>S: analyze(body, emit)
+  loop each stage
+    S->>Q: emit("progress", {stage, message, counts})
+    Q-->>R: queue.get()
+    R-->>C: event: progress / data: {...}
+  end
+  S-->>T: result dict
+  T->>Q: ("result", payload) then None
+  R-->>C: event: result / data: AnalyzeResult
+  Note over C,R: On AppError, T puts ("error", {code, statusCode, message}) instead
+  Note over C,R: If the client disconnects, stream() finally-block cancels T, run marked ANALYSIS_CANCELLED
+</pre>
+  </figure>
+  <p>Without SSE the route simply awaits <code>service.analyze(body)</code> and returns the same <code>AnalyzeResult</code> as plain JSON; errors become HTTP status codes with the envelope. With SSE the HTTP status is always 200 and errors arrive as an <code>event: error</code> frame, because the headers were already sent.</p>
+  <h3>Error code families</h3>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Status</th><th>Codes</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>400</td><td><code>INVALID_REQUEST</code>, <code>INVALID_TYPE</code>, <code>INVALID_YOUTUBE_URL</code>, <code>INVALID_TEXT</code>, <code>INVALID_TITLE</code>, <code>INVALID_TARGET_LANGUAGE</code>, <code>INVALID_LLM_*</code>, <code>INVALID_TRANSCRIPT_ID</code></td><td>Client input</td></tr>
+      <tr><td>404</td><td><code>TRANSCRIPT_NOT_FOUND</code>, <code>NOT_FOUND</code></td><td>Missing resource</td></tr>
+      <tr><td>413</td><td>body too large (code is <code>INTERNAL_SERVER_ERROR</code>)</td><td>POST body over 1 MB</td></tr>
+      <tr><td>502</td><td><code>TRANSCRIPT_UNAVAILABLE</code>, <code>TRANSCRIPT_FETCH_FAILED</code>, <code>EMPTY_TRANSCRIPT</code>, <code>SHORT_TRANSCRIPT</code></td><td>YouTube side</td></tr>
+      <tr><td>502</td><td><code>LLM_AUTH_ERROR</code>, <code>LLM_QUOTA_OR_RATE_LIMIT</code>, <code>LLM_CONTEXT_LENGTH_EXCEEDED</code>, <code>LLM_REQUEST_FAILED</code>, <code>LLM_RESPONSE_INCOMPLETE</code>, <code>LLM_EMPTY_OUTPUT</code></td><td>Provider call failed</td></tr>
+      <tr><td>502</td><td><code>LLM_TOPIC_CHUNKS_*</code>, <code>LLM_CLIPPINGS_*</code>, <code>LLM_CATEGORY_GROUPING_INVALID_JSON</code></td><td>Model answered but failed validation</td></tr>
+      <tr><td>500</td><td><code>LLM_PROVIDER_NOT_CONFIGURED</code>, <code>INVALID_CATEGORY_GRAPH</code>, <code>INTERNAL_SERVER_ERROR</code></td><td>Server configuration or invariant broken</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="config">
+  <h2>Configuration</h2>
+  <p>All settings come from environment variables or <code>backend-fastapi/.env</code> via <code>config.py</code>. <code>postgres://</code> URLs are rewritten to <code>postgresql+psycopg://</code>.</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Variable</th><th>Default</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td><code>DATABASE_URL</code></td><td>local reforge DB</td><td>Async SQLAlchemy engine</td></tr>
+      <tr><td><code>REDIS_URL</code></td><td><code>redis://localhost:6379</code></td><td>Health check only</td></tr>
+      <tr><td><code>LLM_PROVIDER</code></td><td><code>openai</code></td><td><code>openai</code>, <code>gemini</code> or <code>claude</code></td></tr>
+      <tr><td><code>LLM_MODEL</code></td><td>per-provider default</td><td>Overrides the model for every call</td></tr>
+      <tr><td><code>LLM_TEMPERATURE</code> · <code>LLM_MAX_OUTPUT_TOKENS</code></td><td>0.2 · 3000</td><td>Temperature 0–2; tokens 256–20000</td></tr>
+      <tr><td><code>ALLOW_ANALYZE_LLM_OVERRIDES</code></td><td>false</td><td>Lets request bodies set provider/model/temperature/maxOutputTokens</td></tr>
+      <tr><td><code>EXPLANATION_ENRICHMENT_ENABLED</code></td><td>false</td><td>Turns on the web-search enrichment stage</td></tr>
+      <tr><td><code>EXPLANATION_ENRICHMENT_MAX_SOURCES</code> · <code>_MAX_CONCURRENCY</code></td><td>3 · 3</td><td>Citations per keyword (1–3); parallel research (1–8)</td></tr>
+      <tr><td><code>OPENAI_API_KEY</code> · <code>GEMINI_API_KEY</code> · <code>ANTHROPIC_API_KEY</code></td><td>empty</td><td>Missing key for the active provider → 500 <code>LLM_PROVIDER_NOT_CONFIGURED</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="observations">
+  <h2>Observations</h2>
+  <p>Things I noticed while reading the code that are easy to miss or differ from what <code>CLAUDE.md</code> says. These are notes, not changes; nothing was modified.</p>
+  <ul class="findings">
+    <li><b>Redis is not used for caching or coordination.</b> <code>CLAUDE.md</code> scopes it to "cache/coordination uses", but the only Redis call is the <code>PING</code> in <code>/health</code> (<code>main.py:121</code>). If Redis is down, <code>/health</code> reports <code>ok: false</code> even though analysis would work.</li>
+    <li><b>The 30-minute transcript TTL is only reported.</b> <code>expiresInSeconds: 1800</code> and <code>expiresAt</code> are returned, but <code>GET /transcript/{id}</code> never checks expiry and nothing deletes old rows.</li>
+    <li><b><code>eval_runs</code> has no writer.</b> The table and model exist; no code inserts into it.</li>
+    <li><b>The LLM sees raw caption snippets, not the sanitizer's 20–35 s groups.</b> <code>sanitize_transcript</code> builds grouped <code>S001 | time | text</code> lines (<code>llm_transcript_text</code>), but the pipeline formats prompts from the per-snippet <code>transcript_segments</code> rows (<code>analysis.py:88</code>). The grouped text is only stored as <code>transcripts.transcriptText</code>. For long videos this means many short segments in the chunking prompt.</li>
+    <li><b>Schema enforcement differs by provider.</b> Only OpenAI receives the JSON schema. Gemini and Claude rely on prompt instructions plus the Python validators and retries, so expect more retries and validation failures there.</li>
+    <li><b>Docs are behind the code.</b> <code>CLAUDE.md</code> says no test targets exist, but <code>tests/</code> has 14 pytest files. It also does not mention <code>type: "manual"</code> analysis or <code>POST /youtube/transcript</code>.</li>
+    <li><b>Long-running request.</b> The whole analysis lives inside one HTTP request (shared httpx timeout 120 s per provider call). A reverse proxy in front needs a long read timeout, and <code>X-Accel-Buffering: no</code> is already set for nginx.</li>
+  </ul>
+</section>
+</main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default" });</script>
+</html>

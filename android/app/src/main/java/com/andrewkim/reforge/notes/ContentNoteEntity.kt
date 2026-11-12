@@ -14,7 +14,6 @@ data class ContentNoteEntity(
     val sourceUrl: String,
     val canonicalUrl: String,
     val title: String,
-    val transcriptId: String,
     val transcriptText: String,
     val transcriptLanguageCode: String?,
     val transcriptIsGenerated: Boolean?,
@@ -23,14 +22,14 @@ data class ContentNoteEntity(
 ) {
     fun toDomain() = ContentNote(
         id, sourceKey, sourceType, videoId, sourceUrl, canonicalUrl, title,
-        transcriptId, transcriptText, transcriptLanguageCode, transcriptIsGenerated,
+        transcriptText, transcriptLanguageCode, transcriptIsGenerated,
         createdAt, trashedAt,
     )
 
     companion object {
         fun fromDraft(draft: ContentNoteDraft) = ContentNoteEntity(
             draft.id, draft.sourceKey, draft.sourceType, draft.videoId, draft.sourceUrl,
-            draft.canonicalUrl, draft.title, draft.transcriptId, draft.transcriptText,
+            draft.canonicalUrl, draft.title, draft.transcriptText,
             draft.transcriptLanguageCode, draft.transcriptIsGenerated, draft.createdAt, null,
         )
     }

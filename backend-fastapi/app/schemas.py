@@ -71,7 +71,6 @@ class YoutubeTranscriptRequest(BaseModel):
 
 
 class YoutubeTranscriptResponse(BaseModel):
-    transcriptId: str
     videoId: str
     canonicalYoutubeUrl: str
     transcriptText: str

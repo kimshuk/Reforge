@@ -37,6 +37,7 @@ TOPIC_CHUNKING_SCHEMA: dict[str, Any] = {
     },
 }
 
+# Reserve one joining space between sentences so schema-valid arrays fit the total caps.
 CANDIDATE_CLIPPING_SCHEMA: dict[str, Any] = {
     "name": "candidate_clipping",
     "strict": True,
@@ -73,8 +74,8 @@ CANDIDATE_CLIPPING_SCHEMA: dict[str, Any] = {
                         "text": {"type": "string", "minLength": 3, "maxLength": 500},
                         "brief": {"type": "string", "minLength": 3, "maxLength": 90},
                         "simpleExplanation": {"type": "string", "minLength": 3, "maxLength": 180},
-                        "contextualExplanation": {"type": "string", "minLength": 3, "maxLength": 420},
-                        "detailedExplanation": {"type": "string", "minLength": 3, "maxLength": 700},
+                        "contextualExplanation": {"type": "array", "minItems": 2, "maxItems": 3, "items": {"type": "string", "minLength": 3, "maxLength": (420 - 2) // 3}},
+                        "detailedExplanation": {"type": "array", "minItems": 3, "maxItems": 5, "items": {"type": "string", "minLength": 3, "maxLength": (700 - 4) // 5}},
                         "signalLevel": {"type": "string", "enum": ["high", "medium", "low"]},
                         "sourceRefs": {
                             "type": "array",
@@ -163,18 +164,19 @@ Occurrence identity contract:
 Explanation ladder contract:
 - title is the compatibility term: a short reusable concept label, preferably a noun phrase, never a sentence, at most 60 characters.
 - brief is a 5-10 word glanceable explanation and must be shorter than simpleExplanation.
-- simpleExplanation is exactly one simple beginner-friendly definition. It explains the term without relying on this video.
-- contextualExplanation is 2-3 sentences explaining how the term appears in this specific chunk, grounded in its transcript.
-- detailedExplanation is 3-5 sentences adding the speaker's claim, reasoning, mechanism, implication, risk, or example when available. It must stay source-grounded.
-- The three explanation levels must be non-empty, distinct, progressively longer, and add new information rather than paraphrasing one another.
+- simpleExplanation is exactly one sentence with a simple beginner-friendly definition. It explains the term without relying on this video.
+- contextualExplanation is an array of 2-3 complete sentences, at most 139 characters per item including punctuation, exactly one sentence per item, explaining how the term is used in this part of the video, grounded in what the speaker says.
+- detailedExplanation is an array of 3-5 complete sentences, at most 139 characters per item including punctuation, exactly one sentence per item, adding the speaker's claim, reasoning, mechanism, implication, risk, or example when available. It must stay source-grounded.
+- Readers see these explanations directly. Never mention chunks, segments, or transcripts as pipeline terms; refer to the speaker or the video instead.
+- The three explanation levels must be non-empty, distinct, progressively longer when joined with spaces, and add new information rather than paraphrasing one another. Keep the joined contextualExplanation within 420 characters and detailedExplanation within 700 characters. Before returning, ensure the brief is shorter than simpleExplanation; shorten the brief or expand the definition using only grounded information if needed.
 
 Good example:
 {{
   "title": "Pricing Pressure",
   "brief": "Competitors are pushing product prices downward",
   "simpleExplanation": "Pricing pressure means outside forces make prices harder to maintain.",
-  "contextualExplanation": "In this chunk, the speaker says competitors are pushing prices down. They connect that pressure to the team needing a clearer response.",
-  "detailedExplanation": "The speaker claims competitors are pushing prices down and making the current approach harder to defend. Their reasoning is that buyers compare the options discussed in the chunk more directly. This mechanism forces the team to clarify its response. The implication is that pricing cannot remain a static decision in this discussion."
+  "contextualExplanation": ["The speaker says competitors are pushing prices down.", "They connect that pressure to the team needing a clearer response."],
+  "detailedExplanation": ["The speaker claims competitors are pushing prices down and making the current approach harder to defend.", "Their reasoning is that buyers compare the options they discuss more directly.", "This mechanism forces the team to clarify its response.", "The implication is that pricing cannot remain a static decision in this discussion."]
 }}
 
 Bad example:
@@ -182,8 +184,8 @@ Bad example:
   "title": "Pricing is hard.",
   "brief": "Pricing is hard",
   "simpleExplanation": "Pricing is hard.",
-  "contextualExplanation": "Pricing is hard.",
-  "detailedExplanation": "Pricing is hard."
+  "contextualExplanation": ["Pricing is hard."],
+  "detailedExplanation": ["Pricing is hard."]
 }}
 
 Return only JSON matching the schema.""",

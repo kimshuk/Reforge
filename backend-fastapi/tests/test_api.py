@@ -11,6 +11,47 @@ from app.schemas import YoutubeTranscriptResponse
 client = TestClient(app)
 
 
+WEB_ORIGIN = "http://localhost:5173"
+
+
+def test_analyze_preflight_allows_configured_web_origin() -> None:
+    response = client.options(
+        "/analyze",
+        headers={
+            "Origin": WEB_ORIGIN,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == WEB_ORIGIN
+
+
+def test_analyze_preflight_rejects_unknown_origin() -> None:
+    response = client.options(
+        "/analyze",
+        headers={
+            "Origin": "https://evil.example",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_oversized_body_error_is_readable_from_web_origin() -> None:
+    response = client.post(
+        "/analyze",
+        content=b"x" * (1024 * 1024 + 1),
+        headers={"Origin": WEB_ORIGIN, "Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 413
+    assert response.headers["access-control-allow-origin"] == WEB_ORIGIN
+
+
 def test_analyze_openapi_documents_body_and_stream_parameters() -> None:
     operation = client.get("/openapi.json").json()["paths"]["/analyze"]["post"]
 
@@ -39,7 +80,6 @@ def test_transcript_openapi_documents_request_and_response() -> None:
 
 def transcript_response(text: str) -> YoutubeTranscriptResponse:
     return YoutubeTranscriptResponse(
-        transcriptId="11111111-1111-4111-8111-111111111111",
         videoId="dQw4w9WgXcQ",
         canonicalYoutubeUrl="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
         transcriptText=text,
@@ -51,10 +91,7 @@ def transcript_response(text: str) -> YoutubeTranscriptResponse:
 
 def install_transcript_service(monkeypatch, result):
     class StubTranscriptService:
-        def __init__(self, _store) -> None:
-            pass
-
-        async def ingest(self, _youtube_url, _title):
+        async def ingest(self, _youtube_url):
             if isinstance(result, Exception):
                 raise result
             return result
